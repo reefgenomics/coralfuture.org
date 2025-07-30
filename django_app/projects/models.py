@@ -84,7 +84,7 @@ class Observation(models.Model):
                                   related_name='observations')
     condition = models.CharField(max_length=100)
     temperature = models.IntegerField()
-    timepoint = models.IntegerField()
+    timepoint = models.CharField(max_length=100)
     pam_value = models.FloatField(null=True, blank=True)
 
     def __str__(self):
@@ -105,32 +105,15 @@ class ThermalTolerance(models.Model):
                                related_name='thermal_tolerances')
     observations = models.ManyToManyField(Observation,
                                           related_name='thermal_tolerances')
+    condition = models.CharField(max_length=100, null=True, blank=True)
+    timepoint = models.CharField(max_length=100, null=True, blank=True)
     abs_thermal_tolerance = models.FloatField(null=True, blank=True)
     rel_thermal_tolerance = models.FloatField(null=True, blank=True)
     # Internal attribute
     _sst_clim_mmm = models.FloatField(null=True, blank=True)
 
-    @property
-    def condition(self):
-        if self.observations.exists():
-            observations_conditions = [observation.condition for observation in
-                                       self.observations.all()]
-            if all(item == observations_conditions[0] for item in
-                   observations_conditions):
-                return observations_conditions[0]
-            else:
-                return None
-
-    @property
-    def timepoint(self):
-        if self.observations.exists():
-            observations_timepoints = [observation.timepoint for observation in
-                                       self.observations.all()]
-            if all(item == observations_timepoints[0] for item in
-                   observations_timepoints):
-                return observations_timepoints[0]
-            else:
-                return None
+    class Meta:
+        unique_together = ['colony', 'condition', 'timepoint', 'abs_thermal_tolerance']
 
     def save(self, *args, **kwargs):
         # Ensure abs_thermal_tolerance is not None before rounding
@@ -145,7 +128,75 @@ class ThermalTolerance(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"Thermal Tolerance for Colony {self.colony.name} under {self.condition}, {self.timepoint}"
+        return f"Thermal Tolerance for Colony {self.colony.name} under {self.condition} at {self.timepoint}: {self.abs_thermal_tolerance}"
+
+
+class BreakpointTemperature(models.Model):
+    """
+    Represents Breakpoint Temperature (ED5) for a Colony under specific Condition and Timepoint.
+    """
+    colony = models.ForeignKey(Colony, on_delete=models.CASCADE,
+                               related_name='breakpoint_temperatures')
+    observations = models.ManyToManyField(Observation,
+                                          related_name='breakpoint_temperatures')
+    condition = models.CharField(max_length=100, null=True, blank=True)
+    timepoint = models.CharField(max_length=100, null=True, blank=True)
+    abs_breakpoint_temperature = models.FloatField(null=True, blank=True)
+    rel_breakpoint_temperature = models.FloatField(null=True, blank=True)
+    # Internal attribute
+    _sst_clim_mmm = models.FloatField(null=True, blank=True)
+
+    class Meta:
+        unique_together = ['colony', 'condition', 'timepoint', 'abs_breakpoint_temperature']
+
+    def save(self, *args, **kwargs):
+        # Ensure abs_breakpoint_temperature is not None before rounding
+        if self.abs_breakpoint_temperature is not None:
+            self.abs_breakpoint_temperature = round(self.abs_breakpoint_temperature, 2)
+        if self._sst_clim_mmm is not None:
+            self._sst_clim_mmm = round(self._sst_clim_mmm, 2)
+        if self.abs_breakpoint_temperature is not None and self._sst_clim_mmm is not None:
+            self.rel_breakpoint_temperature = round(
+                self.abs_breakpoint_temperature - self._sst_clim_mmm,
+                2)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Breakpoint Temperature for Colony {self.colony.name} under {self.condition} at {self.timepoint}: {self.abs_breakpoint_temperature}"
+
+
+class ThermalLimit(models.Model):
+    """
+    Represents Thermal Limit (ED95) for a Colony under specific Condition and Timepoint.
+    """
+    colony = models.ForeignKey(Colony, on_delete=models.CASCADE,
+                               related_name='thermal_limits')
+    observations = models.ManyToManyField(Observation,
+                                          related_name='thermal_limits')
+    condition = models.CharField(max_length=100, null=True, blank=True)
+    timepoint = models.CharField(max_length=100, null=True, blank=True)
+    abs_thermal_limit = models.FloatField(null=True, blank=True)
+    rel_thermal_limit = models.FloatField(null=True, blank=True)
+    # Internal attribute
+    _sst_clim_mmm = models.FloatField(null=True, blank=True)
+
+    class Meta:
+        unique_together = ['colony', 'condition', 'timepoint', 'abs_thermal_limit']
+
+    def save(self, *args, **kwargs):
+        # Ensure abs_thermal_limit is not None before rounding
+        if self.abs_thermal_limit is not None:
+            self.abs_thermal_limit = round(self.abs_thermal_limit, 2)
+        if self._sst_clim_mmm is not None:
+            self._sst_clim_mmm = round(self._sst_clim_mmm, 2)
+        if self.abs_thermal_limit is not None and self._sst_clim_mmm is not None:
+            self.rel_thermal_limit = round(
+                self.abs_thermal_limit - self._sst_clim_mmm,
+                2)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Thermal Limit for Colony {self.colony.name} under {self.condition} at {self.timepoint}: {self.abs_thermal_limit}"
 
 
 class UserCart(models.Model):

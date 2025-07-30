@@ -4,6 +4,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { Button, Container, Form, FormGroup, Row, Col } from 'react-bootstrap';
 import { Box, Slider, Typography } from '@mui/material';
 import 'bootstrap/dist/css/bootstrap.min.css';
+import 'bootstrap-icons/font/bootstrap-icons.css';
 import 'react-range-slider-input/dist/style.css';
 // Internal imports
 // Contexts
@@ -25,10 +26,18 @@ const InputSidebar = () => {
     .map(dateString => new Date(dateString))
     .sort((a, b) => a - b);
 
-  const [maxAbsTT, setMaxAbsTT] = useState(null);
-  const [minAbsTT, setMinAbsTT] = useState(null);
-  const [maxRelTT, setMaxRelTT] = useState(null);
-  const [minRelTT, setMinRelTT] = useState(null);
+  // Initialize with default values to avoid null
+  const [maxAbsTT, setMaxAbsTT] = useState(40);
+  const [minAbsTT, setMinAbsTT] = useState(20);
+  const [maxRelTT, setMaxRelTT] = useState(10);
+  const [minRelTT, setMinRelTT] = useState(0);
+  
+  // Initialize selected values with default values
+  const [selectedEd50Temperatures, setSelectedEd50Temperatures] = useState([20, 40]);
+  const [selectedThermalToleranceTemperatures, setSelectedThermalToleranceTemperatures] = useState([0, 10]);
+
+  // State to control sidebar visibility
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   useEffect(() => {
     fetchMaxMinData(process.env.REACT_APP_BACKEND_URL); // Call the fetch function
@@ -38,21 +47,25 @@ const InputSidebar = () => {
     try {
       const response = await axios.get(`${backendUrl}/api/public/thermal-tolerances/max-min/`);
       const data = response.data;
-      setMaxAbsTT(data.max_abs_thermal_tolerance);
-      setMinAbsTT(data.min_abs_thermal_tolerance);
-      setMaxRelTT(data.max_rel_thermal_tolerance);
-      setMinRelTT(data.min_rel_thermal_tolerance);
-      // Once the data is fetched, set the selected values
-      setSelectedEd50Temperatures([data.min_abs_thermal_tolerance, data.max_abs_thermal_tolerance]);
-      setSelectedThermalToleranceTemperatures([data.min_rel_thermal_tolerance, data.max_rel_thermal_tolerance]);
+      
+      // Set min and max values from API
+      const newMinAbsTT = data.min_abs_thermal_tolerance || 20;
+      const newMaxAbsTT = data.max_abs_thermal_tolerance || 40;
+      const newMinRelTT = data.min_rel_thermal_tolerance || 0;
+      const newMaxRelTT = data.max_rel_thermal_tolerance || 10;
+      
+      setMaxAbsTT(newMaxAbsTT);
+      setMinAbsTT(newMinAbsTT);
+      setMaxRelTT(newMaxRelTT);
+      setMinRelTT(newMinRelTT);
+      
+      // Update selected values with API data
+      setSelectedEd50Temperatures([newMinAbsTT, newMaxAbsTT]);
+      setSelectedThermalToleranceTemperatures([newMinRelTT, newMaxRelTT]);
     } catch (error) {
       console.error('Error fetching max min data:', error);
     }
   };
-
-  // Initialize selected values as null
-  const [selectedEd50Temperatures, setSelectedEd50Temperatures] = useState([null, null]);
-  const [selectedThermalToleranceTemperatures, setSelectedThermalToleranceTemperatures] = useState([null, null]);
 
   const handleApplyFilters = () => {
     const newFilters = {
@@ -98,9 +111,50 @@ const InputSidebar = () => {
     console.log('Selected Rel. TT temperatures:', newValues);
   };
 
+  const toggleSidebar = () => {
+    setIsCollapsed(!isCollapsed);
+  };
+
+  if (isCollapsed) {
+    return (
+      <div style={{ 
+        padding: '10px', 
+        backgroundColor: 'rgba(255, 255, 255, 0.9)', 
+        borderRadius: '8px',
+        boxShadow: '0 0 10px rgba(0, 0, 0, 0.1)'
+      }}>
+        <Button 
+          variant="primary" 
+          onClick={toggleSidebar} 
+          style={{ width: '40px', height: '40px', padding: '0' }}
+        >
+          <i className="bi bi-funnel"></i>
+        </Button>
+      </div>
+    );
+  }
+
   return (
-    <div className="sidebar" style={{ backgroundColor: '#f4f4f4', padding: '20px', boxShadow: '0 0 10px rgba(0, 0, 0, 0.1)', borderRadius: '8px', height: '700px' }}>
-      <h2 style={{ marginBottom: '20px' }}>Filters</h2>
+    <div className="sidebar" style={{ 
+      backgroundColor: 'rgba(255, 255, 255, 0.9)', 
+      padding: '15px', 
+      boxShadow: '0 0 10px rgba(0, 0, 0, 0.1)', 
+      borderRadius: '8px',
+      maxHeight: 'calc(100vh - 100px)',
+      overflow: 'auto'
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+        <h4 style={{ margin: 0 }}>Filters</h4>
+        <Button 
+          variant="outline-secondary" 
+          size="sm" 
+          onClick={toggleSidebar}
+          style={{ width: '30px', height: '30px', padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >
+          <i className="bi bi-chevron-left"></i>
+        </Button>
+      </div>
+      
       <Form>
         <Row className="mb-3">
           <Col>

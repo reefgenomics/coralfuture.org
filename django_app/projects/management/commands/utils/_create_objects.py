@@ -1,7 +1,8 @@
 from datetime import datetime
+import pandas as pd
 
 from projects.models import BioSample, Colony, ThermalTolerance, \
-    Experiment, Observation, Project, Publication
+    Experiment, Observation, Project, Publication, BreakpointTemperature, ThermalLimit
 
 
 def create_project(owner, project_key, description):
@@ -36,10 +37,58 @@ def create_colony(colony_key):
         longitude=colony_key[4])
 
 
-def create_thermaltolerance(colony, ed50_value):
+def create_thermaltolerance(colony, ed50_value, condition=None, timepoint=None):
+    if ed50_value is None:
+        return None, False
+    # Ensure timepoint is a string
+    if timepoint is not None:
+        timepoint = str(timepoint)
     return ThermalTolerance.objects.get_or_create(
         colony=colony,
-        abs_thermal_tolerance=ed50_value)
+        condition=condition,
+        timepoint=timepoint,
+        abs_thermal_tolerance=ed50_value,
+        defaults={
+            'abs_thermal_tolerance': ed50_value,
+            'condition': condition,
+            'timepoint': timepoint
+        })
+
+
+def create_breakpointtemperature(colony, ed5_value, condition=None, timepoint=None):
+    if ed5_value is None:
+        return None, False
+    # Ensure timepoint is a string
+    if timepoint is not None:
+        timepoint = str(timepoint)
+    return BreakpointTemperature.objects.get_or_create(
+        colony=colony,
+        condition=condition,
+        timepoint=timepoint,
+        abs_breakpoint_temperature=ed5_value,
+        defaults={
+            'abs_breakpoint_temperature': ed5_value,
+            'condition': condition,
+            'timepoint': timepoint
+        })
+
+
+def create_thermallimit(colony, ed95_value, condition=None, timepoint=None):
+    if ed95_value is None:
+        return None, False
+    # Ensure timepoint is a string
+    if timepoint is not None:
+        timepoint = str(timepoint)
+    return ThermalLimit.objects.get_or_create(
+        colony=colony,
+        condition=condition,
+        timepoint=timepoint,
+        abs_thermal_limit=ed95_value,
+        defaults={
+            'abs_thermal_limit': ed95_value,
+            'condition': condition,
+            'timepoint': timepoint
+        })
 
 
 def create_biosample(colony, biosample_key):
@@ -55,7 +104,7 @@ def create_observation(experiment, biosample, row):
         biosample=biosample,
         condition=row['Observation.condition'],
         temperature=row['Observation.temperature'],
-        timepoint=row['Observation.timepoint'],
+        timepoint=str(row['Observation.timepoint']) if not pd.isna(row['Observation.timepoint']) else "",
         pam_value=row['Observation.pam_value'])
 
 

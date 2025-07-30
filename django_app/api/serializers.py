@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from projects.models import BioSample, Colony, ThermalTolerance, \
-    Observation, Project
+    Observation, Project, BreakpointTemperature, ThermalLimit
 
 
 class BioSampleSerializer(serializers.ModelSerializer):
@@ -20,12 +20,34 @@ class ThermalToleranceSerializer(serializers.ModelSerializer):
                   'condition', 'timepoint']
 
 
+class BreakpointTemperatureSerializer(serializers.ModelSerializer):
+    colony_name = serializers.CharField(source='colony.name', read_only=True)
+
+    class Meta:
+        model = BreakpointTemperature
+        fields = ['colony_name', 'abs_breakpoint_temperature',
+                  'rel_breakpoint_temperature',
+                  'condition', 'timepoint']
+
+
+class ThermalLimitSerializer(serializers.ModelSerializer):
+    colony_name = serializers.CharField(source='colony.name', read_only=True)
+
+    class Meta:
+        model = ThermalLimit
+        fields = ['colony_name', 'abs_thermal_limit',
+                  'rel_thermal_limit',
+                  'condition', 'timepoint']
+
+
 class ColonySerializer(serializers.ModelSerializer):
-    projects = serializers.SerializerMethodField()
     thermal_tolerances = serializers.SerializerMethodField()
+    breakpoint_temperatures = serializers.SerializerMethodField()
+    thermal_limits = serializers.SerializerMethodField()
+    projects = serializers.SerializerMethodField()
 
     def get_projects(self, obj):
-        # Get the related projects for the colony's biosamples
+        # Get all projects related to the colony's biosamples
         biosamples = obj.biosamples.all()
         projects = Project.objects.filter(biosamples__in=biosamples).distinct()
         # Assuming you want to serialize projects' names
@@ -38,10 +60,24 @@ class ColonySerializer(serializers.ModelSerializer):
         serializer = ThermalToleranceSerializer(thermal_tolerances, many=True)
         return serializer.data
 
+    def get_breakpoint_temperatures(self, obj):
+        # Get all breakpoint temperatures associated with the colony
+        breakpoint_temperatures = BreakpointTemperature.objects.filter(colony=obj)
+        # Serialize the breakpoint temperature objects
+        serializer = BreakpointTemperatureSerializer(breakpoint_temperatures, many=True)
+        return serializer.data
+
+    def get_thermal_limits(self, obj):
+        # Get all thermal limits associated with the colony
+        thermal_limits = ThermalLimit.objects.filter(colony=obj)
+        # Serialize the thermal limit objects
+        serializer = ThermalLimitSerializer(thermal_limits, many=True)
+        return serializer.data
+
     class Meta:
         model = Colony
         fields = ['id', 'name', 'species', 'country', 'latitude', 'longitude',
-                  'thermal_tolerances', 'projects']
+                  'thermal_tolerances', 'breakpoint_temperatures', 'thermal_limits', 'projects']
 
 
 class ObservationSerializer(serializers.ModelSerializer):

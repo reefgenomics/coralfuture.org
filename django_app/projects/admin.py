@@ -1,7 +1,7 @@
 # projects/admin.py
 from django.contrib import admin
 from projects.models import Project, Experiment, Colony, BioSample, \
-    Observation, Publication, UserCart, ThermalTolerance
+    Observation, Publication, UserCart, ThermalTolerance, BreakpointTemperature, ThermalLimit
 
 
 @admin.register(Project)
@@ -40,6 +40,34 @@ class ObservationAdmin(admin.ModelAdmin):
 class ThermalToleranceAdmin(admin.ModelAdmin):
     list_display = (
     'colony', 'condition', 'abs_thermal_tolerance', 'rel_thermal_tolerance',
+    'display_observations')
+    search_fields = ('colony__name', 'condition')
+
+    def display_observations(self, obj):
+        return ", ".join(
+            [str(observation) for observation in obj.observations.all()])
+
+    display_observations.short_description = "Observations"
+
+
+@admin.register(BreakpointTemperature)
+class BreakpointTemperatureAdmin(admin.ModelAdmin):
+    list_display = (
+    'colony', 'condition', 'abs_breakpoint_temperature', 'rel_breakpoint_temperature',
+    'display_observations')
+    search_fields = ('colony__name', 'condition')
+
+    def display_observations(self, obj):
+        return ", ".join(
+            [str(observation) for observation in obj.observations.all()])
+
+    display_observations.short_description = "Observations"
+
+
+@admin.register(ThermalLimit)
+class ThermalLimitAdmin(admin.ModelAdmin):
+    list_display = (
+    'colony', 'condition', 'abs_thermal_limit', 'rel_thermal_limit',
     'display_observations')
     search_fields = ('colony__name', 'condition')
 

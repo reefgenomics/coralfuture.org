@@ -47,7 +47,7 @@ const Map = () => {
 
   return (
     mapCenter ? (
-      <MapContainer center={mapCenter} zoom={3} style={{ height: '100%', minHeight: '100%', width: '100%' }}>
+      <MapContainer center={mapCenter} zoom={3} style={{ height: '100%', width: '100%' }}>
         <ChangeView markers={filteredColonies} />
         <LayersControl position="topright">
         <BaseLayer checked name="OpenStreetMap">
@@ -69,11 +69,44 @@ const Map = () => {
             .leaflet-control-layers-base label {
               text-align: left;
             }
+            
+            .leaflet-popup-content {
+              margin: 10px 10px;
+            }
+            
+            .leaflet-popup-content::-webkit-scrollbar {
+              width: 6px;
+            }
+            
+            .leaflet-popup-content::-webkit-scrollbar-track {
+              background: #f1f1f1;
+              border-radius: 3px;
+            }
+            
+            .leaflet-popup-content::-webkit-scrollbar-thumb {
+              background: #888;
+              border-radius: 3px;
+            }
+            
+            .leaflet-popup-content::-webkit-scrollbar-thumb:hover {
+              background: #555;
+            }
           `}
         </style>
       </MapContainer>
     ) : (
-        <Spinner />
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100%', 
+        width: '100%',
+        backgroundColor: '#f8f9fa'
+      }}>
+        <Spinner animation="border" role="status">
+          <span className="visually-hidden">Loading...</span>
+        </Spinner>
+      </div>
     )
   );  
 };

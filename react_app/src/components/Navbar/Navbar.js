@@ -19,7 +19,15 @@ const NavigationBar = () => {
   const backendUrl = process.env.REACT_APP_BACKEND_URL;
 
   return (
-    <Navbar expand="lg" bg="light">
+    <Navbar 
+      expand="lg" 
+      bg="light" 
+      fixed="top" 
+      style={{ 
+        zIndex: 1050, 
+        boxShadow: '0 2px 5px rgba(0, 0, 0, 0.1)'
+      }}
+    >
       <Container>
         <Navbar.Brand href={backendUrl}>
           <i className="bi bi-house-door"></i> Coral Future
@@ -33,6 +41,35 @@ const NavigationBar = () => {
                 <i className="bi bi-map"></i> Map
               </Nav.Link>
             </Nav.Item>
+
+            <Nav.Item>
+              <Nav.Link href={(() => {
+                const envUrl = process.env.REACT_APP_SHINY_URL;
+                if (envUrl) return envUrl; // explicit override
+
+                try {
+                  const urlObj = new URL(backendUrl);
+                  // Replace or set port to 3838
+                  urlObj.port = '3838';
+                  // Ensure no extra path
+                  urlObj.pathname = '/';
+                  return urlObj.toString();
+                } catch (e) {
+                  // Fallback to default localhost dev URL
+                  return 'http://localhost:3838/';
+                }
+              })()} target="_blank" rel="noopener noreferrer">
+                <i className="bi bi-graph-up"></i> ED50 Calculator
+              </Nav.Link>
+            </Nav.Item>
+
+            {authData.authenticated && (
+              <Nav.Item>
+                <Nav.Link href="/upload">
+                  <i className="bi bi-upload"></i> Upload to Database
+                </Nav.Link>
+              </Nav.Item>
+            )}
 
             <Nav.Item>
               <Nav.Link href={`${backendUrl}/projects`}>
@@ -51,6 +88,7 @@ const NavigationBar = () => {
                 <i className="bi bi-question-circle"></i> Get Help
               </Nav.Link>
             </Nav.Item>
+
           </Nav>
         </Navbar.Collapse>
 

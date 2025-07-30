@@ -79,7 +79,7 @@ For incomplete datasets, use `--no-pam` argument:
 ```commandline
 docker compose exec django-app python manage.py \
   populate_db \
-    --owner user1 \
+    --owner betyaevilya \
     --csv_path static/datasheets/redsea_gradient_study.csv \
     --no-pam
 ```

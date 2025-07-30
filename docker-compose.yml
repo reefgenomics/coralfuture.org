@@ -42,13 +42,44 @@ services:
     environment:
       - REACT_APP_BACKEND_URL=${REACT_APP_BACKEND_URL}
 
-  nginx:
-    image: nginx:latest
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
-      - ./django_app/staticfiles:/var/www/static
+  ed50-shiny:
+    container_name: shiny_cbass
+    build:
+      context: ./ed50-calculator/docker_components
+    platform: linux/amd64
+    restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
+      - "3838:3838"
+    environment:
+      - R_LIBS_USER=/opt/conda/lib/R/library
+    volumes:
+      - ./ed50-calculator/docker_components/config:/config
+      - ./ed50-calculator/examples:/home/data/Uploaded_xlsx
+      - ./ed50-calculator/examples/outputs:/home/data/outputs
     depends_on:
-      - django-app
+      - database
+
+  # ed50-calculator:
+  #   build: ./ed50-calculator
+  #   ports:
+  #     - "5000:5000"
+  #   volumes:
+  #     - ./ed50-calculator:/app
+  #     - ed50_data:/tmp/ed50_uploads
+  #     - ed50_results:/tmp/ed50_results
+
+  # nginx:
+  #   image: nginx:latest
+  #   volumes:
+  #     - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
+  #     - ./django_app/staticfiles:/var/www/static
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   depends_on:
+  #     - django-app
+
+volumes:
+  postgres_data:
+  ed50_data:
+  ed50_results:
