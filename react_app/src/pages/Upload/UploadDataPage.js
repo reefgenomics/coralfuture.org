@@ -11,7 +11,7 @@ const UploadDataPage = () => {
   const { authData } = useContext(AuthContext);
   const [file, setFile] = useState(null); // main data
   const [ed50File, setEd50File] = useState(null); // optional ED50 table
-  const [csvData, setCsvData] = useState([]);
+  const [csvData, setCsvData] = useState({ data: [] });
   const [headers, setHeaders] = useState([]);
   const [validationErrors, setValidationErrors] = useState([]);
   const [uploadStatus, setUploadStatus] = useState(null);
@@ -80,6 +80,8 @@ const UploadDataPage = () => {
       setCsvData({ data });
       
       console.log('✅ Main data file processed, data rows:', data.length);
+      console.log('📊 Headers set:', headers);
+      console.log('📊 CSV data set:', { data });
     };
     reader.readAsText(selectedFile);
   };
@@ -142,7 +144,7 @@ const UploadDataPage = () => {
   const handleClear = () => {
     setFile(null);
     setEd50File(null);
-    setCsvData([]);
+    setCsvData({ data: [] });
     setHeaders([]);
     setValidationErrors([]);
     setUploadStatus(null);
@@ -480,7 +482,17 @@ const UploadDataPage = () => {
             </Card>
 
             {/* Data preview */}
-            {!uploadComplete && csvData.data && csvData.data.length > 0 && (
+            {(() => {
+              console.log('🔍 Preview condition check:', {
+                uploadComplete,
+                hasCsvData: !!csvData.data,
+                dataLength: csvData.data?.length,
+                headersLength: headers.length,
+                csvData,
+                headers
+              });
+              return !uploadComplete && csvData.data && csvData.data.length > 0 && headers.length > 0;
+            })() && (
               <Card className="border-0 shadow-sm">
                 <Card.Header className="border-0 bg-info bg-opacity-10 py-4">
                   <div className="d-flex align-items-center justify-content-between">

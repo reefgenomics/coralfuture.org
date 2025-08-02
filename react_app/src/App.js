@@ -19,7 +19,7 @@ const App = () => {
     <AuthContextProvider>
       <UserCartContextProvider>
         <Router>
-          <div style={{ overflow: 'hidden' }}>
+          <div>
             {/* NavigationBar can be rendered on all routes */}
             <NavigationBar />
             <Routes>
@@ -35,7 +35,6 @@ const App = () => {
               body {
                 margin: 0;
                 padding: 0;
-                overflow: hidden;
               }
               
               .navbar {
