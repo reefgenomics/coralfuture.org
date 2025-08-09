@@ -8,7 +8,9 @@ RUN apt-get update && \
       # For postgresql
       libpq-dev \
       # For leaflet maps
-      gdal-bin
+      gdal-bin \
+      # For cwsample command
+      default-jdk
 
 WORKDIR /usr/src/app
 

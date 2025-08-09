@@ -53,7 +53,7 @@ class Colony(models.Model):
     """
     name = models.CharField(max_length=100)
     species = models.CharField(max_length=100)
-    country = models.CharField(max_length=3)
+    country = models.CharField(max_length=10)
     latitude = models.FloatField()
     longitude = models.FloatField()
 

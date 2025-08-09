@@ -310,6 +310,11 @@ class UploadCSVApiView(APIView):
             print(f"🚀 Running command: populate_db {' '.join(command_args)}")
             call_command('populate_db', *command_args)
             print("✅ populate_db completed successfully")
+            
+            # Automatically assign MMM values and recalculate rel numbers
+            print("🚀 Running command: assign_mmm")
+            call_command('assign_mmm')
+            print("✅ assign_mmm completed successfully")
 
             return Response({
                 'message': 'CSV data uploaded and processed successfully',

@@ -15,6 +15,7 @@ services:
   django-app:
     build:
       context: ./django_app
+    platform: linux/amd64
     restart: unless-stopped
     ports:
       - "8000:8000"

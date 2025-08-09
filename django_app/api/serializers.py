@@ -12,31 +12,34 @@ class BioSampleSerializer(serializers.ModelSerializer):
 
 class ThermalToleranceSerializer(serializers.ModelSerializer):
     colony_name = serializers.CharField(source='colony.name', read_only=True)
+    sst_clim_mmm = serializers.FloatField(source='_sst_clim_mmm', read_only=True)
 
     class Meta:
         model = ThermalTolerance
         fields = ['colony_name', 'abs_thermal_tolerance',
-                  'rel_thermal_tolerance',
+                  'rel_thermal_tolerance', 'sst_clim_mmm',
                   'condition', 'timepoint']
 
 
 class BreakpointTemperatureSerializer(serializers.ModelSerializer):
     colony_name = serializers.CharField(source='colony.name', read_only=True)
+    sst_clim_mmm = serializers.FloatField(source='_sst_clim_mmm', read_only=True)
 
     class Meta:
         model = BreakpointTemperature
         fields = ['colony_name', 'abs_breakpoint_temperature',
-                  'rel_breakpoint_temperature',
+                  'rel_breakpoint_temperature', 'sst_clim_mmm',
                   'condition', 'timepoint']
 
 
 class ThermalLimitSerializer(serializers.ModelSerializer):
     colony_name = serializers.CharField(source='colony.name', read_only=True)
+    sst_clim_mmm = serializers.FloatField(source='_sst_clim_mmm', read_only=True)
 
     class Meta:
         model = ThermalLimit
         fields = ['colony_name', 'abs_thermal_limit',
-                  'rel_thermal_limit',
+                  'rel_thermal_limit', 'sst_clim_mmm',
                   'condition', 'timepoint']
 
 
