@@ -3,6 +3,7 @@ import axios from 'axios';
 import React, { useState, useEffect, useContext } from 'react';
 import { Button, Container, Form, FormGroup, Row, Col } from 'react-bootstrap';
 import { Box, Slider, Typography } from '@mui/material';
+import { ThermometerHalf } from 'react-bootstrap-icons';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import 'react-range-slider-input/dist/style.css';
@@ -11,13 +12,17 @@ import 'react-range-slider-input/dist/style.css';
 import { SidebarFilterContext } from 'contexts/SidebarFilterContext';
 // Components
 import AddToCartButton from 'components/Button/AddToCart';
-
+import TemperatureFiltersModal from './TemperatureFiltersModal';
 
 const InputSidebar = () => {
 
   const [selectedSpecies, setSelectedSpecies] = useState('');
   const [selectedProject, setSelectedProject] = useState('');
   const [selectedDates, setSelectedDates] = useState([]);
+  
+  // State for temperature filters modal
+  const [showTemperatureModal, setShowTemperatureModal] = useState(false);
+  
   // Get all Colonies and Projects from Context and define list of species
   const { allColonies, allBioSamples, allProjects, setFilters } = useContext(SidebarFilterContext);
   const speciesList = [...new Set(allColonies.map(allColonies => allColonies.species))].sort();
@@ -26,15 +31,34 @@ const InputSidebar = () => {
     .map(dateString => new Date(dateString))
     .sort((a, b) => a - b);
 
-  // Initialize with default values to avoid null
-  const [maxAbsTT, setMaxAbsTT] = useState(40);
-  const [minAbsTT, setMinAbsTT] = useState(20);
-  const [maxRelTT, setMaxRelTT] = useState(10);
-  const [minRelTT, setMinRelTT] = useState(0);
+  // State for temperature filters
+  const [temperatureFilters, setTemperatureFilters] = useState({
+    absThermalTolerance: [20, 40],
+    relThermalTolerance: [0, 10],
+    absBreakpointTemperature: [20, 40],
+    relBreakpointTemperature: [0, 10],
+    absThermalLimit: [20, 40],
+    relThermalLimit: [0, 10],
+  });
+
+  // Check if any filters are actually applied (not default values)
+  const hasSpeciesFilter = selectedSpecies !== '';
+  const hasProjectFilter = selectedProject !== '';
+  const hasDateFilter = selectedDates.length > 0;
   
-  // Initialize selected values with default values
-  const [selectedEd50Temperatures, setSelectedEd50Temperatures] = useState([20, 40]);
-  const [selectedThermalToleranceTemperatures, setSelectedThermalToleranceTemperatures] = useState([0, 10]);
+  // Check if temperature filters are different from defaults
+  const hasTemperatureFilters = 
+    temperatureFilters.absThermalTolerance[0] !== 20 || temperatureFilters.absThermalTolerance[1] !== 40 ||
+    temperatureFilters.relThermalTolerance[0] !== 0 || temperatureFilters.relThermalTolerance[1] !== 10 ||
+    temperatureFilters.absBreakpointTemperature[0] !== 20 || temperatureFilters.absBreakpointTemperature[1] !== 40 ||
+    temperatureFilters.relBreakpointTemperature[0] !== 0 || temperatureFilters.relBreakpointTemperature[1] !== 10 ||
+    temperatureFilters.absThermalLimit[0] !== 20 || temperatureFilters.absThermalLimit[1] !== 40 ||
+    temperatureFilters.relThermalLimit[0] !== 0 || temperatureFilters.relThermalLimit[1] !== 10;
+
+  const activeFiltersCount = (hasSpeciesFilter ? 1 : 0) + 
+                           (hasProjectFilter ? 1 : 0) + 
+                           (hasDateFilter ? 1 : 0) + 
+                           (hasTemperatureFilters ? 1 : 0);
 
   // State to control sidebar visibility
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -54,27 +78,50 @@ const InputSidebar = () => {
       const newMinRelTT = data.min_rel_thermal_tolerance || 0;
       const newMaxRelTT = data.max_rel_thermal_tolerance || 10;
       
-      setMaxAbsTT(newMaxAbsTT);
-      setMinAbsTT(newMinAbsTT);
-      setMaxRelTT(newMaxRelTT);
-      setMinRelTT(newMinRelTT);
-      
-      // Update selected values with API data
-      setSelectedEd50Temperatures([newMinAbsTT, newMaxAbsTT]);
-      setSelectedThermalToleranceTemperatures([newMinRelTT, newMaxRelTT]);
+      // Only update temperature filters if they are at default values (first time loading)
+      // Don't overwrite user's custom settings
+      const hasCustomTemperatureFilters = 
+        temperatureFilters.absThermalTolerance[0] !== 20 || temperatureFilters.absThermalTolerance[1] !== 40 ||
+        temperatureFilters.relThermalTolerance[0] !== 0 || temperatureFilters.relThermalTolerance[1] !== 10 ||
+        temperatureFilters.absBreakpointTemperature[0] !== 20 || temperatureFilters.absBreakpointTemperature[1] !== 40 ||
+        temperatureFilters.relBreakpointTemperature[0] !== 0 || temperatureFilters.relBreakpointTemperature[1] !== 10 ||
+        temperatureFilters.absThermalLimit[0] !== 20 || temperatureFilters.absThermalLimit[1] !== 40 ||
+        temperatureFilters.relThermalLimit[0] !== 0 || temperatureFilters.relThermalLimit[1] !== 10;
+
+      if (!hasCustomTemperatureFilters) {
+        console.log('Sidebar: setting default temperature filters from API');
+        // Update temperature filters with API data only if no custom values
+        setTemperatureFilters({
+          absThermalTolerance: [newMinAbsTT, newMaxAbsTT],
+          relThermalTolerance: [newMinRelTT, newMaxRelTT],
+          absBreakpointTemperature: [newMinAbsTT, newMaxAbsTT],
+          relBreakpointTemperature: [newMinRelTT, newMaxRelTT],
+          absThermalLimit: [newMinAbsTT, newMaxAbsTT],
+          relThermalLimit: [newMinRelTT, newMaxRelTT],
+        });
+      } else {
+        console.log('Sidebar: preserving custom temperature filters');
+      }
     } catch (error) {
       console.error('Error fetching max min data:', error);
     }
   };
 
   const handleApplyFilters = () => {
+    // If no filters are applied, clear all filters
+    if (!hasSpeciesFilter && !hasProjectFilter && !hasDateFilter && !hasTemperatureFilters) {
+      console.log('No filters applied, clearing all filters');
+      setFilters({});
+      return;
+    }
+
     const newFilters = {
       species: selectedSpecies,
       project: selectedProject,
-      ed50Temperatures: selectedEd50Temperatures,
-      thermalToleranceTemperatures: selectedThermalToleranceTemperatures,
+      ...temperatureFilters,
       years: selectedDates
     };
+    
     // Log filters before applying changes
     console.log('Selected filters:', newFilters);
     setFilters(newFilters);
@@ -83,9 +130,18 @@ const InputSidebar = () => {
   const handleResetFilters = () => {
     setSelectedSpecies('');
     setSelectedProject('');
-    setSelectedEd50Temperatures([minAbsTT, maxAbsTT]);
-    setSelectedThermalToleranceTemperatures([minRelTT, maxRelTT]);
     setSelectedDates([]);
+    
+    // Reset temperature filters to default values
+    setTemperatureFilters({
+      absThermalTolerance: [20, 40],
+      relThermalTolerance: [0, 10],
+      absBreakpointTemperature: [20, 40],
+      relBreakpointTemperature: [0, 10],
+      absThermalLimit: [20, 40],
+      relThermalLimit: [0, 10],
+    });
+    
     setFilters({}); // Reset filters
   };
 
@@ -99,20 +155,22 @@ const InputSidebar = () => {
     console.log('Selected project:', e.target.value);
   };
 
-  // Event handler for Abs. Thermal Tolerance ED50 slider
-  const handleEd50TemperatureChange = (event, newValues) => {
-    setSelectedEd50Temperatures(newValues);
-    console.log('Selected Abs. TT temperatures:', newValues);
-  };
-
-  // Event handler for Rel. Thermal Tolerance ED50 - MMM slider
-  const handleThermalToleranceTemperatureChange = (event, newValues) => {
-    setSelectedThermalToleranceTemperatures(newValues);
-    console.log('Selected Rel. TT temperatures:', newValues);
+  const handleTemperatureFiltersChange = (newFilters) => {
+    setTemperatureFilters(newFilters);
+    console.log('Temperature filters updated:', newFilters);
   };
 
   const toggleSidebar = () => {
     setIsCollapsed(!isCollapsed);
+  };
+
+  const openTemperatureModal = () => {
+    console.log('Sidebar: opening temperature modal with filters:', temperatureFilters);
+    setShowTemperatureModal(true);
+  };
+
+  const closeTemperatureModal = () => {
+    setShowTemperatureModal(false);
   };
 
   if (isCollapsed) {
@@ -135,186 +193,126 @@ const InputSidebar = () => {
   }
 
   return (
-    <div className="sidebar" style={{ 
-      backgroundColor: 'rgba(255, 255, 255, 0.9)', 
-      padding: '15px', 
-      boxShadow: '0 0 10px rgba(0, 0, 0, 0.1)', 
-      borderRadius: '8px',
-      maxHeight: 'calc(100vh - 100px)',
-      overflow: 'auto'
-    }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-        <h4 style={{ margin: 0 }}>Filters</h4>
-        <Button 
-          variant="outline-secondary" 
-          size="sm" 
-          onClick={toggleSidebar}
-          style={{ width: '30px', height: '30px', padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-        >
-          <i className="bi bi-chevron-left"></i>
-        </Button>
+    <>
+      <div className="sidebar" style={{ 
+        backgroundColor: 'rgba(255, 255, 255, 0.9)', 
+        padding: '15px', 
+        boxShadow: '0 0 10px rgba(0, 0, 0, 0.1)', 
+        borderRadius: '8px',
+        maxHeight: 'calc(100vh - 100px)',
+        overflow: 'auto'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+          <div className="d-flex align-items-center">
+            <h4 style={{ margin: 0 }}>Filters</h4>
+            {activeFiltersCount > 0 && (
+              <span 
+                className="badge bg-primary ms-2" 
+                style={{ fontSize: '0.75rem' }}
+              >
+                {activeFiltersCount}
+              </span>
+            )}
+          </div>
+          <Button 
+            variant="outline-secondary" 
+            size="sm" 
+            onClick={toggleSidebar}
+            style={{ width: '30px', height: '30px', padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <i className="bi bi-chevron-left"></i>
+          </Button>
+        </div>
+        
+        <Form>
+          <Row className="mb-3">
+            <Col>
+              <FormGroup className="mb-2">
+                <Form.Label>Species</Form.Label>
+                <Form.Control as="select" value={selectedSpecies} onChange={handleSpeciesChange}>
+                  <option value="">All species</option>
+                  {speciesList.map((species, index) => (
+                    <option key={index} value={species}>{species}</option>
+                  ))}
+                </Form.Control>
+              </FormGroup>
+            </Col>
+          </Row>
+
+          <Row className="mb-3">
+            <Col>
+              <FormGroup className="mb-2">
+                <Form.Label>Project</Form.Label>
+                <Form.Control as="select" value={selectedProject} onChange={handleProjectChange}>
+                  <option value="">All projects</option>
+                  {projectList.map((project, index) => (
+                    <option key={index} value={project}>{project}</option>
+                  ))}
+                </Form.Control>
+              </FormGroup>
+            </Col>
+          </Row>
+
+          <Row className="mb-3">
+            <Col>
+              <Button 
+                variant={hasTemperatureFilters ? "primary" : "outline-primary"} 
+                onClick={openTemperatureModal}
+                className="w-100 d-flex align-items-center justify-content-center"
+                style={{ height: '48px' }}
+              >
+                <ThermometerHalf className="me-2" size={18} />
+                Temperature Filters
+                {hasTemperatureFilters && (
+                  <span className="badge bg-light text-primary ms-2" style={{ fontSize: '0.75rem' }}>
+                    Active
+                  </span>
+                )}
+              </Button>
+            </Col>
+          </Row>
+
+          <Row className="mb-3">
+            <Col xs={9} className="pe-0">
+              <Button 
+                variant={activeFiltersCount > 0 ? "primary" : "outline-secondary"} 
+                onClick={handleApplyFilters} 
+                style={{ width: '100%' }}
+                disabled={activeFiltersCount === 0}
+              >
+                {activeFiltersCount > 0 ? `Apply Filters (${activeFiltersCount})` : 'Apply Filters'}
+              </Button>
+            </Col>
+            <Col xs={3} className="ps-1">
+              <Button 
+                variant="outline-danger" 
+                onClick={handleResetFilters} 
+                style={{ width: '100%' }}
+                disabled={activeFiltersCount === 0}
+              >
+                <i className="bi bi-trash3"></i>
+              </Button>
+            </Col>
+          </Row>
+
+          <Row className="mb-3">
+            <Col>
+              <FormGroup className="mb-2">
+                <AddToCartButton />
+              </FormGroup>
+            </Col>
+          </Row>
+        </Form>
       </div>
-      
-      <Form>
-        <Row className="mb-3">
-          <Col>
-            <FormGroup className="mb-2">
-              <Form.Label>Species</Form.Label>
-              <Form.Control as="select" value={selectedSpecies} onChange={handleSpeciesChange}>
-                <option value="">All species</option>
-                {speciesList.map((species, index) => (
-                  <option key={index} value={species}>{species}</option>
-                ))}
-              </Form.Control>
-            </FormGroup>
-          </Col>
-        </Row>
 
-        <Row className="mb-3">
-          <Col>
-            <FormGroup className="mb-2">
-              <Form.Label>Project</Form.Label>
-              <Form.Control as="select" value={selectedProject} onChange={handleProjectChange}>
-                <option value="">All projects</option>
-                {projectList.map((project, index) => (
-                  <option key={index} value={project}>{project}</option>
-                ))}
-              </Form.Control>
-            </FormGroup>
-          </Col>
-        </Row>
-
-        <Row className="mb-3">
-          <Col>
-            <FormGroup className="mb-2">
-              <Form.Label>Abs. Thermal Tolerance ED50</Form.Label>
-              <Container>
-                <Slider
-                  value={selectedEd50Temperatures}
-                  onChange={handleEd50TemperatureChange}
-                  valueLabelDisplay="auto"
-                  min={minAbsTT}
-                  max={maxAbsTT}
-                  step={0.01}
-                  sx={{
-                    '& .MuiSlider-thumb': {
-                      color: '#007bff', // Change thumb color
-                    },
-                    '& .MuiSlider-track': {
-                      height: 8,
-                      backgroundColor: '#007bff', // Change track color
-                    },
-                    '& .MuiSlider-rail': {
-                      height: 6,
-                      backgroundColor: '#ddd', // Change rail color
-                    },
-                    '& .MuiSlider-mark': {
-                      backgroundColor: '#ddd', // Change rail color
-                    },
-                    '& .MuiSlider-markLabel': {
-                      color: '#007bff', // Change mark label color
-                    },
-                  }}
-                />
-                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <Typography
-                    variant="body2"
-                    onClick={() => setSelectedEd50Temperatures([minAbsTT, selectedEd50Temperatures[1]])}
-                    sx={{ cursor: 'pointer' }}
-                  >
-                    {minAbsTT}°C
-                  </Typography>
-                  <Typography
-                    variant="body2"
-                    onClick={() => setSelectedEd50Temperatures([selectedEd50Temperatures[0], maxAbsTT])}
-                    sx={{ cursor: 'pointer' }}
-                  >
-                    {maxAbsTT}°C
-                  </Typography>
-                </Box>
-              </Container>
-            </FormGroup>
-          </Col>
-        </Row>
-
-        <Row className="mb-3">
-          <Col>
-            <FormGroup className="mb-2">
-              <Form.Label>Rel. Thermal Tolerance ED50 - MMM</Form.Label>
-              <Container>
-                <Slider
-                  value={selectedThermalToleranceTemperatures}
-                  onChange={handleThermalToleranceTemperatureChange}
-                  valueLabelDisplay="auto"
-                  min={minRelTT}
-                  max={maxRelTT}
-                  step={0.01}
-                  marks={[{ value: 7.5, label: '7.5°C' }]}
-                  sx={{
-                    '& .MuiSlider-thumb': {
-                      color: '#007bff', // Change thumb color
-                    },
-                    '& .MuiSlider-track': {
-                      height: 8,
-                      backgroundColor: '#007bff', // Change track color
-                    },
-                    '& .MuiSlider-rail': {
-                      height: 6,
-                      backgroundColor: '#ddd', // Change rail color
-                    },
-                    '& .MuiSlider-mark': {
-                      backgroundColor: '#ddd', // Change rail color
-                    },
-                    '& .MuiSlider-markLabel': {
-                      color: '#007bff', // Change mark label color
-                    },
-                  }}
-                />
-                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <Typography
-                    variant="body2"
-                    onClick={() => setSelectedThermalToleranceTemperatures([minRelTT, selectedThermalToleranceTemperatures[1]])}
-                    sx={{ cursor: 'pointer' }}
-                  >
-                    {minRelTT}°C
-                  </Typography>
-                  <Typography
-                    variant="body2"
-                    onClick={() => setSelectedThermalToleranceTemperatures([selectedThermalToleranceTemperatures[0], maxRelTT])}
-                    sx={{ cursor: 'pointer' }}
-                  >
-                    {maxRelTT}°C
-                  </Typography>
-                </Box>
-              </Container>
-            </FormGroup>
-          </Col>
-        </Row>
-
-        <Row className="mb-3">
-          <Col xs={9} className="pe-0">
-            <Button variant="primary" onClick={handleApplyFilters} style={{ width: '100%' }}>
-              Apply Filters
-            </Button>
-          </Col>
-          <Col xs={3} className="ps-1">
-            <Button variant="primary" onClick={handleResetFilters} style={{ width: '100%' }}>
-              <i className="bi bi-trash3"></i>
-            </Button>
-          </Col>
-        </Row>
-
-
-        <Row className="mb-3">
-          <Col>
-            <FormGroup className="mb-2">
-              <AddToCartButton />
-            </FormGroup>
-          </Col>
-        </Row>
-
-      </Form>
-    </div>
+      {/* Temperature Filters Modal */}
+      <TemperatureFiltersModal
+        show={showTemperatureModal}
+        onHide={closeTemperatureModal}
+        filters={temperatureFilters}
+        onAddFilters={handleTemperatureFiltersChange}
+      />
+    </>
   );
 };
 

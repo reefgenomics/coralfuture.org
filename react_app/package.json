@@ -20,6 +20,7 @@
     "npm": "^10.4.0",
     "react": "^18.2.0",
     "react-bootstrap": "^2.10.0",
+    "react-bootstrap-icons": "^1.11.6",
     "react-dom": "^18.2.0",
     "react-leaflet": "^4.2.1",
     "react-leaflet-cluster": "^2.1.0",
