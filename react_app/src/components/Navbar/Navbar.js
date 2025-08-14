@@ -1,22 +1,19 @@
 // External imports
 import React, { useContext } from 'react';
 import { Navbar, Nav, Container, NavDropdown } from 'react-bootstrap';
+import { Link, useLocation } from 'react-router-dom';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 // Internal imports
 // Contexts
 import { AuthContext } from 'contexts/AuthContext'
 
-// Temporary helper function, need to find more elegant solution
-function extractDomain(url) {
-  const elem = document.createElement('a');
-  elem.href = url;
-  return elem.hostname;
-}
-
 const NavigationBar = () => {
 
   const { authData } = useContext(AuthContext);
   const backendUrl = process.env.REACT_APP_BACKEND_URL;
+  const location = useLocation();
+
+  const isActive = (path) => location.pathname === path;
 
   return (
     <Navbar 
@@ -29,15 +26,29 @@ const NavigationBar = () => {
       }}
     >
       <Container>
-        <Navbar.Brand href={backendUrl}>
-          <i className="bi bi-house-door"></i> Coral Future
+        <Navbar.Brand as={Link} to="/" className="d-flex align-items-center">
+          <span className="fw-bold">CoralFuture</span>
         </Navbar.Brand>
 
         <Navbar.Toggle aria-controls="navbarNav" />
         <Navbar.Collapse id="navbarNav">
-          <Nav className="navbar-nav">
+          <Nav className="navbar-nav me-auto">
             <Nav.Item>
-              <Nav.Link href={`${extractDomain(backendUrl)}:3000/map`}>
+              <Nav.Link 
+                as={Link} 
+                to="/" 
+                className={isActive('/') ? 'active fw-medium' : ''}
+              >
+                <i className="bi bi-house"></i> Home
+              </Nav.Link>
+            </Nav.Item>
+
+            <Nav.Item>
+              <Nav.Link 
+                as={Link} 
+                to="/map" 
+                className={isActive('/map') ? 'active fw-medium' : ''}
+              >
                 <i className="bi bi-map"></i> Map
               </Nav.Link>
             </Nav.Item>
@@ -65,7 +76,11 @@ const NavigationBar = () => {
 
             {authData.authenticated && (
               <Nav.Item>
-                <Nav.Link href="/upload">
+                <Nav.Link 
+                  as={Link} 
+                  to="/upload" 
+                  className={isActive('/upload') ? 'active fw-medium' : ''}
+                >
                   <i className="bi bi-upload"></i> Upload to Database
                 </Nav.Link>
               </Nav.Item>
@@ -95,7 +110,7 @@ const NavigationBar = () => {
         <div className="ms-lg-4">
           {authData.authenticated ? (
             <NavDropdown title={<>{authData.username} <i className="bi bi-person-circle"></i></>} id="basic-nav-dropdown">
-              <NavDropdown.Item href="/cart">
+              <NavDropdown.Item as={Link} to="/cart">
                 <i className="bi bi-cart"></i> Cart
               </NavDropdown.Item>
               <NavDropdown.Divider />

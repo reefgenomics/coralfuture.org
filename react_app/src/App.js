@@ -7,6 +7,7 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import AuthContextProvider from 'contexts/AuthContext'
 import UserCartContextProvider from 'contexts/UserCartContext';
 // Pages
+import HomePage from 'pages/Home/HomePage';
 import CustomerCart from 'pages/Cart/CustomerCart';
 import CustomerMap from 'pages/Map/CustomerMap';
 import UploadDataPage from 'pages/Upload/UploadDataPage';
@@ -23,6 +24,7 @@ const App = () => {
             {/* NavigationBar can be rendered on all routes */}
             <NavigationBar />
             <Routes>
+              <Route path='/' element={<HomePage />} />
               <Route path='/map' element={<CustomerMap />} />
               <Route path="/cart" element={<CustomerCart />} />
               <Route path="/upload" element={<UploadDataPage />} />

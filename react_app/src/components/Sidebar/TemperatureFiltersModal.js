@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Modal, Button, Container, Row, Col, Card, Badge } from 'react-bootstrap';
-import { Box, Slider, Typography, Divider } from '@mui/material';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Modal, Button, Row, Col, Card, Badge } from 'react-bootstrap';
+import { Box, Slider, Divider } from '@mui/material';
 import { ThermometerHalf, XCircle, PlusCircle, ArrowLeft } from 'react-bootstrap-icons';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './TemperatureFiltersModal.css';
@@ -34,39 +34,7 @@ const TemperatureFiltersModal = ({ show, onHide, filters, onAddFilters }) => {
   // State for active filters count
   const [activeFiltersCount, setActiveFiltersCount] = useState(0);
 
-  useEffect(() => {
-    if (show) {
-      fetchMinMaxData();
-      // Initialize with current filters if they exist and are not default values
-      if (filters) {
-        console.log('Modal: initializing with filters:', filters);
-        setTempFilters({
-          absThermalTolerance: filters.absThermalTolerance || [20, 40],
-          relThermalTolerance: filters.relThermalTolerance || [0, 10],
-          absBreakpointTemperature: filters.absBreakpointTemperature || [20, 40],
-          relBreakpointTemperature: filters.relBreakpointTemperature || [0, 10],
-          absThermalLimit: filters.absThermalLimit || [20, 40],
-          relThermalLimit: filters.relThermalLimit || [0, 10],
-        });
-      } else {
-        console.log('Modal: no filters provided, using defaults');
-      }
-    }
-  }, [show, filters]);
-
-  useEffect(() => {
-    // Calculate active filters count
-    let count = 0;
-    Object.entries(tempFilters).forEach(([key, value]) => {
-      const minMax = minMaxValues[key];
-      if (value[0] !== minMax.min || value[1] !== minMax.max) {
-        count++;
-      }
-    });
-    setActiveFiltersCount(count);
-  }, [tempFilters, minMaxValues]);
-
-  const fetchMinMaxData = async () => {
+  const fetchMinMaxData = useCallback(async () => {
     const backendUrl = process.env.REACT_APP_BACKEND_URL;
     
     try {
@@ -128,7 +96,39 @@ const TemperatureFiltersModal = ({ show, onHide, filters, onAddFilters }) => {
     } catch (error) {
       console.error('Error fetching temperature ranges:', error);
     }
-  };
+  }, [filters]);
+
+  useEffect(() => {
+    if (show) {
+      fetchMinMaxData();
+      // Initialize with current filters if they exist and are not default values
+      if (filters) {
+        console.log('Modal: initializing with filters:', filters);
+        setTempFilters({
+          absThermalTolerance: filters.absThermalTolerance || [20, 40],
+          relThermalTolerance: filters.relThermalTolerance || [0, 10],
+          absBreakpointTemperature: filters.absBreakpointTemperature || [20, 40],
+          relBreakpointTemperature: filters.relBreakpointTemperature || [0, 10],
+          absThermalLimit: filters.absThermalLimit || [20, 40],
+          relThermalLimit: filters.relThermalLimit || [0, 10],
+        });
+      } else {
+        console.log('Modal: no filters provided, using defaults');
+      }
+    }
+  }, [show, filters, fetchMinMaxData]);
+
+  useEffect(() => {
+    // Calculate active filters count
+    let count = 0;
+    Object.entries(tempFilters).forEach(([key, value]) => {
+      const minMax = minMaxValues[key];
+      if (value[0] !== minMax.min || value[1] !== minMax.max) {
+        count++;
+      }
+    });
+    setActiveFiltersCount(count);
+  }, [tempFilters, minMaxValues]);
 
   const handleSliderChange = (parameter, newValue) => {
     setTempFilters(prev => ({

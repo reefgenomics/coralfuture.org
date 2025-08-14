@@ -1,8 +1,7 @@
 // External imports
 import axios from 'axios';
-import React, { useState, useEffect, useContext } from 'react';
-import { Button, Container, Form, FormGroup, Row, Col } from 'react-bootstrap';
-import { Box, Slider, Typography } from '@mui/material';
+import React, { useState, useEffect, useContext, useCallback } from 'react';
+import { Button, Form, FormGroup, Row, Col } from 'react-bootstrap';
 import { ThermometerHalf } from 'react-bootstrap-icons';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
@@ -27,9 +26,6 @@ const InputSidebar = () => {
   const { allColonies, allBioSamples, allProjects, setFilters } = useContext(SidebarFilterContext);
   const speciesList = [...new Set(allColonies.map(allColonies => allColonies.species))].sort();
   const projectList = [...new Set(allProjects.map(allProjects => allProjects.name))].sort();
-  const collectionDateList = [...new Set(allBioSamples.map(biosample => biosample.collection_date))]
-    .map(dateString => new Date(dateString))
-    .sort((a, b) => a - b);
 
   // State for temperature filters
   const [temperatureFilters, setTemperatureFilters] = useState({
@@ -63,11 +59,7 @@ const InputSidebar = () => {
   // State to control sidebar visibility
   const [isCollapsed, setIsCollapsed] = useState(false);
 
-  useEffect(() => {
-    fetchMaxMinData(process.env.REACT_APP_BACKEND_URL); // Call the fetch function
-  }, []);
-
-  const fetchMaxMinData = async (backendUrl) => {
+  const fetchMaxMinData = useCallback(async (backendUrl) => {
     try {
       const response = await axios.get(`${backendUrl}/api/public/thermal-tolerances/max-min/`);
       const data = response.data;
@@ -105,7 +97,11 @@ const InputSidebar = () => {
     } catch (error) {
       console.error('Error fetching max min data:', error);
     }
-  };
+  }, [temperatureFilters]);
+
+  useEffect(() => {
+    fetchMaxMinData(process.env.REACT_APP_BACKEND_URL); // Call the fetch function
+  }, [fetchMaxMinData]);
 
   const handleApplyFilters = () => {
     // If no filters are applied, clear all filters

@@ -1,0 +1,1 @@
+docker compose build react-app && docker compose up -d react-app

@@ -60,26 +60,6 @@ services:
     depends_on:
       - database
 
-  # ed50-calculator:
-  #   build: ./ed50-calculator
-  #   ports:
-  #     - "5000:5000"
-  #   volumes:
-  #     - ./ed50-calculator:/app
-  #     - ed50_data:/tmp/ed50_uploads
-  #     - ed50_results:/tmp/ed50_results
-
-  # nginx:
-  #   image: nginx:latest
-  #   volumes:
-  #     - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
-  #     - ./django_app/staticfiles:/var/www/static
-  #   ports:
-  #     - "80:80"
-  #     - "443:443"
-  #   depends_on:
-  #     - django-app
-
 volumes:
   postgres_data:
   ed50_data:
