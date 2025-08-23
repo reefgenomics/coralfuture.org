@@ -27,29 +27,16 @@ const InputSidebar = () => {
   const speciesList = [...new Set(allColonies.map(allColonies => allColonies.species))].sort();
   const projectList = [...new Set(allProjects.map(allProjects => allProjects.name))].sort();
 
-  // State for temperature filters
-  const [temperatureFilters, setTemperatureFilters] = useState({
-    absThermalTolerance: [20, 40],
-    relThermalTolerance: [0, 10],
-    absBreakpointTemperature: [20, 40],
-    relBreakpointTemperature: [0, 10],
-    absThermalLimit: [20, 40],
-    relThermalLimit: [0, 10],
-  });
+  // State for temperature filters - start with empty
+  const [temperatureFilters, setTemperatureFilters] = useState({});
 
-  // Check if any filters are actually applied (not default values)
+  // Check if any filters are actually applied
   const hasSpeciesFilter = selectedSpecies !== '';
   const hasProjectFilter = selectedProject !== '';
   const hasDateFilter = selectedDates.length > 0;
   
-  // Check if temperature filters are different from defaults
-  const hasTemperatureFilters = 
-    temperatureFilters.absThermalTolerance[0] !== 20 || temperatureFilters.absThermalTolerance[1] !== 40 ||
-    temperatureFilters.relThermalTolerance[0] !== 0 || temperatureFilters.relThermalTolerance[1] !== 10 ||
-    temperatureFilters.absBreakpointTemperature[0] !== 20 || temperatureFilters.absBreakpointTemperature[1] !== 40 ||
-    temperatureFilters.relBreakpointTemperature[0] !== 0 || temperatureFilters.relBreakpointTemperature[1] !== 10 ||
-    temperatureFilters.absThermalLimit[0] !== 20 || temperatureFilters.absThermalLimit[1] !== 40 ||
-    temperatureFilters.relThermalLimit[0] !== 0 || temperatureFilters.relThermalLimit[1] !== 10;
+  // Check if temperature filters are set
+  const hasTemperatureFilters = Object.keys(temperatureFilters).length > 0;
 
   const activeFiltersCount = (hasSpeciesFilter ? 1 : 0) + 
                            (hasProjectFilter ? 1 : 0) + 
@@ -59,54 +46,11 @@ const InputSidebar = () => {
   // State to control sidebar visibility
   const [isCollapsed, setIsCollapsed] = useState(false);
 
-  const fetchMaxMinData = useCallback(async (backendUrl) => {
-    try {
-      const response = await axios.get(`${backendUrl}/api/public/thermal-tolerances/max-min/`);
-      const data = response.data;
-      
-      // Set min and max values from API
-      const newMinAbsTT = data.min_abs_thermal_tolerance || 20;
-      const newMaxAbsTT = data.max_abs_thermal_tolerance || 40;
-      const newMinRelTT = data.min_rel_thermal_tolerance || 0;
-      const newMaxRelTT = data.max_rel_thermal_tolerance || 10;
-      
-      // Only update temperature filters if they are at default values (first time loading)
-      // Don't overwrite user's custom settings
-      const hasCustomTemperatureFilters = 
-        temperatureFilters.absThermalTolerance[0] !== 20 || temperatureFilters.absThermalTolerance[1] !== 40 ||
-        temperatureFilters.relThermalTolerance[0] !== 0 || temperatureFilters.relThermalTolerance[1] !== 10 ||
-        temperatureFilters.absBreakpointTemperature[0] !== 20 || temperatureFilters.absBreakpointTemperature[1] !== 40 ||
-        temperatureFilters.relBreakpointTemperature[0] !== 0 || temperatureFilters.relBreakpointTemperature[1] !== 10 ||
-        temperatureFilters.absThermalLimit[0] !== 20 || temperatureFilters.absThermalLimit[1] !== 40 ||
-        temperatureFilters.relThermalLimit[0] !== 0 || temperatureFilters.relThermalLimit[1] !== 10;
 
-      if (!hasCustomTemperatureFilters) {
-        console.log('Sidebar: setting default temperature filters from API');
-        // Update temperature filters with API data only if no custom values
-        setTemperatureFilters({
-          absThermalTolerance: [newMinAbsTT, newMaxAbsTT],
-          relThermalTolerance: [newMinRelTT, newMaxRelTT],
-          absBreakpointTemperature: [newMinAbsTT, newMaxAbsTT],
-          relBreakpointTemperature: [newMinRelTT, newMaxRelTT],
-          absThermalLimit: [newMinAbsTT, newMaxAbsTT],
-          relThermalLimit: [newMinRelTT, newMaxRelTT],
-        });
-      } else {
-        console.log('Sidebar: preserving custom temperature filters');
-      }
-    } catch (error) {
-      console.error('Error fetching max min data:', error);
-    }
-  }, [temperatureFilters]);
-
-  useEffect(() => {
-    fetchMaxMinData(process.env.REACT_APP_BACKEND_URL); // Call the fetch function
-  }, [fetchMaxMinData]);
 
   const handleApplyFilters = () => {
     // If no filters are applied, clear all filters
     if (!hasSpeciesFilter && !hasProjectFilter && !hasDateFilter && !hasTemperatureFilters) {
-      console.log('No filters applied, clearing all filters');
       setFilters({});
       return;
     }
@@ -118,8 +62,6 @@ const InputSidebar = () => {
       years: selectedDates
     };
     
-    // Log filters before applying changes
-    console.log('Selected filters:', newFilters);
     setFilters(newFilters);
   };
 
@@ -127,18 +69,8 @@ const InputSidebar = () => {
     setSelectedSpecies('');
     setSelectedProject('');
     setSelectedDates([]);
-    
-    // Reset temperature filters to default values
-    setTemperatureFilters({
-      absThermalTolerance: [20, 40],
-      relThermalTolerance: [0, 10],
-      absBreakpointTemperature: [20, 40],
-      relBreakpointTemperature: [0, 10],
-      absThermalLimit: [20, 40],
-      relThermalLimit: [0, 10],
-    });
-    
-    setFilters({}); // Reset filters
+    setTemperatureFilters({});
+    setFilters({});
   };
 
   const handleSpeciesChange = (e) => {
@@ -153,7 +85,6 @@ const InputSidebar = () => {
 
   const handleTemperatureFiltersChange = (newFilters) => {
     setTemperatureFilters(newFilters);
-    console.log('Temperature filters updated:', newFilters);
   };
 
   const toggleSidebar = () => {

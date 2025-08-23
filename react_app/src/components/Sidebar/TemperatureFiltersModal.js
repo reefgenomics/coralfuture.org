@@ -101,22 +101,17 @@ const TemperatureFiltersModal = ({ show, onHide, filters, onAddFilters }) => {
   useEffect(() => {
     if (show) {
       fetchMinMaxData();
-      // Initialize with current filters if they exist and are not default values
-      if (filters) {
-        console.log('Modal: initializing with filters:', filters);
-        setTempFilters({
-          absThermalTolerance: filters.absThermalTolerance || [20, 40],
-          relThermalTolerance: filters.relThermalTolerance || [0, 10],
-          absBreakpointTemperature: filters.absBreakpointTemperature || [20, 40],
-          relBreakpointTemperature: filters.relBreakpointTemperature || [0, 10],
-          absThermalLimit: filters.absThermalLimit || [20, 40],
-          relThermalLimit: filters.relThermalLimit || [0, 10],
-        });
-      } else {
-        console.log('Modal: no filters provided, using defaults');
-      }
+      // Always start with full range (no filters active)
+      setTempFilters({
+        absThermalTolerance: [minMaxValues.absThermalTolerance.min, minMaxValues.absThermalTolerance.max],
+        relThermalTolerance: [minMaxValues.relThermalTolerance.min, minMaxValues.relThermalTolerance.max],
+        absBreakpointTemperature: [minMaxValues.absBreakpointTemperature.min, minMaxValues.absBreakpointTemperature.max],
+        relBreakpointTemperature: [minMaxValues.relBreakpointTemperature.min, minMaxValues.relBreakpointTemperature.max],
+        absThermalLimit: [minMaxValues.absThermalLimit.min, minMaxValues.absThermalLimit.max],
+        relThermalLimit: [minMaxValues.relThermalLimit.min, minMaxValues.relThermalLimit.max],
+      });
     }
-  }, [show, filters, fetchMinMaxData]);
+  }, [show, fetchMinMaxData, minMaxValues]);
 
   useEffect(() => {
     // Calculate active filters count
@@ -156,6 +151,7 @@ const TemperatureFiltersModal = ({ show, onHide, filters, onAddFilters }) => {
   const isFilterActive = (parameter) => {
     const value = tempFilters[parameter];
     const minMax = minMaxValues[parameter];
+    // Filter is active if it's different from the full range (min to max)
     return value[0] !== minMax.min || value[1] !== minMax.max;
   };
 
