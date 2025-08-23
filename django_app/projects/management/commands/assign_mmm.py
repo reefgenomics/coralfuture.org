@@ -67,10 +67,14 @@ class Command(BaseCommand):
             col_name = df.columns[0]
             df[['latitude', 'longitude', 'sst_clim_mmm']] = df[col_name].str.split(' ', expand=True)
             df = df[['latitude', 'longitude', 'sst_clim_mmm']]
-            # Convert to numeric
-            df['latitude'] = pd.to_numeric(df['latitude'])
-            df['longitude'] = pd.to_numeric(df['longitude'])
-            df['sst_clim_mmm'] = pd.to_numeric(df['sst_clim_mmm'])
+        
+        # Filter out rows with NaN values
+        df = df[df['sst_clim_mmm'] != 'NaN']
+        
+        # Convert to numeric
+        df['latitude'] = pd.to_numeric(df['latitude'])
+        df['longitude'] = pd.to_numeric(df['longitude'])
+        df['sst_clim_mmm'] = pd.to_numeric(df['sst_clim_mmm'])
         
         for index, row in df.iterrows():
             latitude = row['latitude']
