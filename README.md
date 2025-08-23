@@ -97,3 +97,4 @@ Restore a database backup:
 ```commandline
 pg_restore --clean --dbname $DB_NAME -U $DB_USER backup.pgdump
 ```
+# Test commit
