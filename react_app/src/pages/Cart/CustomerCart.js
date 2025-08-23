@@ -159,67 +159,116 @@ const CustomerCart = () => {
     if (!colonies || colonies.length === 0) return <p className="text-muted">No colonies in this group</p>;
 
     return (
-      <Table striped bordered hover size="sm" className="mt-3">
-        <thead>
-          <tr>
-            <th>Colony</th>
-            <th>Species</th>
-            <th>Location</th>
-            <th>Biosamples</th>
-            <th>Thermal Data</th>
-          </tr>
-        </thead>
-        <tbody>
-          {colonies.map((colonyData) => {
-            const colony = colonyData.colony;
-            const biosampleCount = colonyData.biosamples?.length || 0;
-            const thermalCount = (colonyData.thermal_tolerances?.length || 0) + 
-                               (colonyData.breakpoint_temperatures?.length || 0) + 
-                               (colonyData.thermal_limits?.length || 0);
-            
-            return (
-              <tr key={colony.id}>
-                <td>
-                  <strong>{colony.name}</strong>
-                  <br />
-                  <small className="text-muted">ID: {colony.id}</small>
-                </td>
-                <td>{colony.species}</td>
-                <td>
-                  {colony.country}
-                  <br />
-                  <small className="text-muted">
-                    {colony.latitude.toFixed(4)}, {colony.longitude.toFixed(4)}
-                  </small>
-                </td>
-                <td>
-                  <Badge bg="info">{biosampleCount}</Badge>
-                  {biosampleCount > 0 && (
-                    <div className="mt-1">
-                      <small className="text-muted">
-                        {colonyData.biosamples[0]?.name || 'N/A'}
-                        {biosampleCount > 1 && ` +${biosampleCount - 1} more`}
-                      </small>
-                    </div>
-                  )}
-                </td>
-                <td>
-                  <Badge bg="success">{thermalCount}</Badge>
-                  {thermalCount > 0 && (
-                    <div className="mt-1">
-                      <small className="text-muted">
-                        TT: {colonyData.thermal_tolerances?.length || 0} | 
-                        BT: {colonyData.breakpoint_temperatures?.length || 0} | 
-                        TL: {colonyData.thermal_limits?.length || 0}
-                      </small>
-                    </div>
-                  )}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </Table>
+      <div className="table-responsive">
+        <Table striped bordered hover size="sm" className="mt-3" style={{minWidth: '1200px'}}>
+          <thead>
+            <tr>
+              <th style={{minWidth: '150px'}}>Colony</th>
+              <th style={{minWidth: '120px'}}>Species</th>
+              <th style={{minWidth: '140px'}}>Location</th>
+              <th style={{minWidth: '180px'}}>Biosamples</th>
+              <th style={{minWidth: '250px'}}>Thermal Tolerance (ED50)</th>
+              <th style={{minWidth: '250px'}}>Breakpoint Temp (ED5)</th>
+              <th style={{minWidth: '250px'}}>Thermal Limit (ED95)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {colonies.map((colonyData) => {
+              const colony = colonyData.colony;
+              const biosampleCount = colonyData.biosamples?.length || 0;
+              
+              return (
+                <tr key={colony.id}>
+                  <td style={{verticalAlign: 'top'}}>
+                    <strong>{colony.name}</strong>
+                    <br />
+                    <small className="text-muted">ID: {colony.id}</small>
+                  </td>
+                  <td style={{verticalAlign: 'top'}}>{colony.species}</td>
+                  <td style={{verticalAlign: 'top'}}>
+                    {colony.country}
+                    <br />
+                    <small className="text-muted">
+                      {colony.latitude.toFixed(4)}, {colony.longitude.toFixed(4)}
+                    </small>
+                  </td>
+                  <td style={{verticalAlign: 'top'}}>
+                    <Badge bg="info">{biosampleCount}</Badge>
+                    {biosampleCount > 0 && (
+                      <div className="mt-1">
+                        <small className="text-muted">
+                          {colonyData.biosamples[0]?.name || 'N/A'}
+                          {biosampleCount > 1 && ` +${biosampleCount - 1} more`}
+                        </small>
+                      </div>
+                    )}
+                  </td>
+                  <td style={{verticalAlign: 'top', minWidth: '250px'}}>
+                    {colonyData.thermal_tolerances?.length > 0 ? (
+                      <div>
+                        {colonyData.thermal_tolerances.map((tt, idx) => (
+                          <div key={tt.id} className="mt-1 p-2 border rounded bg-light">
+                            <small>
+                              <strong>ID:</strong> {tt.id}<br />
+                              <strong>Condition:</strong> {tt.condition || 'N/A'}<br />
+                              <strong>Timepoint:</strong> {tt.timepoint || 'N/A'}<br />
+                              <strong>Abs:</strong> {tt.abs_thermal_tolerance?.toFixed(2) || 'N/A'}°C<br />
+                              <strong>Rel:</strong> {tt.rel_thermal_tolerance?.toFixed(2) || 'N/A'}°C<br />
+                              <strong>SST MMM:</strong> {tt.sst_clim_mmm?.toFixed(2) || 'N/A'}°C
+                            </small>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-muted">No data</span>
+                    )}
+                  </td>
+                  <td style={{verticalAlign: 'top', minWidth: '250px'}}>
+                    {colonyData.breakpoint_temperatures?.length > 0 ? (
+                      <div>
+                        {colonyData.breakpoint_temperatures.map((bt, idx) => (
+                          <div key={bt.id} className="mt-1 p-2 border rounded bg-light">
+                            <small>
+                              <strong>ID:</strong> {bt.id}<br />
+                              <strong>Condition:</strong> {bt.condition || 'N/A'}<br />
+                              <strong>Timepoint:</strong> {bt.timepoint || 'N/A'}<br />
+                              <strong>Abs:</strong> {bt.abs_breakpoint_temperature?.toFixed(2) || 'N/A'}°C<br />
+                              <strong>Rel:</strong> {bt.rel_breakpoint_temperature?.toFixed(2) || 'N/A'}°C<br />
+                              <strong>SST MMM:</strong> {bt.sst_clim_mmm?.toFixed(2) || 'N/A'}°C
+                            </small>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-muted">No data</span>
+                    )}
+                  </td>
+                  <td style={{verticalAlign: 'top', minWidth: '250px'}}>
+                    {colonyData.thermal_limits?.length > 0 ? (
+                      <div>
+                        {colonyData.thermal_limits.map((tl, idx) => (
+                          <div key={tl.id} className="mt-1 p-2 border rounded bg-light">
+                            <small>
+                              <strong>ID:</strong> {tl.id}<br />
+                              <strong>Condition:</strong> {tl.condition || 'N/A'}<br />
+                              <strong>Timepoint:</strong> {tl.timepoint || 'N/A'}<br />
+                              <strong>Abs:</strong> {tl.abs_thermal_limit?.toFixed(2) || 'N/A'}°C<br />
+                              <strong>Rel:</strong> {tl.rel_thermal_limit?.toFixed(2) || 'N/A'}°C<br />
+                              <strong>SST MMM:</strong> {tl.sst_clim_mmm?.toFixed(2) || 'N/A'}°C
+                            </small>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-muted">No data</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </Table>
+      </div>
     );
   };
 
