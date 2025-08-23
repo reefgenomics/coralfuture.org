@@ -16,7 +16,7 @@ from api.serializers import BioSampleSerializer, \
     ObservationSerializer, ProjectSerializer, BreakpointTemperatureSerializer, ThermalLimitSerializer
 # Apps imports
 from projects.models import BioSample, Observation, Colony, \
-    ThermalTolerance, Project, UserCart, BreakpointTemperature, ThermalLimit
+    ThermalTolerance, Project, CartGroup, CartItem, BreakpointTemperature, ThermalLimit
 
 
 class CheckAuthenticationApiView(APIView):
@@ -525,51 +525,97 @@ class ObservationsByBioSampleView(generics.GenericAPIView):
 
 class UserCartApiView(APIView):
     """
-    This endpoint allows to operate with user cart.
+    This endpoint allows to operate with user cart groups.
     """
 
     authentication_classes = [SessionAuthentication]
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        user_cart, created = UserCart.objects.get_or_create(owner=request.user)
-        items = user_cart.items.all()
-        serializer = ColonySerializer(items, many=True)
-        return Response(serializer.data)
+        """Get all cart groups for the user with complete colony data."""
+        cart_groups = CartGroup.objects.filter(owner=request.user).prefetch_related(
+            'colonies', 'cart_items'
+        )
+        
+        groups_data = []
+        for group in cart_groups:
+            group_data = {
+                'id': group.id,
+                'name': group.name,
+                'created_at': group.created_at,
+                'updated_at': group.updated_at,
+                'filter_params': group.filter_params,
+                'colony_count': group.colony_count,
+                'colonies': []
+            }
+            
+            # Get complete colony data from CartItem
+            for cart_item in group.cart_items.all():
+                group_data['colonies'].append(cart_item.colony_data)
+            
+            groups_data.append(group_data)
+        
+        return Response(groups_data)
 
     def post(self, request):
         """
-        Example: {"colony_ids": [1,2]}
+        Create a new cart group with colonies and filters.
+        Example: {
+            "name": "My Filter Group",
+            "colony_ids": [1, 2, 3],
+            "filter_params": {"species": "Acropora", "temperature": [25, 30]}
+        }
         """
-        # Extract colony IDs from request data (assuming they are provided as a list)
+        name = request.data.get('name', 'Filter Group')
         colony_ids = request.data.get('colony_ids', [])
+        filter_params = request.data.get('filter_params', {})
 
-        # Initialize an empty list to store successfully added colonies
-        added_colonies = []
+        if not colony_ids:
+            return Response({'error': 'No colony_ids provided'}, 
+                          status=status.HTTP_400_BAD_REQUEST)
 
-        for colony_id in colony_ids:
-            try:
-                # Retrieve the Colonies object with the specified ID
-                colony = Colony.objects.get(id=colony_id)
-                # Add the colony to the user's cart
-                user_cart, created = UserCart.objects.get_or_create(
-                    owner=request.user)
-                user_cart.items.add(colony)
-                added_colonies.append(colony_id)
-            except Colony.DoesNotExist:
-                pass  # Ignore samples that don't exist
+        try:
+            # Create new cart group
+            cart_group = CartGroup.objects.create(
+                owner=request.user,
+                name=name,
+                filter_params=filter_params
+            )
 
-        if added_colonies:
+            # Add colonies to the group
+            colonies = Colony.objects.filter(id__in=colony_ids)
+            cart_group.colonies.set(colonies)
+
+            # Create CartItem objects for each colony (this will auto-populate colony_data)
+            for colony in colonies:
+                CartItem.objects.create(
+                    cart_group=cart_group,
+                    colony=colony
+                )
+
             return Response({
-                'message': f'Colonies {added_colonies} added to cart successfully'})
-        else:
-            return Response({'error': 'No valid colonies found'},
-                            status=status.HTTP_404_NOT_FOUND)
+                'message': f'Cart group "{name}" created with {colonies.count()} colonies',
+                'group_id': cart_group.id
+            }, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            return Response({'error': str(e)}, 
+                          status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def delete(self, request):
-        user_cart, created = UserCart.objects.get_or_create(owner=request.user)
-        user_cart.items.clear()
-        return Response({'message': 'Cart cleaned successfully'})
+        """Delete a specific cart group."""
+        group_id = request.data.get('group_id')
+        if not group_id:
+            return Response({'error': 'group_id required'}, 
+                          status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            cart_group = CartGroup.objects.get(id=group_id, owner=request.user)
+            cart_group.delete()
+            return Response({'message': 'Cart group deleted successfully'})
+        except CartGroup.DoesNotExist:
+            return Response({'error': 'Cart group not found'}, 
+                          status=status.HTTP_404_NOT_FOUND)
 
 
 class CalculateED50ApiView(APIView):
@@ -638,3 +684,156 @@ class CalculateED50ApiView(APIView):
             return Response({
                 'error': f'Failed to calculate ED50: {str(e)}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class CartGroupManagementApiView(APIView):
+    """
+    Endpoint for managing individual cart groups (rename, update).
+    """
+
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request, group_id):
+        """Update cart group name."""
+        try:
+            cart_group = CartGroup.objects.get(id=group_id, owner=request.user)
+            new_name = request.data.get('name')
+            
+            if not new_name:
+                return Response({'error': 'name field required'}, 
+                              status=status.HTTP_400_BAD_REQUEST)
+            
+            cart_group.name = new_name
+            cart_group.save()
+            
+            return Response({
+                'message': 'Cart group renamed successfully',
+                'new_name': new_name
+            })
+            
+        except CartGroup.DoesNotExist:
+            return Response({'error': 'Cart group not found'}, 
+                          status=status.HTTP_404_NOT_FOUND)
+
+
+class CartExportApiView(APIView):
+    """
+    Endpoint for exporting cart data as CSV.
+    """
+
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        """Export selected cart groups as CSV."""
+        group_ids = request.data.get('group_ids', [])
+        export_all = request.data.get('export_all', False)
+        
+        if not export_all and not group_ids:
+            return Response({'error': 'Either export_all or group_ids required'}, 
+                          status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            if export_all:
+                cart_groups = CartGroup.objects.filter(owner=request.user)
+            else:
+                cart_groups = CartGroup.objects.filter(id__in=group_ids, owner=request.user)
+            
+            if not cart_groups.exists():
+                return Response({'error': 'No cart groups found'}, 
+                              status=status.HTTP_404_NOT_FOUND)
+            
+            # Generate CSV data
+            import csv
+            from io import StringIO
+            
+            output = StringIO()
+            writer = csv.writer(output)
+            
+            # Write header
+            header = [
+                'Group Name', 'Colony ID', 'Colony Name', 'Species', 'Country', 
+                'Latitude', 'Longitude', 'Collection Date', 'Condition', 
+                'Temperature', 'Timepoint', 'PAM Value', 'Experiment Name', 
+                'Project Name', 'Abs Thermal Tolerance', 'Rel Thermal Tolerance',
+                'SST Clim MMM', 'Abs Breakpoint Temperature', 'Rel Breakpoint Temperature',
+                'Abs Thermal Limit', 'Rel Thermal Limit'
+            ]
+            writer.writerow(header)
+            
+            # Write data rows
+            for group in cart_groups:
+                for cart_item in group.cart_items.all():
+                    colony_data = cart_item.colony_data
+                    
+                    # Get basic colony info
+                    colony = colony_data['colony']
+                    
+                    # Process biosamples and observations
+                    for biosample in colony_data.get('biosamples', []):
+                        for observation in biosample.get('observations', []):
+                            row = [
+                                group.name,  # Group Name
+                                colony['id'],  # Colony ID
+                                colony['name'],  # Colony Name
+                                colony['species'],  # Species
+                                colony['country'],  # Country
+                                colony['latitude'],  # Latitude
+                                colony['longitude'],  # Longitude
+                                biosample.get('collection_date', ''),  # Collection Date
+                                observation.get('condition', ''),  # Condition
+                                observation.get('temperature', ''),  # Temperature
+                                observation.get('timepoint', ''),  # Timepoint
+                                observation.get('pam_value', ''),  # PAM Value
+                                observation.get('experiment', {}).get('name', ''),  # Experiment Name
+                                observation.get('experiment', {}).get('project', {}).get('name', ''),  # Project Name
+                                '',  # Abs Thermal Tolerance (will be filled from thermal data)
+                                '',  # Rel Thermal Tolerance
+                                '',  # SST Clim MMM
+                                '',  # Abs Breakpoint Temperature
+                                '',  # Rel Breakpoint Temperature
+                                '',  # Abs Thermal Limit
+                                ''   # Rel Thermal Limit
+                            ]
+                            
+                            # Add thermal tolerance data if available
+                            for tt in colony_data.get('thermal_tolerances', []):
+                                if (tt.get('condition') == observation.get('condition') and 
+                                    tt.get('timepoint') == observation.get('timepoint')):
+                                    row[14] = tt.get('abs_thermal_tolerance', '')  # Abs TT
+                                    row[15] = tt.get('rel_thermal_tolerance', '')  # Rel TT
+                                    row[16] = tt.get('sst_clim_mmm', '')  # SST
+                                    break
+                            
+                            # Add breakpoint temperature data if available
+                            for bt in colony_data.get('breakpoint_temperatures', []):
+                                if (bt.get('condition') == observation.get('condition') and 
+                                    bt.get('timepoint') == observation.get('timepoint')):
+                                    row[17] = bt.get('abs_breakpoint_temperature', '')  # Abs BT
+                                    row[18] = bt.get('rel_breakpoint_temperature', '')  # Rel BT
+                                    break
+                            
+                            # Add thermal limit data if available
+                            for tl in colony_data.get('thermal_limits', []):
+                                if (tl.get('condition') == observation.get('condition') and 
+                                    tl.get('timepoint') == observation.get('timepoint')):
+                                    row[19] = tl.get('abs_thermal_limit', '')  # Abs TL
+                                    row[20] = tl.get('rel_thermal_limit', '')  # Rel TL
+                                    break
+                            
+                            writer.writerow(row)
+            
+            # Prepare response
+            output.seek(0)
+            csv_content = output.getvalue()
+            
+            from django.http import HttpResponse
+            response = HttpResponse(csv_content, content_type='text/csv')
+            response['Content-Disposition'] = 'attachment; filename="coral_cart_export.csv"'
+            
+            return response
+            
+        except Exception as e:
+            return Response({'error': f'Export failed: {str(e)}'}, 
+                          status=status.HTTP_500_INTERNAL_SERVER_ERROR)

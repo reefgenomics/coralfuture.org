@@ -199,10 +199,133 @@ class ThermalLimit(models.Model):
         return f"Thermal Limit for Colony {self.colony.name} under {self.condition} at {self.timepoint}: {self.abs_thermal_limit}"
 
 
-class UserCart(models.Model):
-    owner = models.OneToOneField(CustomUser, on_delete=models.CASCADE,
-                                 related_name='cart')
-    items = models.ManyToManyField('Colony', related_name='carts')
-
+class CartGroup(models.Model):
+    """
+    Represents a group of colonies added to cart with specific filters.
+    """
+    owner = models.ForeignKey(CustomUser, on_delete=models.CASCADE,
+                              related_name='cart_groups')
+    name = models.CharField(max_length=200, default="Filter Group")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    # Filter parameters (JSON field to store all filter data)
+    filter_params = models.JSONField(default=dict, blank=True)
+    
+    # Colonies in this group
+    colonies = models.ManyToManyField(Colony, related_name='cart_groups')
+    
     def __str__(self):
-        return f"UserCart of {self.owner.username}, {self.colonies.count()} colonies"
+        return f"Cart Group: {self.name} ({self.colonies.count()} colonies)"
+    
+    @property
+    def colony_count(self):
+        return self.colonies.count()
+
+
+class CartItem(models.Model):
+    """
+    Individual colony item within a cart group with complete data.
+    """
+    cart_group = models.ForeignKey(CartGroup, on_delete=models.CASCADE,
+                                   related_name='cart_items')
+    colony = models.ForeignKey(Colony, on_delete=models.CASCADE,
+                               related_name='cart_items')
+    
+    # Store complete colony data at time of addition
+    colony_data = models.JSONField(default=dict)
+    
+    def __str__(self):
+        return f"Cart Item: {self.colony.name} in {self.cart_group.name}"
+    
+    def save(self, *args, **kwargs):
+        # Auto-populate colony_data if not provided
+        if not self.colony_data:
+            self.colony_data = self._get_complete_colony_data()
+        super().save(*args, **kwargs)
+    
+    def _get_complete_colony_data(self):
+        """Get complete colony data including all related information."""
+        data = {
+            'colony': {
+                'id': self.colony.id,
+                'name': self.colony.name,
+                'species': self.colony.species,
+                'country': self.colony.country,
+                'latitude': self.colony.latitude,
+                'longitude': self.colony.longitude,
+            },
+            'biosamples': [],
+            'thermal_tolerances': [],
+            'breakpoint_temperatures': [],
+            'thermal_limits': [],
+        }
+        
+        # Add biosamples data
+        for biosample in self.colony.biosamples.all():
+            biosample_data = {
+                'id': biosample.id,
+                'name': biosample.name,
+                'collection_date': biosample.collection_date.isoformat() if biosample.collection_date else None,
+                'observations': []
+            }
+            
+            # Add observations for this biosample
+            for observation in biosample.observations.all():
+                obs_data = {
+                    'id': observation.id,
+                    'condition': observation.condition,
+                    'temperature': observation.temperature,
+                    'timepoint': observation.timepoint,
+                    'pam_value': observation.pam_value,
+                    'experiment': {
+                        'id': observation.experiment.id,
+                        'name': observation.experiment.name,
+                        'date': observation.experiment.date.isoformat() if observation.experiment.date else None,
+                        'project': {
+                            'id': observation.experiment.project.id,
+                            'name': observation.experiment.project.name,
+                        }
+                    }
+                }
+                biosample_data['observations'].append(obs_data)
+            
+            data['biosamples'].append(biosample_data)
+        
+        # Add thermal tolerance data
+        for tt in self.colony.thermal_tolerances.all():
+            tt_data = {
+                'id': tt.id,
+                'condition': tt.condition,
+                'timepoint': tt.timepoint,
+                'abs_thermal_tolerance': tt.abs_thermal_tolerance,
+                'rel_thermal_tolerance': tt.rel_thermal_tolerance,
+                'sst_clim_mmm': tt._sst_clim_mmm,
+            }
+            data['thermal_tolerances'].append(tt_data)
+        
+        # Add breakpoint temperature data
+        for bt in self.colony.breakpoint_temperatures.all():
+            bt_data = {
+                'id': bt.id,
+                'condition': bt.condition,
+                'timepoint': bt.timepoint,
+                'abs_breakpoint_temperature': bt.abs_breakpoint_temperature,
+                'rel_breakpoint_temperature': bt.rel_breakpoint_temperature,
+                'sst_clim_mmm': bt._sst_clim_mmm,
+            }
+            data['breakpoint_temperatures'].append(bt_data)
+        
+        # Add thermal limit data
+        for tl in self.colony.thermal_limits.all():
+            tl_data = {
+                'id': tl.id,
+                'condition': tl.condition,
+                'timepoint': tl.timepoint,
+                'abs_thermal_limit': tl.abs_thermal_limit,
+                'rel_thermal_limit': tl.rel_thermal_limit,
+                'sst_clim_mmm': tl._sst_clim_mmm,
+            }
+            data['thermal_limits'].append(tl_data)
+        
+        return data

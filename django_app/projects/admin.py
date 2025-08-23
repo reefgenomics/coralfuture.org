@@ -1,7 +1,7 @@
 # projects/admin.py
 from django.contrib import admin
 from projects.models import Project, Experiment, Colony, BioSample, \
-    Observation, Publication, UserCart, ThermalTolerance, BreakpointTemperature, ThermalLimit
+    Observation, Publication, CartGroup, CartItem, ThermalTolerance, BreakpointTemperature, ThermalLimit
 
 
 @admin.register(Project)
@@ -84,6 +84,20 @@ class PublicationAdmin(admin.ModelAdmin):
     search_fields = ('title', 'doi')
 
 
-@admin.register(UserCart)
-class UserCartAdmin(admin.ModelAdmin):
-    list_display = ('owner',)
+@admin.register(CartGroup)
+class CartGroupAdmin(admin.ModelAdmin):
+    list_display = ('name', 'owner', 'colony_count', 'created_at')
+    search_fields = ('name', 'owner__username')
+    list_filter = ('created_at', 'owner')
+    readonly_fields = ('created_at', 'updated_at')
+
+
+@admin.register(CartItem)
+class CartItemAdmin(admin.ModelAdmin):
+    list_display = ('colony', 'cart_group', 'colony_name')
+    search_fields = ('colony__name', 'cart_group__name')
+    list_filter = ('cart_group',)
+    
+    def colony_name(self, obj):
+        return obj.colony.name
+    colony_name.short_description = 'Colony Name'

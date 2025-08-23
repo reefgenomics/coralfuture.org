@@ -1,6 +1,6 @@
 # api/urls.py
 from django.urls import path, include
-from api.views import CheckAuthenticationApiView, UserCartApiView, UploadCSVApiView, CheckCSVForED50ApiView, CalculateED50ApiView
+from api.views import CheckAuthenticationApiView, UserCartApiView, UploadCSVApiView, CheckCSVForED50ApiView, CalculateED50ApiView, CartGroupManagementApiView, CartExportApiView
 from api.views import BioSamplesApiView, ObservationsApiView, \
     ColoniesApiView, ThermalToleranceApiView, ThermalToleranceMinMaxView, \
     BreakpointTemperatureApiView, BreakpointTemperatureMinMaxView, \
@@ -11,6 +11,8 @@ urlpatterns = [
     path('auth/', include([
         path('', include('rest_framework.urls')),
         path('cart/', UserCartApiView.as_view()),
+        path('cart/group/<int:group_id>/', CartGroupManagementApiView.as_view()),
+        path('cart/export/', CartExportApiView.as_view()),
         path('status/', CheckAuthenticationApiView.as_view()),
         path('upload-csv/', UploadCSVApiView.as_view()),
         path('check-csv-ed50/', CheckCSVForED50ApiView.as_view()),

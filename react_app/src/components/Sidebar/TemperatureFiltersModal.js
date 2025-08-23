@@ -111,7 +111,7 @@ const TemperatureFiltersModal = ({ show, onHide, filters, onAddFilters }) => {
         relThermalLimit: [minMaxValues.relThermalLimit.min, minMaxValues.relThermalLimit.max],
       });
     }
-  }, [show, fetchMinMaxData, minMaxValues]);
+  }, [show, fetchMinMaxData]);
 
   useEffect(() => {
     // Calculate active filters count
