@@ -2,8 +2,15 @@
 import os
 import tempfile
 import pandas as pd
+import csv
+import json
 from django.db.models import Max, Min
 from django.core.management import call_command
+from django.contrib.auth import authenticate, login, logout
+from django.http import JsonResponse
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.utils.decorators import method_decorator
+from django.views import View
 
 from rest_framework import generics, status
 from rest_framework.authentication import SessionAuthentication
@@ -28,6 +35,100 @@ class CheckAuthenticationApiView(APIView):
         return Response({
             'authenticated': request.user.is_authenticated,
             'username': request.user.username})
+
+
+@method_decorator(ensure_csrf_cookie, name='dispatch')
+class CSRFTokenView(APIView):
+    """
+    Get CSRF token for authentication.
+    """
+    
+    def get(self, request):
+        from django.middleware.csrf import get_token
+        csrf_token = get_token(request)
+        return Response({'csrfToken': csrf_token})
+
+
+class LoginApiView(APIView):
+    """
+    API endpoint for user login.
+    """
+    
+    def post(self, request):
+        try:
+            # Parse JSON data
+            if hasattr(request, 'data'):
+                data = request.data
+            else:
+                data = json.loads(request.body)
+            
+            username = data.get('username')
+            password = data.get('password')
+            
+            print(f"🔐 Login attempt for user: {username}")
+            
+            if not username or not password:
+                return Response({
+                    'success': False,
+                    'error': 'Username and password are required'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Authenticate user
+            user = authenticate(request, username=username, password=password)
+            
+            if user is not None:
+                if user.is_active:
+                    login(request, user)
+                    print(f"✅ Login successful for user: {username}")
+                    return Response({
+                        'success': True,
+                        'message': 'Login successful',
+                        'username': user.username
+                    })
+                else:
+                    print(f"❌ Inactive user login attempt: {username}")
+                    return Response({
+                        'success': False,
+                        'error': 'Account is disabled'
+                    }, status=status.HTTP_401_UNAUTHORIZED)
+            else:
+                print(f"❌ Invalid credentials for user: {username}")
+                return Response({
+                    'success': False,
+                    'error': 'Invalid username or password'
+                }, status=status.HTTP_401_UNAUTHORIZED)
+                
+        except json.JSONDecodeError:
+            print("❌ Invalid JSON in login request")
+            return Response({
+                'success': False,
+                'error': 'Invalid JSON data'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            print(f"❌ Login error: {str(e)}")
+            return Response({
+                'success': False,
+                'error': f'Login failed: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class LogoutApiView(APIView):
+    """
+    API endpoint for user logout.
+    """
+    
+    def post(self, request):
+        try:
+            logout(request)
+            return Response({
+                'success': True,
+                'message': 'Logout successful'
+            })
+        except Exception as e:
+            return Response({
+                'success': False,
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class CheckCSVForED50ApiView(APIView):

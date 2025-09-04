@@ -53,32 +53,6 @@ const HomePage = () => {
     }
   ];
 
-  const audiences = [
-    {
-      icon: <Search className="audience-icon" />,
-      title: "Researchers",
-      description: "Access comprehensive coral data, thermal tolerance metrics, and research tools for your studies.",
-      color: "primary"
-    },
-    {
-      icon: <People className="audience-icon" />,
-      title: "Public",
-      description: "Learn about coral reef health, climate change impacts, and conservation efforts through interactive visualizations.",
-      color: "success"
-    },
-    {
-      icon: <Shield className="audience-icon" />,
-      title: "Policymakers",
-      description: "Data-driven insights to support marine conservation policies and climate adaptation strategies.",
-      color: "info"
-    },
-    {
-      icon: <JournalText className="audience-icon" />,
-      title: "Educators",
-      description: "Educational resources and tools to teach about marine biology, climate science, and coral reef ecosystems.",
-      color: "warning"
-    }
-  ];
 
   const cbassFeatures = [
     {
@@ -135,6 +109,38 @@ const HomePage = () => {
             </a>
           </div>
         </div>
+      </section>
+
+      {/* Stats Section */}
+      <section className="stats-section">
+        <Container>
+          <Row className="text-center g-4">
+            <Col md={3}>
+              <div className="stat-item">
+                <div className="stat-number">1000+</div>
+                <div className="stat-label">Coral Colonies</div>
+              </div>
+            </Col>
+            <Col md={3}>
+              <div className="stat-item">
+                <div className="stat-number">50+</div>
+                <div className="stat-label">Research Projects</div>
+              </div>
+            </Col>
+            <Col md={3}>
+              <div className="stat-item">
+                <div className="stat-number">25+</div>
+                <div className="stat-label">Countries</div>
+              </div>
+            </Col>
+            <Col md={3}>
+              <div className="stat-item">
+                <div className="stat-number">24/7</div>
+                <div className="stat-label">Data Access</div>
+              </div>
+            </Col>
+          </Row>
+        </Container>
       </section>
 
       {/* CBASS System Section */}
@@ -213,68 +219,6 @@ const HomePage = () => {
         </Container>
       </section>
 
-      {/* Audience Section */}
-      <section className="audience-section">
-        <Container>
-          <Row className="justify-content-center text-center mb-5">
-            <Col lg={8}>
-              <h2 className="section-title text-white">Who We Serve</h2>
-              <p className="section-subtitle text-white-50">
-                Supporting diverse communities in marine research and conservation
-              </p>
-            </Col>
-          </Row>
-          
-          <Row className="g-4">
-            {audiences.map((audience, index) => (
-              <Col lg={6} xl={3} key={index}>
-                <Card className="audience-card h-100 border-0 shadow">
-                  <Card.Body className="p-4 text-center">
-                    <div className={`audience-icon-wrapper bg-${audience.color} bg-opacity-10 mb-3`}>
-                      {audience.icon}
-                    </div>
-                    <h6 className="card-title fw-bold mb-3">{audience.title}</h6>
-                    <p className="card-text small text-muted">{audience.description}</p>
-                  </Card.Body>
-                </Card>
-              </Col>
-            ))}
-          </Row>
-        </Container>
-      </section>
-
-      {/* Stats Section */}
-      <section className="stats-section">
-        <Container>
-          <Row className="text-center g-4">
-            <Col md={3}>
-              <div className="stat-item">
-                <div className="stat-number">1000+</div>
-                <div className="stat-label">Coral Colonies</div>
-              </div>
-            </Col>
-            <Col md={3}>
-              <div className="stat-item">
-                <div className="stat-number">50+</div>
-                <div className="stat-label">Research Projects</div>
-              </div>
-            </Col>
-            <Col md={3}>
-              <div className="stat-item">
-                <div className="stat-number">25+</div>
-                <div className="stat-label">Countries</div>
-              </div>
-            </Col>
-            <Col md={3}>
-              <div className="stat-item">
-                <div className="stat-number">24/7</div>
-                <div className="stat-label">Data Access</div>
-              </div>
-            </Col>
-          </Row>
-        </Container>
-      </section>
-
       {/* Contribute Section */}
       <section id="contribute" className="contribute-section">
         <Container>
@@ -316,42 +260,6 @@ const HomePage = () => {
                 >
                   <Upload className="me-2" />
                   Upload Data
-                </Button>
-              </div>
-            </Col>
-          </Row>
-        </Container>
-      </section>
-
-      {/* CTA Section */}
-      <section className="cta-section">
-        <Container>
-          <Row className="justify-content-center text-center">
-            <Col lg={8}>
-              <h2 className="section-title text-white mb-4">
-                Join the Coral Conservation Movement
-              </h2>
-              <p className="section-subtitle text-white-50 mb-4">
-                Whether you're a researcher, educator, or concerned citizen, 
-                your contribution matters in protecting our ocean's coral reefs.
-              </p>
-              <div className="cta-actions">
-                <Button 
-                  href="/map" 
-                  variant="light" 
-                  size="lg" 
-                  className="me-3"
-                >
-                  <Globe className="me-2" />
-                  Start Exploring
-                </Button>
-                <Button 
-                  href="/upload" 
-                  variant="outline-light" 
-                  size="lg"
-                >
-                  <Upload className="me-2" />
-                  Share Data
                 </Button>
               </div>
             </Col>

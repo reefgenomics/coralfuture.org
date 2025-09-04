@@ -127,7 +127,8 @@ const UserCartContextProvider = (props) => {
   };
 
   useEffect(() => {
-    getCartGroups(process.env.REACT_APP_BACKEND_URL);
+    // Only load cart groups if user is authenticated
+    // This will be handled by the component that uses this context
   }, []);
 
   return (

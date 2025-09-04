@@ -1,7 +1,7 @@
 // External imports
 import React, { useContext } from 'react';
 import { Navbar, Nav, Container, NavDropdown } from 'react-bootstrap';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 // Internal imports
 // Contexts
@@ -9,11 +9,29 @@ import { AuthContext } from 'contexts/AuthContext'
 
 const NavigationBar = () => {
 
-  const { authData } = useContext(AuthContext);
+  const { authData, logout } = useContext(AuthContext);
   const backendUrl = process.env.REACT_APP_BACKEND_URL;
   const location = useLocation();
+  const navigate = useNavigate();
 
   const isActive = (path) => location.pathname === path;
+
+  const handleLogout = async () => {
+    try {
+      const result = await logout(backendUrl);
+      if (result.success) {
+        // Redirect to home page after logout
+        navigate('/');
+      } else {
+        console.error('Logout error:', result.error);
+        // Still redirect even if logout failed
+        navigate('/');
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+      navigate('/');
+    }
+  };
 
   return (
     <Navbar 
@@ -114,13 +132,13 @@ const NavigationBar = () => {
                 <i className="bi bi-cart"></i> Cart
               </NavDropdown.Item>
               <NavDropdown.Divider />
-              <NavDropdown.Item href={`${backendUrl}/api/auth/logout/`}>
+              <NavDropdown.Item onClick={handleLogout}>
                 <i className="bi bi-box-arrow-right"></i> Logout
               </NavDropdown.Item>
             </NavDropdown>
           ) : (
             <Nav.Item>
-              <Nav.Link href={`${backendUrl}/api/auth/login/`} className="default-link" style={{ color: '#0a58ca' }}>
+              <Nav.Link as={Link} to="/login" className="default-link" style={{ color: '#0a58ca' }}>
                 <i className="bi bi-box-arrow-in-right"></i> Login
               </Nav.Link>
             </Nav.Item>

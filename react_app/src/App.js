@@ -11,6 +11,7 @@ import HomePage from 'pages/Home/HomePage';
 import CustomerCart from 'pages/Cart/CustomerCart';
 import CustomerMap from 'pages/Map/CustomerMap';
 import UploadDataPage from 'pages/Upload/UploadDataPage';
+import LoginPage from 'pages/Login/LoginPage';
 // Components
 import NavigationBar from 'components/Navbar/Navbar';
 
@@ -28,6 +29,7 @@ const App = () => {
               <Route path='/map' element={<CustomerMap />} />
               <Route path="/cart" element={<CustomerCart />} />
               <Route path="/upload" element={<UploadDataPage />} />
+              <Route path="/login" element={<LoginPage />} />
             </Routes>
           </div>
           

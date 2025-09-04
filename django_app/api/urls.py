@@ -5,15 +5,17 @@ from api.views import BioSamplesApiView, ObservationsApiView, \
     ColoniesApiView, ThermalToleranceApiView, ThermalToleranceMinMaxView, \
     BreakpointTemperatureApiView, BreakpointTemperatureMinMaxView, \
     ThermalLimitApiView, ThermalLimitMinMaxView, \
-    ProjectsApiView
+    ProjectsApiView, CSRFTokenView, LoginApiView, LogoutApiView
 
 urlpatterns = [
     path('auth/', include([
-        path('', include('rest_framework.urls')),
         path('cart/', UserCartApiView.as_view()),
         path('cart/group/<int:group_id>/', CartGroupManagementApiView.as_view()),
         path('cart/export/', CartExportApiView.as_view()),
         path('status/', CheckAuthenticationApiView.as_view()),
+        path('csrf/', CSRFTokenView.as_view()),
+        path('login/', LoginApiView.as_view()),
+        path('logout/', LogoutApiView.as_view()),
         path('upload-csv/', UploadCSVApiView.as_view()),
         path('check-csv-ed50/', CheckCSVForED50ApiView.as_view()),
         path('calculate-ed50/', CalculateED50ApiView.as_view()),
@@ -43,3 +45,5 @@ urlpatterns = [
         ])),
     ]))
 ]
+
+
