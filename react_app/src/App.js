@@ -12,6 +12,8 @@ import CustomerCart from 'pages/Cart/CustomerCart';
 import CustomerMap from 'pages/Map/CustomerMap';
 import UploadDataPage from 'pages/Upload/UploadDataPage';
 import LoginPage from 'pages/Login/LoginPage';
+import ProjectsPage from 'pages/Projects/ProjectsPage';
+import ProjectDetailPage from 'pages/ProjectDetail/ProjectDetailPage';
 // Components
 import NavigationBar from 'components/Navbar/Navbar';
 
@@ -30,6 +32,8 @@ const App = () => {
               <Route path="/cart" element={<CustomerCart />} />
               <Route path="/upload" element={<UploadDataPage />} />
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/projects" element={<ProjectsPage />} />
+              <Route path="/project/:projectId" element={<ProjectDetailPage />} />
             </Routes>
           </div>
           

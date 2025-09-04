@@ -11,24 +11,36 @@ const TemperatureFiltersModal = ({ show, onHide, filters, onAddFilters }) => {
     // Thermal Tolerance (TT)
     absThermalTolerance: [20, 40],
     relThermalTolerance: [0, 10],
+    ed50: [20, 40],
+    ed50Mmm: [0, 10],
     
     // Breakpoint Temperature (BT)
     absBreakpointTemperature: [20, 40],
     relBreakpointTemperature: [0, 10],
+    ed5: [20, 40],
+    ed5Mmm: [0, 10],
     
     // Thermal Limit (TL)
     absThermalLimit: [20, 40],
     relThermalLimit: [0, 10],
+    ed95: [20, 40],
+    ed95Mmm: [0, 10],
   });
 
   // State for min/max values from API
   const [minMaxValues, setMinMaxValues] = useState({
     absThermalTolerance: { min: 20, max: 40 },
     relThermalTolerance: { min: 0, max: 10 },
+    ed50: { min: 20, max: 40 },
+    ed50Mmm: { min: 0, max: 10 },
     absBreakpointTemperature: { min: 20, max: 40 },
     relBreakpointTemperature: { min: 0, max: 10 },
+    ed5: { min: 20, max: 40 },
+    ed5Mmm: { min: 0, max: 10 },
     absThermalLimit: { min: 20, max: 40 },
     relThermalLimit: { min: 0, max: 10 },
+    ed95: { min: 20, max: 40 },
+    ed95Mmm: { min: 0, max: 10 },
   });
 
   // State for active filters count
@@ -58,6 +70,14 @@ const TemperatureFiltersModal = ({ show, onHide, filters, onAddFilters }) => {
           min: ttData.min_rel_thermal_tolerance || 0,
           max: ttData.max_rel_thermal_tolerance || 10
         },
+        ed50: {
+          min: ttData.min_ed50 || 20,
+          max: ttData.max_ed50 || 40
+        },
+        ed50Mmm: {
+          min: ttData.min_ed50_mmm || 0,
+          max: ttData.max_ed50_mmm || 10
+        },
         absBreakpointTemperature: {
           min: btData.min_abs_breakpoint_temperature || 20,
           max: btData.max_abs_breakpoint_temperature || 40
@@ -66,6 +86,14 @@ const TemperatureFiltersModal = ({ show, onHide, filters, onAddFilters }) => {
           min: btData.min_rel_breakpoint_temperature || 0,
           max: btData.max_rel_breakpoint_temperature || 10
         },
+        ed5: {
+          min: btData.min_ed5 || 20,
+          max: btData.max_ed5 || 40
+        },
+        ed5Mmm: {
+          min: btData.min_ed5_mmm || 0,
+          max: btData.max_ed5_mmm || 10
+        },
         absThermalLimit: {
           min: tlData.min_abs_thermal_limit || 20,
           max: tlData.max_abs_thermal_limit || 40
@@ -73,6 +101,14 @@ const TemperatureFiltersModal = ({ show, onHide, filters, onAddFilters }) => {
         relThermalLimit: {
           min: tlData.min_rel_thermal_limit || 0,
           max: tlData.max_rel_thermal_limit || 10
+        },
+        ed95: {
+          min: tlData.min_ed95 || 20,
+          max: tlData.max_ed95 || 40
+        },
+        ed95Mmm: {
+          min: tlData.min_ed95_mmm || 0,
+          max: tlData.max_ed95_mmm || 10
         }
       };
 
@@ -85,10 +121,16 @@ const TemperatureFiltersModal = ({ show, onHide, filters, onAddFilters }) => {
         setTempFilters({
           absThermalTolerance: [newMinMaxValues.absThermalTolerance.min, newMinMaxValues.absThermalTolerance.max],
           relThermalTolerance: [newMinMaxValues.relThermalTolerance.min, newMinMaxValues.relThermalTolerance.max],
+          ed50: [newMinMaxValues.ed50.min, newMinMaxValues.ed50.max],
+          ed50Mmm: [newMinMaxValues.ed50Mmm.min, newMinMaxValues.ed50Mmm.max],
           absBreakpointTemperature: [newMinMaxValues.absBreakpointTemperature.min, newMinMaxValues.absBreakpointTemperature.max],
           relBreakpointTemperature: [newMinMaxValues.relBreakpointTemperature.min, newMinMaxValues.relBreakpointTemperature.max],
+          ed5: [newMinMaxValues.ed5.min, newMinMaxValues.ed5.max],
+          ed5Mmm: [newMinMaxValues.ed5Mmm.min, newMinMaxValues.ed5Mmm.max],
           absThermalLimit: [newMinMaxValues.absThermalLimit.min, newMinMaxValues.absThermalLimit.max],
           relThermalLimit: [newMinMaxValues.relThermalLimit.min, newMinMaxValues.relThermalLimit.max],
+          ed95: [newMinMaxValues.ed95.min, newMinMaxValues.ed95.max],
+          ed95Mmm: [newMinMaxValues.ed95Mmm.min, newMinMaxValues.ed95Mmm.max],
         });
       } else {
         console.log('Modal: filters provided, preserving them');
@@ -105,10 +147,16 @@ const TemperatureFiltersModal = ({ show, onHide, filters, onAddFilters }) => {
       setTempFilters({
         absThermalTolerance: [minMaxValues.absThermalTolerance.min, minMaxValues.absThermalTolerance.max],
         relThermalTolerance: [minMaxValues.relThermalTolerance.min, minMaxValues.relThermalTolerance.max],
+        ed50: [minMaxValues.ed50.min, minMaxValues.ed50.max],
+        ed50Mmm: [minMaxValues.ed50Mmm.min, minMaxValues.ed50Mmm.max],
         absBreakpointTemperature: [minMaxValues.absBreakpointTemperature.min, minMaxValues.absBreakpointTemperature.max],
         relBreakpointTemperature: [minMaxValues.relBreakpointTemperature.min, minMaxValues.relBreakpointTemperature.max],
+        ed5: [minMaxValues.ed5.min, minMaxValues.ed5.max],
+        ed5Mmm: [minMaxValues.ed5Mmm.min, minMaxValues.ed5Mmm.max],
         absThermalLimit: [minMaxValues.absThermalLimit.min, minMaxValues.absThermalLimit.max],
         relThermalLimit: [minMaxValues.relThermalLimit.min, minMaxValues.relThermalLimit.max],
+        ed95: [minMaxValues.ed95.min, minMaxValues.ed95.max],
+        ed95Mmm: [minMaxValues.ed95Mmm.min, minMaxValues.ed95Mmm.max],
       });
     }
   }, [show, fetchMinMaxData]);
@@ -136,10 +184,16 @@ const TemperatureFiltersModal = ({ show, onHide, filters, onAddFilters }) => {
     setTempFilters({
       absThermalTolerance: [minMaxValues.absThermalTolerance.min, minMaxValues.absThermalTolerance.max],
       relThermalTolerance: [minMaxValues.relThermalTolerance.min, minMaxValues.relThermalTolerance.max],
+      ed50: [minMaxValues.ed50.min, minMaxValues.ed50.max],
+      ed50Mmm: [minMaxValues.ed50Mmm.min, minMaxValues.ed50Mmm.max],
       absBreakpointTemperature: [minMaxValues.absBreakpointTemperature.min, minMaxValues.absBreakpointTemperature.max],
       relBreakpointTemperature: [minMaxValues.relBreakpointTemperature.min, minMaxValues.relBreakpointTemperature.max],
+      ed5: [minMaxValues.ed5.min, minMaxValues.ed5.max],
+      ed5Mmm: [minMaxValues.ed5Mmm.min, minMaxValues.ed5Mmm.max],
       absThermalLimit: [minMaxValues.absThermalLimit.min, minMaxValues.absThermalLimit.max],
       relThermalLimit: [minMaxValues.relThermalLimit.min, minMaxValues.relThermalLimit.max],
+      ed95: [minMaxValues.ed95.min, minMaxValues.ed95.max],
+      ed95Mmm: [minMaxValues.ed95Mmm.min, minMaxValues.ed95Mmm.max],
     });
   };
 
@@ -258,7 +312,7 @@ const TemperatureFiltersModal = ({ show, onHide, filters, onAddFilters }) => {
       centered
       className="temperature-filters-modal"
     >
-      <Modal.Header className="bg-primary text-white border-0">
+      <Modal.Header className="bg-primary text-white border-0 d-flex justify-content-between align-items-center">
         <Modal.Title className="d-flex align-items-center">
           <ThermometerHalf className="me-3" size={24} />
           <div>
@@ -271,7 +325,7 @@ const TemperatureFiltersModal = ({ show, onHide, filters, onAddFilters }) => {
             </Badge>
           )}
         </Modal.Title>
-        <Button variant="link" onClick={onHide} className="text-white p-0">
+        <Button variant="link" onClick={onHide} className="text-white p-0 ms-auto">
           <XCircle size={28} />
         </Button>
       </Modal.Header>
@@ -295,10 +349,18 @@ const TemperatureFiltersModal = ({ show, onHide, filters, onAddFilters }) => {
             </div>
             <Row>
               <Col lg={6}>
-                {renderTemperatureSlider('absThermalTolerance', 'Absolute Thermal Tolerance', '°C', '🌡️')}
+                {renderTemperatureSlider('absThermalTolerance', 'Absolute Thermal Tolerance', '°C')}
               </Col>
               <Col lg={6}>
-                {renderTemperatureSlider('relThermalTolerance', 'Relative Thermal Tolerance', '°C', '📊')}
+                {renderTemperatureSlider('relThermalTolerance', 'Relative Thermal Tolerance', '°C')}
+              </Col>
+            </Row>
+            <Row>
+              <Col lg={6}>
+                {renderTemperatureSlider('ed50', 'Absolute Thermal Tolerance: ED50', '°C')}
+              </Col>
+              <Col lg={6}>
+                {renderTemperatureSlider('ed50Mmm', 'Relative Thermal Tolerance: ED50-MMM', '°C')}
               </Col>
             </Row>
           </div>
@@ -315,10 +377,18 @@ const TemperatureFiltersModal = ({ show, onHide, filters, onAddFilters }) => {
             </div>
             <Row>
               <Col lg={6}>
-                {renderTemperatureSlider('absBreakpointTemperature', 'Absolute Breakpoint Temperature', '°C', '🎯')}
+                {renderTemperatureSlider('absBreakpointTemperature', 'Absolute Breakpoint Temperature', '°C')}
               </Col>
               <Col lg={6}>
-                {renderTemperatureSlider('relBreakpointTemperature', 'Relative Breakpoint Temperature', '°C', '📈')}
+                {renderTemperatureSlider('relBreakpointTemperature', 'Relative Breakpoint Temperature', '°C')}
+              </Col>
+            </Row>
+            <Row>
+              <Col lg={6}>
+                {renderTemperatureSlider('ed5', 'Breakpoint Temperature: ED5', '°C')}
+              </Col>
+              <Col lg={6}>
+                {renderTemperatureSlider('ed5Mmm', 'Relative Breakpoint Temperature: ED5-MMM', '°C')}
               </Col>
             </Row>
           </div>
@@ -335,10 +405,18 @@ const TemperatureFiltersModal = ({ show, onHide, filters, onAddFilters }) => {
             </div>
             <Row>
               <Col lg={6}>
-                {renderTemperatureSlider('absThermalLimit', 'Absolute Thermal Limit', '°C', '⚠️')}
+                {renderTemperatureSlider('absThermalLimit', 'Absolute Thermal Limit', '°C')}
               </Col>
               <Col lg={6}>
-                {renderTemperatureSlider('relThermalLimit', 'Relative Thermal Limit', '°C', '🚨')}
+                {renderTemperatureSlider('relThermalLimit', 'Relative Thermal Limit', '°C')}
+              </Col>
+            </Row>
+            <Row>
+              <Col lg={6}>
+                {renderTemperatureSlider('ed95', 'Thermal Limit: ED95', '°C')}
+              </Col>
+              <Col lg={6}>
+                {renderTemperatureSlider('ed95Mmm', 'Relative Thermal Limit: ED95-MMM', '°C')}
               </Col>
             </Row>
           </div>

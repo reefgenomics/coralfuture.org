@@ -56,7 +56,7 @@ const HomePage = () => {
 
   const cbassFeatures = [
     {
-      title: "CBASS System",
+      title: "CBASS assays",
       description: "A portable experimental system to run standardized short-term acute heat stress assays. CBASS assays allow determination of the ED50, the standardized temperature threshold at which 50% of initial photosystem efficiency is lost.",
       references: [
         "Evensen et al. 2023",

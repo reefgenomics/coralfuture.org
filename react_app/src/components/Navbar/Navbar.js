@@ -72,6 +72,16 @@ const NavigationBar = () => {
             </Nav.Item>
 
             <Nav.Item>
+              <Nav.Link 
+                as={Link} 
+                to="/projects" 
+                className={isActive('/projects') ? 'active fw-medium' : ''}
+              >
+                <i className="bi bi-journal-text"></i> Projects
+              </Nav.Link>
+            </Nav.Item>
+
+            <Nav.Item>
               <Nav.Link href={(() => {
                 const envUrl = process.env.REACT_APP_SHINY_URL;
                 if (envUrl) return envUrl; // explicit override

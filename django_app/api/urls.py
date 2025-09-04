@@ -6,6 +6,7 @@ from api.views import BioSamplesApiView, ObservationsApiView, \
     BreakpointTemperatureApiView, BreakpointTemperatureMinMaxView, \
     ThermalLimitApiView, ThermalLimitMinMaxView, \
     ProjectsApiView, CSRFTokenView, LoginApiView, LogoutApiView
+from api.projects_api import ProjectsApiView as NewProjectsApiView, ProjectDetailApiView
 
 urlpatterns = [
     path('auth/', include([
@@ -24,7 +25,8 @@ urlpatterns = [
         path('biosamples/', BioSamplesApiView.as_view()),
         path('colonies/', ColoniesApiView.as_view()),
         path('observations/', ObservationsApiView.as_view()),
-        path('projects/', ProjectsApiView.as_view()),
+        path('projects/', NewProjectsApiView.as_view()),
+        path('projects/<int:project_id>/', ProjectDetailApiView.as_view()),
         path('thermal-tolerances/', include([
             path('', ThermalToleranceApiView.as_view()),
             # Main API view for thermal tolerances
