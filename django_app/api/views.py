@@ -24,6 +24,7 @@ from api.serializers import BioSampleSerializer, \
 # Apps imports
 from projects.models import BioSample, Observation, Colony, \
     ThermalTolerance, Project, CartGroup, CartItem, BreakpointTemperature, ThermalLimit
+from django.db.models import Count, Q
 
 
 class CheckAuthenticationApiView(APIView):
@@ -938,3 +939,61 @@ class CartExportApiView(APIView):
         except Exception as e:
             return Response({'error': f'Export failed: {str(e)}'}, 
                           status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class StatisticsApiView(APIView):
+    """
+    Endpoint for getting public statistics about coral data.
+    This endpoint is accessible without authentication.
+    """
+
+    def get(self, request):
+        """Get statistics about coral colonies, projects, countries, and data availability."""
+        try:
+            # Count coral colonies
+            colonies_count = Colony.objects.count()
+            
+            # Count research projects
+            projects_count = Project.objects.count()
+            
+            # Count unique countries
+            countries_count = Colony.objects.values('country').distinct().count()
+            
+            # Count total observations (for 24/7 data access indicator)
+            observations_count = Observation.objects.count()
+            
+            # Additional statistics for better context
+            species_count = Colony.objects.values('species').distinct().count()
+            
+            # Get some recent activity indicators
+            recent_observations = Observation.objects.filter(
+                experiment__project__registration_date__isnull=False
+            ).count()
+            
+            # Countries with most colonies
+            top_countries = Colony.objects.values('country').annotate(
+                colony_count=Count('id')
+            ).order_by('-colony_count')[:5]
+            
+            # Species with most colonies
+            top_species = Colony.objects.values('species').annotate(
+                colony_count=Count('id')
+            ).order_by('-colony_count')[:5]
+            
+            return Response({
+                'coral_colonies': colonies_count,
+                'research_projects': projects_count,
+                'countries': countries_count,
+                'data_access_24_7': observations_count > 0,  # True if we have observations
+                'observations_count': observations_count,
+                'species_count': species_count,
+                'recent_observations': recent_observations,
+                'top_countries': list(top_countries),
+                'top_species': list(top_species),
+                'last_updated': '2024-01-01'  # You can make this dynamic if needed
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response({
+                'error': f'Failed to get statistics: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

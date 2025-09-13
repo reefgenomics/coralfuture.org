@@ -17,6 +17,7 @@ import {
 } from 'react-bootstrap-icons';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './HomePage.css';
+import Statistics from '../../components/Statistics/Statistics';
 
 // Debug: Log available icons
 console.log('Available icons:', {
@@ -104,44 +105,18 @@ const HomePage = () => {
             <a href="#features" className="hero-btn">
               Explore Features
             </a>
-            <a href="#contribute" className="hero-btn primary">
-              Get Started
+            <a href="https://docs.google.com/forms/d/e/1FAIpQLSfPhRauM0YEVddxvRcwd-bOeL7NepnmwzIDkB8cm9GFFi0fzA/viewform" className="hero-btn primary" target="_blank" rel="noopener noreferrer">
+              Request Account Access
+            </a>
+            <a href="/map" className="hero-btn secondary">
+              View Map
             </a>
           </div>
         </div>
       </section>
 
       {/* Stats Section */}
-      <section className="stats-section">
-        <Container>
-          <Row className="text-center g-4">
-            <Col md={3}>
-              <div className="stat-item">
-                <div className="stat-number">1000+</div>
-                <div className="stat-label">Coral Colonies</div>
-              </div>
-            </Col>
-            <Col md={3}>
-              <div className="stat-item">
-                <div className="stat-number">50+</div>
-                <div className="stat-label">Research Projects</div>
-              </div>
-            </Col>
-            <Col md={3}>
-              <div className="stat-item">
-                <div className="stat-number">25+</div>
-                <div className="stat-label">Countries</div>
-              </div>
-            </Col>
-            <Col md={3}>
-              <div className="stat-item">
-                <div className="stat-number">24/7</div>
-                <div className="stat-label">Data Access</div>
-              </div>
-            </Col>
-          </Row>
-        </Container>
-      </section>
+      <Statistics />
 
       {/* CBASS System Section */}
       <section className="cbass-section">
@@ -231,10 +206,13 @@ const HomePage = () => {
               
               <div className="contribute-info">
                 <p className="mb-4">
-                  If you want to contribute to our database, please have a look first at our{' '}
+                  To access the platform and contribute to our database, please fill out the{' '}
+                  <a href="https://docs.google.com/forms/d/e/1FAIpQLSfPhRauM0YEVddxvRcwd-bOeL7NepnmwzIDkB8cm9GFFi0fzA/viewform" target="_blank" rel="noopener noreferrer" className="text-decoration-none">
+                    <strong>account request form</strong>
+                  </a>. For more information, check our{' '}
                   <a href="https://github.com/greenjune-ship-it/coral-future" target="_blank" rel="noopener noreferrer" className="text-decoration-none">
                     <strong>Wiki page</strong>
-                  </a>. Then contact{' '}
+                  </a> or contact{' '}
                   <a href="mailto:coralfuture.org@gmail.com" className="text-decoration-none">
                     <strong>coralfuture.org@gmail.com</strong>
                   </a>.

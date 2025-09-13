@@ -1,6 +1,6 @@
 # api/urls.py
 from django.urls import path, include
-from api.views import CheckAuthenticationApiView, UserCartApiView, UploadCSVApiView, CheckCSVForED50ApiView, CalculateED50ApiView, CartGroupManagementApiView, CartExportApiView
+from api.views import CheckAuthenticationApiView, UserCartApiView, UploadCSVApiView, CheckCSVForED50ApiView, CalculateED50ApiView, CartGroupManagementApiView, CartExportApiView, StatisticsApiView
 from api.views import BioSamplesApiView, ObservationsApiView, \
     ColoniesApiView, ThermalToleranceApiView, ThermalToleranceMinMaxView, \
     BreakpointTemperatureApiView, BreakpointTemperatureMinMaxView, \
@@ -22,6 +22,7 @@ urlpatterns = [
         path('calculate-ed50/', CalculateED50ApiView.as_view()),
     ])),
     path('public/', include([
+        path('statistics/', StatisticsApiView.as_view()),
         path('biosamples/', BioSamplesApiView.as_view()),
         path('colonies/', ColoniesApiView.as_view()),
         path('observations/', ObservationsApiView.as_view()),

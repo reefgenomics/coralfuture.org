@@ -72,7 +72,6 @@ const LoginPage = () => {
     <div className="login-page">
       {/* Background Image */}
       <div className="login-background"></div>
-      
       <Container fluid className="login-container">
         <Row className="justify-content-center align-items-center min-vh-100">
           <Col xs={12} sm={10} md={8} lg={6} xl={5}>
@@ -81,9 +80,8 @@ const LoginPage = () => {
                 {/* Header */}
                 <div className="login-header text-center mb-5">
                   <div className="login-icon-wrapper">
-                    <PersonCircle className="login-icon" />
+                    <span className="login-icon">🪸</span>
                   </div>
-                  <h1 className="login-title">Welcome Back</h1>
                   <p className="login-subtitle">Sign in to your CoralFuture account</p>
                 </div>
 
@@ -166,10 +164,9 @@ const LoginPage = () => {
                       </>
                     )}
                   </Button>
-
                   <div className="text-center">
                     <small className="login-help-text">
-                      Don't have an account? Contact your administrator for access.
+                      Don't have an account? <a href="https://docs.google.com/forms/d/e/1FAIpQLSfPhRauM0YEVddxvRcwd-bOeL7NepnmwzIDkB8cm9GFFi0fzA/viewform" target="_blank" rel="noopener noreferrer">Fill out the registration form</a>.
                     </small>
                   </div>
                 </Form>
