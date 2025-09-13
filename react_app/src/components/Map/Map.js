@@ -24,7 +24,7 @@ const ChangeView = ({ markers }) => {
 
 const Map = () => {
   const { BaseLayer } = LayersControl;
-  const { allColonies, filters, filteredColonies, setFilteredColonies } = useContext(SidebarFilterContext);
+  const { allColonies, filters, filteredColonies, setFilteredColonies, defaultValues } = useContext(SidebarFilterContext);
   const [mapCenter, setMapCenter] = useState(null);
   
   useEffect(() => {
@@ -33,7 +33,7 @@ const Map = () => {
 
       // Only apply the filter if filters are set
       if (filters && Object.keys(filters).length > 0) {
-        dataToSet = filterColonies(filters, allColonies);
+        dataToSet = filterColonies(filters, allColonies, defaultValues);
       }
       // Recalculate map center based on selection
       const avgLat = dataToSet.reduce((sum, marker) => sum + marker.latitude, 0) / dataToSet.length;

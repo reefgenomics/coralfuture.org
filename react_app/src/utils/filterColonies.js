@@ -1,4 +1,4 @@
-function filterColonies(filters, colonies) {
+function filterColonies(filters, colonies, defaultValues = {}) {
   return colonies.filter(colony => {
     // Check if species filter is defined and matches colony species
     if (filters.species && colony.species !== filters.species) {
@@ -17,8 +17,13 @@ function filterColonies(filters, colonies) {
     }
 
     // Helper function to check if a filter is actually applied (not default values)
-    const isFilterApplied = (filterValues, defaultMin, defaultMax) => {
+    const isFilterApplied = (filterValues, parameterName) => {
       if (!filterValues || filterValues.length !== 2) return false;
+      
+      // Get default values from parameter or use fallback values
+      const defaultMin = defaultValues[parameterName]?.min || 20;
+      const defaultMax = defaultValues[parameterName]?.max || 40;
+      
       return filterValues[0] !== defaultMin || filterValues[1] !== defaultMax;
     };
 
@@ -41,7 +46,7 @@ function filterColonies(filters, colonies) {
     };
 
     // Check Thermal Tolerance (TT) filters - only if they were actually changed from defaults
-    if (isFilterApplied(filters.absThermalTolerance, 20, 40)) {
+    if (isFilterApplied(filters.absThermalTolerance, 'absThermalTolerance')) {
       if (!colony.thermal_tolerances || colony.thermal_tolerances.length === 0) {
         return false;
       }
@@ -52,7 +57,7 @@ function filterColonies(filters, colonies) {
       }
     }
 
-    if (isFilterApplied(filters.relThermalTolerance, 0, 10)) {
+    if (isFilterApplied(filters.relThermalTolerance, 'relThermalTolerance')) {
       if (!colony.thermal_tolerances || colony.thermal_tolerances.length === 0) {
         return false;
       }
@@ -64,7 +69,7 @@ function filterColonies(filters, colonies) {
     }
 
     // Check ED50 filters
-    if (isFilterApplied(filters.ed50, 20, 40)) {
+    if (isFilterApplied(filters.ed50, 'ed50')) {
       if (!colony.thermal_tolerances || colony.thermal_tolerances.length === 0) {
         return false;
       }
@@ -75,7 +80,7 @@ function filterColonies(filters, colonies) {
       }
     }
 
-    if (isFilterApplied(filters.ed50Mmm, 0, 10)) {
+    if (isFilterApplied(filters.ed50Mmm, 'ed50Mmm')) {
       if (!colony.thermal_tolerances || colony.thermal_tolerances.length === 0) {
         return false;
       }
@@ -87,7 +92,7 @@ function filterColonies(filters, colonies) {
     }
 
     // Check Breakpoint Temperature (BT) filters - only if they were actually changed from defaults
-    if (isFilterApplied(filters.absBreakpointTemperature, 20, 40)) {
+    if (isFilterApplied(filters.absBreakpointTemperature, 'absBreakpointTemperature')) {
       if (!colony.breakpoint_temperatures || colony.breakpoint_temperatures.length === 0) {
         return false;
       }
@@ -98,7 +103,7 @@ function filterColonies(filters, colonies) {
       }
     }
 
-    if (isFilterApplied(filters.relBreakpointTemperature, 0, 10)) {
+    if (isFilterApplied(filters.relBreakpointTemperature, 'relBreakpointTemperature')) {
       if (!colony.breakpoint_temperatures || colony.breakpoint_temperatures.length === 0) {
         return false;
       }
@@ -110,7 +115,7 @@ function filterColonies(filters, colonies) {
     }
 
     // Check ED5 filters
-    if (isFilterApplied(filters.ed5, 20, 40)) {
+    if (isFilterApplied(filters.ed5, 'ed5')) {
       if (!colony.breakpoint_temperatures || colony.breakpoint_temperatures.length === 0) {
         return false;
       }
@@ -121,7 +126,7 @@ function filterColonies(filters, colonies) {
       }
     }
 
-    if (isFilterApplied(filters.ed5Mmm, 0, 10)) {
+    if (isFilterApplied(filters.ed5Mmm, 'ed5Mmm')) {
       if (!colony.breakpoint_temperatures || colony.breakpoint_temperatures.length === 0) {
         return false;
       }
@@ -133,7 +138,7 @@ function filterColonies(filters, colonies) {
     }
 
     // Check Thermal Limit (TL) filters - only if they were actually changed from defaults
-    if (isFilterApplied(filters.absThermalLimit, 20, 40)) {
+    if (isFilterApplied(filters.absThermalLimit, 'absThermalLimit')) {
       if (!colony.thermal_limits || colony.thermal_limits.length === 0) {
         return false;
       }
@@ -144,7 +149,7 @@ function filterColonies(filters, colonies) {
       }
     }
 
-    if (isFilterApplied(filters.relThermalLimit, 0, 10)) {
+    if (isFilterApplied(filters.relThermalLimit, 'relThermalLimit')) {
       if (!colony.thermal_limits || colony.thermal_limits.length === 0) {
         return false;
       }
@@ -156,7 +161,7 @@ function filterColonies(filters, colonies) {
     }
 
     // Check ED95 filters
-    if (isFilterApplied(filters.ed95, 20, 40)) {
+    if (isFilterApplied(filters.ed95, 'ed95')) {
       if (!colony.thermal_limits || colony.thermal_limits.length === 0) {
         return false;
       }
@@ -167,7 +172,7 @@ function filterColonies(filters, colonies) {
       }
     }
 
-    if (isFilterApplied(filters.ed95Mmm, 0, 10)) {
+    if (isFilterApplied(filters.ed95Mmm, 'ed95Mmm')) {
       if (!colony.thermal_limits || colony.thermal_limits.length === 0) {
         return false;
       }

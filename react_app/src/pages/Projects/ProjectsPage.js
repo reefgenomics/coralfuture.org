@@ -83,10 +83,7 @@ const ProjectsPage = () => {
                   <h5 className="project-title mb-3">
                     {project.name}
                   </h5>
-                  
-                  <p className="project-description text-muted mb-4">
-                    {project.description || 'No description available'}
-                  </p>
+      
                   
                   <div className="project-meta mb-4">
                     <div className="meta-item">

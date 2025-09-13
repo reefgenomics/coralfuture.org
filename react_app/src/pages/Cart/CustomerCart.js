@@ -5,16 +5,19 @@ import {
   Table, InputGroup, Dropdown
 } from 'react-bootstrap';
 import { Trash3, Pencil, Download, CheckCircle, SortDown, SortUp, Search } from 'react-bootstrap-icons';
-import UserCartContextProvider, { UserCartContext } from 'contexts/UserCartContext';
+import { UserCartContext } from 'contexts/UserCartContext';
+import { AuthContext } from 'contexts/AuthContext';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
 const CustomerCart = () => {
+  const { authData } = useContext(AuthContext);
   const { 
     cartGroups, 
     loading, 
     deleteCartGroup, 
     renameCartGroup, 
-    exportCartGroups 
+    exportCartGroups,
+    refreshCart
   } = useContext(UserCartContext);
 
   const [selectedGroups, setSelectedGroups] = useState(new Set());
@@ -26,6 +29,13 @@ const CustomerCart = () => {
   const [sortField, setSortField] = useState('created_at');
   const [sortDirection, setSortDirection] = useState('desc');
   const [expandedGroups, setExpandedGroups] = useState(new Set());
+
+  // Load cart data when user is authenticated
+  React.useEffect(() => {
+    if (authData.authenticated) {
+      refreshCart();
+    }
+  }, [authData.authenticated]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Initialize all groups as selected
   React.useEffect(() => {
@@ -159,19 +169,41 @@ const CustomerCart = () => {
     if (!colonies || colonies.length === 0) return <p className="text-muted">No colonies in this group</p>;
 
     return (
-      <div className="table-responsive">
-        <Table striped bordered hover size="sm" className="mt-3" style={{minWidth: '1200px'}}>
-          <thead>
-            <tr>
-              <th style={{minWidth: '150px'}}>Colony</th>
-              <th style={{minWidth: '120px'}}>Species</th>
-              <th style={{minWidth: '140px'}}>Location</th>
-              <th style={{minWidth: '180px'}}>Biosamples</th>
-              <th style={{minWidth: '250px'}}>Thermal Tolerance (ED50)</th>
-              <th style={{minWidth: '250px'}}>Breakpoint Temp (ED5)</th>
-              <th style={{minWidth: '250px'}}>Thermal Limit (ED95)</th>
-            </tr>
-          </thead>
+      <div className="position-relative">
+        <div className="table-responsive" style={{ 
+          overflowX: 'auto', 
+          width: '100%',
+          maxWidth: '100%',
+          border: '1px solid #dee2e6',
+          borderRadius: '0.375rem',
+          boxShadow: '0 0.125rem 0.25rem rgba(0, 0, 0, 0.075)',
+          WebkitOverflowScrolling: 'touch'
+        }}>
+          <Table striped bordered hover size="sm" className="mt-3 mb-0" style={{
+            minWidth: '1600px',
+            width: '100%',
+            marginBottom: 0
+          }}>
+            <thead className="table-light">
+              <tr>
+                <th style={{
+                  width: '150px',
+                  minWidth: '150px',
+                  maxWidth: '150px',
+                  position: 'sticky',
+                  left: 0,
+                  backgroundColor: '#f8f9fa',
+                  zIndex: 10,
+                  borderRight: '2px solid #dee2e6'
+                }}>Colony</th>
+                <th style={{width: '120px', minWidth: '120px', maxWidth: '120px'}}>Species</th>
+                <th style={{width: '140px', minWidth: '140px', maxWidth: '140px'}}>Location</th>
+                <th style={{width: '180px', minWidth: '180px', maxWidth: '180px'}}>Biosamples</th>
+                <th style={{width: '300px', minWidth: '300px', maxWidth: '300px'}}>Thermal Tolerance (ED50)</th>
+                <th style={{width: '300px', minWidth: '300px', maxWidth: '300px'}}>Breakpoint Temp (ED5)</th>
+                <th style={{width: '300px', minWidth: '300px', maxWidth: '300px'}}>Thermal Limit (ED95)</th>
+              </tr>
+            </thead>
           <tbody>
             {colonies.map((colonyData) => {
               const colony = colonyData.colony;
@@ -179,20 +211,54 @@ const CustomerCart = () => {
               
               return (
                 <tr key={colony.id}>
-                  <td style={{verticalAlign: 'top'}}>
+                  <td style={{
+                    verticalAlign: 'top',
+                    position: 'sticky',
+                    left: 0,
+                    backgroundColor: 'white',
+                    zIndex: 5,
+                    borderRight: '2px solid #dee2e6',
+                    fontWeight: '500',
+                    width: '150px',
+                    minWidth: '150px',
+                    maxWidth: '150px',
+                    wordWrap: 'break-word',
+                    overflow: 'hidden'
+                  }}>
                     <strong>{colony.name}</strong>
                     <br />
                     <small className="text-muted">ID: {colony.id}</small>
                   </td>
-                  <td style={{verticalAlign: 'top'}}>{colony.species}</td>
-                  <td style={{verticalAlign: 'top'}}>
+                  <td style={{
+                    verticalAlign: 'top',
+                    width: '120px',
+                    minWidth: '120px',
+                    maxWidth: '120px',
+                    wordWrap: 'break-word',
+                    overflow: 'hidden'
+                  }}>{colony.species}</td>
+                  <td style={{
+                    verticalAlign: 'top',
+                    width: '140px',
+                    minWidth: '140px',
+                    maxWidth: '140px',
+                    wordWrap: 'break-word',
+                    overflow: 'hidden'
+                  }}>
                     {colony.country}
                     <br />
                     <small className="text-muted">
                       {colony.latitude.toFixed(4)}, {colony.longitude.toFixed(4)}
                     </small>
                   </td>
-                  <td style={{verticalAlign: 'top'}}>
+                  <td style={{
+                    verticalAlign: 'top',
+                    width: '180px',
+                    minWidth: '180px',
+                    maxWidth: '180px',
+                    wordWrap: 'break-word',
+                    overflow: 'hidden'
+                  }}>
                     <Badge bg="info">{biosampleCount}</Badge>
                     {biosampleCount > 0 && (
                       <div className="mt-1">
@@ -203,19 +269,36 @@ const CustomerCart = () => {
                       </div>
                     )}
                   </td>
-                  <td style={{verticalAlign: 'top', minWidth: '250px'}}>
+                  <td style={{
+                    verticalAlign: 'top',
+                    width: '300px',
+                    minWidth: '300px',
+                    maxWidth: '300px',
+                    wordWrap: 'break-word',
+                    overflow: 'hidden'
+                  }}>
                     {colonyData.thermal_tolerances?.length > 0 ? (
                       <div>
                         {colonyData.thermal_tolerances.map((tt, idx) => (
-                          <div key={tt.id} className="mt-1 p-2 border rounded bg-light">
-                            <small>
-                              <strong>ID:</strong> {tt.id}<br />
-                              <strong>Condition:</strong> {tt.condition || 'N/A'}<br />
-                              <strong>Timepoint:</strong> {tt.timepoint || 'N/A'}<br />
-                              <strong>Abs:</strong> {tt.abs_thermal_tolerance?.toFixed(2) || 'N/A'}°C<br />
-                              <strong>Rel:</strong> {tt.rel_thermal_tolerance?.toFixed(2) || 'N/A'}°C<br />
-                              <strong>SST MMM:</strong> {tt.sst_clim_mmm?.toFixed(2) || 'N/A'}°C
-                            </small>
+                          <div key={tt.id} className="mb-2 p-2 border rounded bg-light" style={{fontSize: '0.8rem'}}>
+                            <div className="d-flex justify-content-between align-items-start mb-1">
+                              <strong className="text-primary">#{tt.id}</strong>
+                              <small className="text-muted">{tt.condition || 'N/A'}</small>
+                            </div>
+                            <div className="row g-1">
+                              <div className="col-6">
+                                <small><strong>Abs:</strong> {tt.abs_thermal_tolerance?.toFixed(2) || 'N/A'}°C</small>
+                              </div>
+                              <div className="col-6">
+                                <small><strong>Rel:</strong> {tt.rel_thermal_tolerance?.toFixed(2) || 'N/A'}°C</small>
+                              </div>
+                              <div className="col-12">
+                                <small><strong>MMM:</strong> {tt.sst_clim_mmm?.toFixed(2) || 'N/A'}°C</small>
+                              </div>
+                              <div className="col-12">
+                                <small><strong>Time:</strong> {tt.timepoint || 'N/A'}</small>
+                              </div>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -223,19 +306,36 @@ const CustomerCart = () => {
                       <span className="text-muted">No data</span>
                     )}
                   </td>
-                  <td style={{verticalAlign: 'top', minWidth: '250px'}}>
+                  <td style={{
+                    verticalAlign: 'top',
+                    width: '300px',
+                    minWidth: '300px',
+                    maxWidth: '300px',
+                    wordWrap: 'break-word',
+                    overflow: 'hidden'
+                  }}>
                     {colonyData.breakpoint_temperatures?.length > 0 ? (
                       <div>
                         {colonyData.breakpoint_temperatures.map((bt, idx) => (
-                          <div key={bt.id} className="mt-1 p-2 border rounded bg-light">
-                            <small>
-                              <strong>ID:</strong> {bt.id}<br />
-                              <strong>Condition:</strong> {bt.condition || 'N/A'}<br />
-                              <strong>Timepoint:</strong> {bt.timepoint || 'N/A'}<br />
-                              <strong>Abs:</strong> {bt.abs_breakpoint_temperature?.toFixed(2) || 'N/A'}°C<br />
-                              <strong>Rel:</strong> {bt.rel_breakpoint_temperature?.toFixed(2) || 'N/A'}°C<br />
-                              <strong>SST MMM:</strong> {bt.sst_clim_mmm?.toFixed(2) || 'N/A'}°C
-                            </small>
+                          <div key={bt.id} className="mb-2 p-2 border rounded bg-light" style={{fontSize: '0.8rem'}}>
+                            <div className="d-flex justify-content-between align-items-start mb-1">
+                              <strong className="text-success">#{bt.id}</strong>
+                              <small className="text-muted">{bt.condition || 'N/A'}</small>
+                            </div>
+                            <div className="row g-1">
+                              <div className="col-6">
+                                <small><strong>Abs:</strong> {bt.abs_breakpoint_temperature?.toFixed(2) || 'N/A'}°C</small>
+                              </div>
+                              <div className="col-6">
+                                <small><strong>Rel:</strong> {bt.rel_breakpoint_temperature?.toFixed(2) || 'N/A'}°C</small>
+                              </div>
+                              <div className="col-12">
+                                <small><strong>MMM:</strong> {bt.sst_clim_mmm?.toFixed(2) || 'N/A'}°C</small>
+                              </div>
+                              <div className="col-12">
+                                <small><strong>Time:</strong> {bt.timepoint || 'N/A'}</small>
+                              </div>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -243,19 +343,36 @@ const CustomerCart = () => {
                       <span className="text-muted">No data</span>
                     )}
                   </td>
-                  <td style={{verticalAlign: 'top', minWidth: '250px'}}>
+                  <td style={{
+                    verticalAlign: 'top',
+                    width: '300px',
+                    minWidth: '300px',
+                    maxWidth: '300px',
+                    wordWrap: 'break-word',
+                    overflow: 'hidden'
+                  }}>
                     {colonyData.thermal_limits?.length > 0 ? (
                       <div>
                         {colonyData.thermal_limits.map((tl, idx) => (
-                          <div key={tl.id} className="mt-1 p-2 border rounded bg-light">
-                            <small>
-                              <strong>ID:</strong> {tl.id}<br />
-                              <strong>Condition:</strong> {tl.condition || 'N/A'}<br />
-                              <strong>Timepoint:</strong> {tl.timepoint || 'N/A'}<br />
-                              <strong>Abs:</strong> {tl.abs_thermal_limit?.toFixed(2) || 'N/A'}°C<br />
-                              <strong>Rel:</strong> {tl.rel_thermal_limit?.toFixed(2) || 'N/A'}°C<br />
-                              <strong>SST MMM:</strong> {tl.sst_clim_mmm?.toFixed(2) || 'N/A'}°C
-                            </small>
+                          <div key={tl.id} className="mb-2 p-2 border rounded bg-light" style={{fontSize: '0.8rem'}}>
+                            <div className="d-flex justify-content-between align-items-start mb-1">
+                              <strong className="text-warning">#{tl.id}</strong>
+                              <small className="text-muted">{tl.condition || 'N/A'}</small>
+                            </div>
+                            <div className="row g-1">
+                              <div className="col-6">
+                                <small><strong>Abs:</strong> {tl.abs_thermal_limit?.toFixed(2) || 'N/A'}°C</small>
+                              </div>
+                              <div className="col-6">
+                                <small><strong>Rel:</strong> {tl.rel_thermal_limit?.toFixed(2) || 'N/A'}°C</small>
+                              </div>
+                              <div className="col-12">
+                                <small><strong>MMM:</strong> {tl.sst_clim_mmm?.toFixed(2) || 'N/A'}°C</small>
+                              </div>
+                              <div className="col-12">
+                                <small><strong>Time:</strong> {tl.timepoint || 'N/A'}</small>
+                              </div>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -268,9 +385,27 @@ const CustomerCart = () => {
             })}
           </tbody>
         </Table>
+        </div>
+        <div className="text-center mt-2">
+          <small className="text-muted">
+            <i className="bi bi-arrow-left-right me-1"></i>
+            Scroll horizontally to view all data
+          </small>
+        </div>
       </div>
     );
   };
+
+  if (!authData.authenticated) {
+    return (
+      <Container className="my-5 text-center">
+        <Alert variant="warning">
+          <h4>Please log in to view your cart</h4>
+          <p>You need to be logged in to access your research cart.</p>
+        </Alert>
+      </Container>
+    );
+  }
 
   if (loading) {
     return (
@@ -284,8 +419,29 @@ const CustomerCart = () => {
   }
 
   return (
-    <UserCartContextProvider>
-      <Container className="my-5">
+    <Container className="my-5">
+        <style>
+          {`
+            .table-responsive {
+              overflow-x: auto !important;
+              -webkit-overflow-scrolling: touch;
+            }
+            .table-responsive::-webkit-scrollbar {
+              height: 8px;
+            }
+            .table-responsive::-webkit-scrollbar-track {
+              background: #f1f1f1;
+              border-radius: 4px;
+            }
+            .table-responsive::-webkit-scrollbar-thumb {
+              background: #c1c1c1;
+              border-radius: 4px;
+            }
+            .table-responsive::-webkit-scrollbar-thumb:hover {
+              background: #a8a8a8;
+            }
+          `}
+        </style>
         <Row className="mb-4">
           <Col>
             <h1 className="text-center mb-3">Research Cart</h1>
@@ -448,7 +604,7 @@ const CustomerCart = () => {
                       {expandedGroups.has(group.id) && (
                         <tr>
                           <td colSpan="5" className="p-0">
-                            <div className="p-3 bg-light">
+                            <div className="p-3 bg-light" style={{ overflowX: 'auto' }}>
                               {renderColonyTable(group.colonies)}
                             </div>
                           </td>
@@ -504,7 +660,6 @@ const CustomerCart = () => {
           </Modal.Footer>
         </Modal>
       </Container>
-    </UserCartContextProvider>
   );
 };
 

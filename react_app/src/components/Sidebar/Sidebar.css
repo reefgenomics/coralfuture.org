@@ -1,0 +1,221 @@
+/* Sidebar.css - Styles for Sidebar component */
+
+.sidebar {
+  background-color: rgba(255, 255, 255, 0.95);
+  padding: 15px;
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
+  transition: all 0.3s ease;
+}
+
+.sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Compact Slider Styles */
+.compact-slider-card {
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  margin-bottom: 12px;
+}
+
+.compact-slider-card.active {
+  border-color: #007bff;
+  box-shadow: 0 0 0 1px #007bff;
+}
+
+.compact-slider-card .card-body {
+  padding: 12px;
+}
+
+.compact-slider-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #495057;
+}
+
+.compact-slider-title.active {
+  color: #007bff;
+}
+
+.compact-slider-badge {
+  font-size: 0.65rem;
+  padding: 2px 6px;
+}
+
+.compact-slider-values {
+  font-size: 0.75rem;
+}
+
+.compact-slider-value-box {
+  padding: 4px 8px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  text-align: center;
+}
+
+.compact-slider-value-box .value-label {
+  font-size: 0.7rem;
+  color: #6c757d;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.compact-slider-value-box .value-number {
+  font-weight: 600;
+  color: #007bff;
+  font-size: 0.8rem;
+}
+
+/* Temperature Filters Section */
+.temperature-filters-section {
+  margin-bottom: 20px;
+}
+
+.temperature-filters-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.temperature-filters-header h6 {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #007bff;
+}
+
+/* Advanced Filters Button */
+.advanced-filters-btn {
+  height: 36px;
+  font-size: 0.85rem;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+}
+
+.advanced-filters-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 123, 255, 0.2);
+}
+
+/* Filter Count Badge */
+.filter-count-badge {
+  font-size: 0.75rem;
+  padding: 4px 8px;
+  border-radius: 12px;
+}
+
+/* Apply Filters Button */
+.apply-filters-btn {
+  border-radius: 6px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.apply-filters-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 123, 255, 0.2);
+}
+
+/* Reset Button */
+.reset-filters-btn {
+  border-radius: 6px;
+  transition: all 0.3s ease;
+}
+
+.reset-filters-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(220, 53, 69, 0.2);
+}
+
+/* Collapsed Sidebar */
+.sidebar-collapsed {
+  padding: 10px;
+  background-color: rgba(255, 255, 255, 0.9);
+  border-radius: 8px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.sidebar-toggle-btn {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.sidebar-toggle-btn:hover {
+  transform: scale(1.05);
+}
+
+/* Form Controls */
+.form-control {
+  border-radius: 6px;
+  border: 1px solid #ced4da;
+  transition: all 0.3s ease;
+}
+
+.form-control:focus {
+  border-color: #007bff;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.form-label {
+  font-weight: 500;
+  color: #495057;
+  margin-bottom: 6px;
+  font-size: 0.9rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .sidebar {
+    padding: 12px;
+    max-height: calc(100vh - 80px);
+  }
+  
+  .compact-slider-card .card-body {
+    padding: 10px;
+  }
+  
+  .compact-slider-title {
+    font-size: 0.8rem;
+  }
+  
+  .compact-slider-values {
+    font-size: 0.7rem;
+  }
+}
+
+@media (max-width: 576px) {
+  .sidebar {
+    padding: 10px;
+  }
+  
+  .temperature-filters-header h6 {
+    font-size: 0.85rem;
+  }
+  
+  .advanced-filters-btn {
+    height: 32px;
+    font-size: 0.8rem;
+  }
+}

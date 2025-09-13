@@ -114,11 +114,6 @@ const NavigationBar = () => {
               </Nav.Item>
             )}
 
-            <Nav.Item>
-              <Nav.Link href={`${backendUrl}/projects`}>
-                <i className="bi bi-folder"></i> Projects
-              </Nav.Link>
-            </Nav.Item>
 
             <Nav.Item>
               <Nav.Link href="https://www.biologie.uni-konstanz.de/voolstra/">

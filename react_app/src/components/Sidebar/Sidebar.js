@@ -1,11 +1,13 @@
 // External imports
 import axios from 'axios';
 import React, { useState, useEffect, useContext, useCallback } from 'react';
-import { Button, Form, FormGroup, Row, Col } from 'react-bootstrap';
+import { Button, Form, FormGroup, Row, Col, Card } from 'react-bootstrap';
+import { Box, Slider } from '@mui/material';
 import { ThermometerHalf } from 'react-bootstrap-icons';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import 'react-range-slider-input/dist/style.css';
+import './Sidebar.css';
 // Internal imports
 // Contexts
 import { SidebarFilterContext } from 'contexts/SidebarFilterContext';
@@ -22,13 +24,27 @@ const InputSidebar = () => {
   // State for temperature filters modal
   const [showTemperatureModal, setShowTemperatureModal] = useState(false);
   
+  
   // Get all Colonies and Projects from Context and define list of species
-  const { allColonies, allBioSamples, allProjects, setFilters } = useContext(SidebarFilterContext);
+  const { allColonies, allBioSamples, allProjects, filters, setFilters, defaultValues } = useContext(SidebarFilterContext);
   const speciesList = [...new Set(allColonies.map(allColonies => allColonies.species))].sort();
   const projectList = [...new Set(allProjects.map(allProjects => allProjects.name))].sort();
 
-  // State for temperature filters - start with empty
-  const [temperatureFilters, setTemperatureFilters] = useState({});
+  // Extract temperature filters from global filters
+  const temperatureFilters = {
+    absThermalTolerance: filters.absThermalTolerance,
+    relThermalTolerance: filters.relThermalTolerance,
+    ed50: filters.ed50,
+    ed50Mmm: filters.ed50Mmm,
+    absBreakpointTemperature: filters.absBreakpointTemperature,
+    relBreakpointTemperature: filters.relBreakpointTemperature,
+    ed5: filters.ed5,
+    ed5Mmm: filters.ed5Mmm,
+    absThermalLimit: filters.absThermalLimit,
+    relThermalLimit: filters.relThermalLimit,
+    ed95: filters.ed95,
+    ed95Mmm: filters.ed95Mmm,
+  };
 
   // Check if any filters are actually applied
   const hasSpeciesFilter = selectedSpecies !== '';
@@ -36,21 +52,37 @@ const InputSidebar = () => {
   const hasDateFilter = selectedDates.length > 0;
   
   // Check if temperature filters are set
-  const hasTemperatureFilters = Object.keys(temperatureFilters).length > 0;
+  const hasTemperatureFilters = Object.values(temperatureFilters).some(value => value !== undefined);
+  
+  // Check if main sliders are active
+  const hasAbsThermalToleranceFilter = filters.absThermalTolerance && defaultValues.absThermalTolerance && (filters.absThermalTolerance[0] !== defaultValues.absThermalTolerance.min || filters.absThermalTolerance[1] !== defaultValues.absThermalTolerance.max);
+  const hasAbsBreakpointTemperatureFilter = filters.absBreakpointTemperature && defaultValues.absBreakpointTemperature && (filters.absBreakpointTemperature[0] !== defaultValues.absBreakpointTemperature.min || filters.absBreakpointTemperature[1] !== defaultValues.absBreakpointTemperature.max);
+  const hasAbsThermalLimitFilter = filters.absThermalLimit && defaultValues.absThermalLimit && (filters.absThermalLimit[0] !== defaultValues.absThermalLimit.min || filters.absThermalLimit[1] !== defaultValues.absThermalLimit.max);
 
   const activeFiltersCount = (hasSpeciesFilter ? 1 : 0) + 
                            (hasProjectFilter ? 1 : 0) + 
                            (hasDateFilter ? 1 : 0) + 
-                           (hasTemperatureFilters ? 1 : 0);
+                           (hasAbsThermalToleranceFilter ? 1 : 0) +
+                           (hasAbsBreakpointTemperatureFilter ? 1 : 0) +
+                           (hasAbsThermalLimitFilter ? 1 : 0);
 
   // State to control sidebar visibility
   const [isCollapsed, setIsCollapsed] = useState(false);
 
 
+  // Handle slider changes
+  const handleSliderChange = (parameter, newValue) => {
+    setFilters(prev => ({
+      ...prev,
+      [parameter]: newValue
+    }));
+  };
+
+
 
   const handleApplyFilters = () => {
     // If no filters are applied, clear all filters
-    if (!hasSpeciesFilter && !hasProjectFilter && !hasDateFilter && !hasTemperatureFilters) {
+    if (!hasSpeciesFilter && !hasProjectFilter && !hasDateFilter && !hasAbsThermalToleranceFilter && !hasAbsBreakpointTemperatureFilter && !hasAbsThermalLimitFilter) {
       setFilters({});
       return;
     }
@@ -58,8 +90,13 @@ const InputSidebar = () => {
     const newFilters = {
       species: selectedSpecies,
       project: selectedProject,
+      years: selectedDates,
+      // Keep existing temperature filters from global state
       ...temperatureFilters,
-      years: selectedDates
+      // Add main slider filters
+      absThermalTolerance: filters.absThermalTolerance,
+      absBreakpointTemperature: filters.absBreakpointTemperature,
+      absThermalLimit: filters.absThermalLimit
     };
     
     setFilters(newFilters);
@@ -69,7 +106,6 @@ const InputSidebar = () => {
     setSelectedSpecies('');
     setSelectedProject('');
     setSelectedDates([]);
-    setTemperatureFilters({});
     setFilters({});
   };
 
@@ -84,7 +120,16 @@ const InputSidebar = () => {
   };
 
   const handleTemperatureFiltersChange = (newFilters) => {
-    setTemperatureFilters(newFilters);
+    // Update global filters with new temperature filters, preserving existing filters
+    setFilters(prev => ({
+      ...prev,
+      // Preserve basic filters from sidebar
+      species: prev.species,
+      project: prev.project,
+      years: prev.years,
+      // Update temperature filters
+      ...newFilters
+    }));
   };
 
   const toggleSidebar = () => {
@@ -93,6 +138,7 @@ const InputSidebar = () => {
 
   const openTemperatureModal = () => {
     console.log('Sidebar: opening temperature modal with filters:', temperatureFilters);
+    console.log('Sidebar: global filters:', filters);
     setShowTemperatureModal(true);
   };
 
@@ -100,18 +146,88 @@ const InputSidebar = () => {
     setShowTemperatureModal(false);
   };
 
+  // Render compact slider for sidebar
+  const renderCompactSlider = (parameter, label, unit = '°C') => {
+    const defaultValue = defaultValues[parameter] || { min: 20, max: 40 };
+    const value = filters[parameter] || [defaultValue.min, defaultValue.max];
+    const minMax = defaultValue;
+    const isActive = value[0] !== minMax.min || value[1] !== minMax.max;
+
+    return (
+      <Card 
+        key={parameter}
+        className={`compact-slider-card ${isActive ? 'active' : ''}`}
+      >
+        <Card.Body>
+          <div className="d-flex justify-content-between align-items-center mb-2">
+            <h6 className={`compact-slider-title ${isActive ? 'active' : ''}`}>
+              {label}
+            </h6>
+            {isActive && (
+              <span className="badge bg-primary compact-slider-badge">Active</span>
+            )}
+          </div>
+          
+          <Box sx={{ px: 0.5, mb: 2 }}>
+            <Slider
+              value={value}
+              onChange={(event, newValue) => handleSliderChange(parameter, newValue)}
+              valueLabelDisplay="auto"
+              min={minMax.min}
+              max={minMax.max}
+              step={0.01}
+              sx={{
+                '& .MuiSlider-thumb': {
+                  color: isActive ? '#007bff' : '#6c757d',
+                  width: 16,
+                  height: 16,
+                  boxShadow: isActive ? '0 0 0 2px rgba(0, 123, 255, 0.2)' : 'none',
+                },
+                '& .MuiSlider-track': {
+                  height: 6,
+                  backgroundColor: isActive ? '#007bff' : '#6c757d',
+                  borderRadius: 3,
+                },
+                '& .MuiSlider-rail': {
+                  height: 4,
+                  backgroundColor: '#e9ecef',
+                  borderRadius: 2,
+                },
+                '& .MuiSlider-valueLabel': {
+                  backgroundColor: isActive ? '#007bff' : '#6c757d',
+                  fontSize: '0.7rem',
+                  fontWeight: 600,
+                },
+              }}
+            />
+          </Box>
+          
+          <div className="row text-center compact-slider-values">
+            <div className="col-6">
+              <div className="compact-slider-value-box">
+                <small className="value-label">Min</small>
+                <span className="value-number">{value[0].toFixed(1)}{unit}</span>
+              </div>
+            </div>
+            <div className="col-6">
+              <div className="compact-slider-value-box">
+                <small className="value-label">Max</small>
+                <span className="value-number">{value[1].toFixed(1)}{unit}</span>
+              </div>
+            </div>
+          </div>
+        </Card.Body>
+      </Card>
+    );
+  };
+
   if (isCollapsed) {
     return (
-      <div style={{ 
-        padding: '10px', 
-        backgroundColor: 'rgba(255, 255, 255, 0.9)', 
-        borderRadius: '8px',
-        boxShadow: '0 0 10px rgba(0, 0, 0, 0.1)'
-      }}>
+      <div className="sidebar-collapsed">
         <Button 
           variant="primary" 
           onClick={toggleSidebar} 
-          style={{ width: '40px', height: '40px', padding: '0' }}
+          className="sidebar-toggle-btn"
         >
           <i className="bi bi-funnel"></i>
         </Button>
@@ -121,22 +237,12 @@ const InputSidebar = () => {
 
   return (
     <>
-      <div className="sidebar" style={{ 
-        backgroundColor: 'rgba(255, 255, 255, 0.9)', 
-        padding: '15px', 
-        boxShadow: '0 0 10px rgba(0, 0, 0, 0.1)', 
-        borderRadius: '8px',
-        maxHeight: 'calc(100vh - 100px)',
-        overflow: 'auto'
-      }}>
+      <div className="sidebar">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
           <div className="d-flex align-items-center">
             <h4 style={{ margin: 0 }}>Filters</h4>
             {activeFiltersCount > 0 && (
-              <span 
-                className="badge bg-primary ms-2" 
-                style={{ fontSize: '0.75rem' }}
-              >
+              <span className="badge bg-primary ms-2 filter-count-badge">
                 {activeFiltersCount}
               </span>
             )}
@@ -180,18 +286,32 @@ const InputSidebar = () => {
             </Col>
           </Row>
 
+          {/* Temperature Sliders */}
+          <Row className="mb-3">
+            <Col>
+              <div className="temperature-filters-section">
+                <div className="temperature-filters-header">
+                  <ThermometerHalf className="me-2 text-primary" size={16} />
+                  <h6>Temperature Filters</h6>
+                </div>
+                {renderCompactSlider('absThermalTolerance', 'ED50 (Thermal Tolerance)', '°C')}
+                {renderCompactSlider('absBreakpointTemperature', 'ED5 (Breakpoint Temperature)', '°C')}
+                {renderCompactSlider('absThermalLimit', 'ED95 (Thermal Limit)', '°C')}
+              </div>
+            </Col>
+          </Row>
+
           <Row className="mb-3">
             <Col>
               <Button 
-                variant={hasTemperatureFilters ? "primary" : "outline-primary"} 
+                variant="outline-primary" 
                 onClick={openTemperatureModal}
-                className="w-100 d-flex align-items-center justify-content-center"
-                style={{ height: '48px' }}
+                className="w-100 d-flex align-items-center justify-content-center advanced-filters-btn"
               >
-                <ThermometerHalf className="me-2" size={18} />
-                Temperature Filters
+                <ThermometerHalf className="me-2" size={14} />
+                Advanced Filters
                 {hasTemperatureFilters && (
-                  <span className="badge bg-light text-primary ms-2" style={{ fontSize: '0.75rem' }}>
+                  <span className="badge bg-primary ms-2" style={{ fontSize: '0.65rem' }}>
                     Active
                   </span>
                 )}
@@ -204,7 +324,7 @@ const InputSidebar = () => {
               <Button 
                 variant={activeFiltersCount > 0 ? "primary" : "outline-secondary"} 
                 onClick={handleApplyFilters} 
-                style={{ width: '100%' }}
+                className="w-100 apply-filters-btn"
                 disabled={activeFiltersCount === 0}
               >
                 {activeFiltersCount > 0 ? `Apply Filters (${activeFiltersCount})` : 'Apply Filters'}
@@ -214,7 +334,7 @@ const InputSidebar = () => {
               <Button 
                 variant="outline-danger" 
                 onClick={handleResetFilters} 
-                style={{ width: '100%' }}
+                className="w-100 reset-filters-btn"
                 disabled={activeFiltersCount === 0}
               >
                 <i className="bi bi-trash3"></i>

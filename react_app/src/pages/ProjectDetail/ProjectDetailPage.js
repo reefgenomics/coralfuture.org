@@ -136,7 +136,6 @@ const ProjectDetailPage = () => {
               </span>
             </div>
           </div>
-          <p className="project-description text-center">{project.description}</p>
         </Container>
       </div>
 

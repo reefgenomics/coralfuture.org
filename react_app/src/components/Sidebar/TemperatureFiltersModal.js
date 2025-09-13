@@ -1,11 +1,13 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useContext } from 'react';
 import { Modal, Button, Row, Col, Card, Badge } from 'react-bootstrap';
 import { Box, Slider, Divider } from '@mui/material';
 import { ThermometerHalf, XCircle, PlusCircle, ArrowLeft } from 'react-bootstrap-icons';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './TemperatureFiltersModal.css';
+import { SidebarFilterContext } from 'contexts/SidebarFilterContext';
 
 const TemperatureFiltersModal = ({ show, onHide, filters, onAddFilters }) => {
+  const { defaultValues, filters: globalFilters } = useContext(SidebarFilterContext);
   // State for all temperature parameters
   const [tempFilters, setTempFilters] = useState({
     // Thermal Tolerance (TT)
@@ -46,105 +48,52 @@ const TemperatureFiltersModal = ({ show, onHide, filters, onAddFilters }) => {
   // State for active filters count
   const [activeFiltersCount, setActiveFiltersCount] = useState(0);
 
-  const fetchMinMaxData = useCallback(async () => {
-    const backendUrl = process.env.REACT_APP_BACKEND_URL;
-    
-    try {
-      // Fetch all temperature ranges
-      const [ttResponse, btResponse, tlResponse] = await Promise.all([
-        fetch(`${backendUrl}/api/public/thermal-tolerances/max-min/`),
-        fetch(`${backendUrl}/api/public/breakpoint-temperatures/max-min/`),
-        fetch(`${backendUrl}/api/public/thermal-limits/max-min/`)
-      ]);
+  const fetchMinMaxData = useCallback(() => {
+    // Use defaultValues from context instead of fetching from API
+    if (defaultValues && Object.keys(defaultValues).length > 0) {
+      setMinMaxValues(defaultValues);
 
-      const ttData = await ttResponse.json();
-      const btData = await btResponse.json();
-      const tlData = await tlResponse.json();
-
-      const newMinMaxValues = {
-        absThermalTolerance: {
-          min: ttData.min_abs_thermal_tolerance || 20,
-          max: ttData.max_abs_thermal_tolerance || 40
-        },
-        relThermalTolerance: {
-          min: ttData.min_rel_thermal_tolerance || 0,
-          max: ttData.max_rel_thermal_tolerance || 10
-        },
-        ed50: {
-          min: ttData.min_ed50 || 20,
-          max: ttData.max_ed50 || 40
-        },
-        ed50Mmm: {
-          min: ttData.min_ed50_mmm || 0,
-          max: ttData.max_ed50_mmm || 10
-        },
-        absBreakpointTemperature: {
-          min: btData.min_abs_breakpoint_temperature || 20,
-          max: btData.max_abs_breakpoint_temperature || 40
-        },
-        relBreakpointTemperature: {
-          min: btData.min_rel_breakpoint_temperature || 0,
-          max: btData.max_rel_breakpoint_temperature || 10
-        },
-        ed5: {
-          min: btData.min_ed5 || 20,
-          max: btData.max_ed5 || 40
-        },
-        ed5Mmm: {
-          min: btData.min_ed5_mmm || 0,
-          max: btData.max_ed5_mmm || 10
-        },
-        absThermalLimit: {
-          min: tlData.min_abs_thermal_limit || 20,
-          max: tlData.max_abs_thermal_limit || 40
-        },
-        relThermalLimit: {
-          min: tlData.min_rel_thermal_limit || 0,
-          max: tlData.max_rel_thermal_limit || 10
-        },
-        ed95: {
-          min: tlData.min_ed95 || 20,
-          max: tlData.max_ed95 || 40
-        },
-        ed95Mmm: {
-          min: tlData.min_ed95_mmm || 0,
-          max: tlData.max_ed95_mmm || 10
-        }
-      };
-
-      setMinMaxValues(newMinMaxValues);
-
-      // Don't update tempFilters here - they should be preserved from the filters prop
-      // Only set defaults if no filters were provided
-      if (!filters || Object.keys(filters).length === 0) {
-        console.log('Modal: no filters provided, setting defaults from API');
+      // Don't update tempFilters here - they should be preserved from the global filters
+      // Only set defaults if no global filters were provided
+      if (!globalFilters || Object.keys(globalFilters).length === 0) {
+        console.log('Modal: no global filters provided, setting defaults from context');
         setTempFilters({
-          absThermalTolerance: [newMinMaxValues.absThermalTolerance.min, newMinMaxValues.absThermalTolerance.max],
-          relThermalTolerance: [newMinMaxValues.relThermalTolerance.min, newMinMaxValues.relThermalTolerance.max],
-          ed50: [newMinMaxValues.ed50.min, newMinMaxValues.ed50.max],
-          ed50Mmm: [newMinMaxValues.ed50Mmm.min, newMinMaxValues.ed50Mmm.max],
-          absBreakpointTemperature: [newMinMaxValues.absBreakpointTemperature.min, newMinMaxValues.absBreakpointTemperature.max],
-          relBreakpointTemperature: [newMinMaxValues.relBreakpointTemperature.min, newMinMaxValues.relBreakpointTemperature.max],
-          ed5: [newMinMaxValues.ed5.min, newMinMaxValues.ed5.max],
-          ed5Mmm: [newMinMaxValues.ed5Mmm.min, newMinMaxValues.ed5Mmm.max],
-          absThermalLimit: [newMinMaxValues.absThermalLimit.min, newMinMaxValues.absThermalLimit.max],
-          relThermalLimit: [newMinMaxValues.relThermalLimit.min, newMinMaxValues.relThermalLimit.max],
-          ed95: [newMinMaxValues.ed95.min, newMinMaxValues.ed95.max],
-          ed95Mmm: [newMinMaxValues.ed95Mmm.min, newMinMaxValues.ed95Mmm.max],
+          absThermalTolerance: [defaultValues.absThermalTolerance.min, defaultValues.absThermalTolerance.max],
+          relThermalTolerance: [defaultValues.relThermalTolerance.min, defaultValues.relThermalTolerance.max],
+          ed50: [defaultValues.ed50.min, defaultValues.ed50.max],
+          ed50Mmm: [defaultValues.ed50Mmm.min, defaultValues.ed50Mmm.max],
+          absBreakpointTemperature: [defaultValues.absBreakpointTemperature.min, defaultValues.absBreakpointTemperature.max],
+          relBreakpointTemperature: [defaultValues.relBreakpointTemperature.min, defaultValues.relBreakpointTemperature.max],
+          ed5: [defaultValues.ed5.min, defaultValues.ed5.max],
+          ed5Mmm: [defaultValues.ed5Mmm.min, defaultValues.ed5Mmm.max],
+          absThermalLimit: [defaultValues.absThermalLimit.min, defaultValues.absThermalLimit.max],
+          relThermalLimit: [defaultValues.relThermalLimit.min, defaultValues.relThermalLimit.max],
+          ed95: [defaultValues.ed95.min, defaultValues.ed95.max],
+          ed95Mmm: [defaultValues.ed95Mmm.min, defaultValues.ed95Mmm.max],
         });
       } else {
-        console.log('Modal: filters provided, preserving them');
+        console.log('Modal: global filters provided, preserving them');
       }
-    } catch (error) {
-      console.error('Error fetching temperature ranges:', error);
     }
-  }, [filters]);
+  }, [globalFilters, defaultValues]);
 
   useEffect(() => {
     if (show) {
       fetchMinMaxData();
-      // Always start with full range (no filters active)
-      setTempFilters({
+    }
+  }, [show, fetchMinMaxData]);
+
+  // Also update when defaultValues change
+  useEffect(() => {
+    if (defaultValues && Object.keys(defaultValues).length > 0) {
+      fetchMinMaxData();
+    }
+  }, [defaultValues, fetchMinMaxData]);
+
+  // Initialize tempFilters with passed filters or defaults when minMaxValues are available
+  useEffect(() => {
+    if (Object.keys(minMaxValues).length > 0) {
+      const defaultFilters = {
         absThermalTolerance: [minMaxValues.absThermalTolerance.min, minMaxValues.absThermalTolerance.max],
         relThermalTolerance: [minMaxValues.relThermalTolerance.min, minMaxValues.relThermalTolerance.max],
         ed50: [minMaxValues.ed50.min, minMaxValues.ed50.max],
@@ -157,9 +106,21 @@ const TemperatureFiltersModal = ({ show, onHide, filters, onAddFilters }) => {
         relThermalLimit: [minMaxValues.relThermalLimit.min, minMaxValues.relThermalLimit.max],
         ed95: [minMaxValues.ed95.min, minMaxValues.ed95.max],
         ed95Mmm: [minMaxValues.ed95Mmm.min, minMaxValues.ed95Mmm.max],
+      };
+
+      // Use global filters if available, otherwise use defaults
+      const initialFilters = {};
+      Object.keys(defaultFilters).forEach(key => {
+        if (globalFilters && globalFilters[key] && Array.isArray(globalFilters[key])) {
+          initialFilters[key] = globalFilters[key];
+        } else {
+          initialFilters[key] = defaultFilters[key];
+        }
       });
+
+      setTempFilters(initialFilters);
     }
-  }, [show, fetchMinMaxData]);
+  }, [minMaxValues, globalFilters]);
 
   useEffect(() => {
     // Calculate active filters count
@@ -198,7 +159,17 @@ const TemperatureFiltersModal = ({ show, onHide, filters, onAddFilters }) => {
   };
 
   const handleAddFilters = () => {
-    onAddFilters(tempFilters);
+    // Only pass filters that are actually different from default values
+    const changedFilters = {};
+    
+    Object.entries(tempFilters).forEach(([key, value]) => {
+      const minMax = minMaxValues[key];
+      if (minMax && (value[0] !== minMax.min || value[1] !== minMax.max)) {
+        changedFilters[key] = value;
+      }
+    });
+    
+    onAddFilters(changedFilters);
     onHide();
   };
 
@@ -349,18 +320,10 @@ const TemperatureFiltersModal = ({ show, onHide, filters, onAddFilters }) => {
             </div>
             <Row>
               <Col lg={6}>
-                {renderTemperatureSlider('absThermalTolerance', 'Absolute Thermal Tolerance', '°C')}
+                {renderTemperatureSlider('absThermalTolerance', 'Absolute Thermal Tolerance: ED50', '°C')}
               </Col>
               <Col lg={6}>
-                {renderTemperatureSlider('relThermalTolerance', 'Relative Thermal Tolerance', '°C')}
-              </Col>
-            </Row>
-            <Row>
-              <Col lg={6}>
-                {renderTemperatureSlider('ed50', 'Absolute Thermal Tolerance: ED50', '°C')}
-              </Col>
-              <Col lg={6}>
-                {renderTemperatureSlider('ed50Mmm', 'Relative Thermal Tolerance: ED50-MMM', '°C')}
+                {renderTemperatureSlider('relThermalTolerance', 'Relative Thermal Tolerance: ED50-MMM', '°C')}
               </Col>
             </Row>
           </div>
@@ -377,18 +340,10 @@ const TemperatureFiltersModal = ({ show, onHide, filters, onAddFilters }) => {
             </div>
             <Row>
               <Col lg={6}>
-                {renderTemperatureSlider('absBreakpointTemperature', 'Absolute Breakpoint Temperature', '°C')}
+                {renderTemperatureSlider('absBreakpointTemperature', 'Absolute Breakpoint Temperature: ED5', '°C')}
               </Col>
               <Col lg={6}>
-                {renderTemperatureSlider('relBreakpointTemperature', 'Relative Breakpoint Temperature', '°C')}
-              </Col>
-            </Row>
-            <Row>
-              <Col lg={6}>
-                {renderTemperatureSlider('ed5', 'Breakpoint Temperature: ED5', '°C')}
-              </Col>
-              <Col lg={6}>
-                {renderTemperatureSlider('ed5Mmm', 'Relative Breakpoint Temperature: ED5-MMM', '°C')}
+                {renderTemperatureSlider('relBreakpointTemperature', 'Relative Breakpoint Temperature: ED5-MMM', '°C')}
               </Col>
             </Row>
           </div>
@@ -405,20 +360,13 @@ const TemperatureFiltersModal = ({ show, onHide, filters, onAddFilters }) => {
             </div>
             <Row>
               <Col lg={6}>
-                {renderTemperatureSlider('absThermalLimit', 'Absolute Thermal Limit', '°C')}
+                {renderTemperatureSlider('absThermalLimit', 'Absolute Thermal Limit: ED95', '°C')}
               </Col>
               <Col lg={6}>
-                {renderTemperatureSlider('relThermalLimit', 'Relative Thermal Limit', '°C')}
+                {renderTemperatureSlider('relThermalLimit', 'Relative Thermal Limit: ED95-MMM', '°C')}
               </Col>
             </Row>
-            <Row>
-              <Col lg={6}>
-                {renderTemperatureSlider('ed95', 'Thermal Limit: ED95', '°C')}
-              </Col>
-              <Col lg={6}>
-                {renderTemperatureSlider('ed95Mmm', 'Relative Thermal Limit: ED95-MMM', '°C')}
-              </Col>
-            </Row>
+
           </div>
         </div>
       </Modal.Body>

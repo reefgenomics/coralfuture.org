@@ -1,6 +1,6 @@
 import axios from 'axios';
 import Cookie from 'js-cookie';
-import React, { useState, useEffect, createContext } from 'react';
+import React, { useState, useEffect, createContext, useCallback } from 'react';
 
 export const UserCartContext = createContext();
 
@@ -8,7 +8,7 @@ const UserCartContextProvider = (props) => {
   const [cartGroups, setCartGroups] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const getCartGroups = async (backendUrl) => {
+  const getCartGroups = useCallback(async (backendUrl) => {
     try {
       setLoading(true);
       const response = await axios.get(`${backendUrl}/api/auth/cart/`, {
@@ -21,7 +21,7 @@ const UserCartContextProvider = (props) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const addToCart = async (colonyIds, filterParams, groupName, backendUrl) => {
     try {
@@ -126,10 +126,20 @@ const UserCartContextProvider = (props) => {
     }
   };
 
+  const refreshCart = useCallback(() => {
+    const backendUrl = process.env.REACT_APP_BACKEND_URL;
+    if (backendUrl) {
+      getCartGroups(backendUrl);
+    }
+  }, [getCartGroups]);
+
   useEffect(() => {
-    // Only load cart groups if user is authenticated
-    // This will be handled by the component that uses this context
-  }, []);
+    // Load cart groups on initialization
+    const backendUrl = process.env.REACT_APP_BACKEND_URL;
+    if (backendUrl) {
+      getCartGroups(backendUrl);
+    }
+  }, [getCartGroups]);
 
   return (
     <UserCartContext.Provider value={{ 
@@ -139,7 +149,7 @@ const UserCartContextProvider = (props) => {
       deleteCartGroup,
       renameCartGroup,
       exportCartGroups,
-      refreshCart: () => getCartGroups(process.env.REACT_APP_BACKEND_URL)
+      refreshCart
     }}>
       {props.children}
     </UserCartContext.Provider>
