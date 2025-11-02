@@ -34,14 +34,14 @@ services:
     depends_on:
       - database
 
-  react-app:
-    build:
-      context: ./react_app
-    restart: unless-stopped
-    ports:
-      - "3000:3000"
-    environment:
-      - REACT_APP_BACKEND_URL=${REACT_APP_BACKEND_URL}
+  # react-app:
+  #   build:
+  #     context: ./react_app
+  #   restart: unless-stopped
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     - REACT_APP_BACKEND_URL=${REACT_APP_BACKEND_URL}
 
   ed50-shiny:
     container_name: shiny_cbass
