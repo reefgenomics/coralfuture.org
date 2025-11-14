@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+
+{% block title %}Analysis Results - CBASS ED50 Calculator{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="display-6">Analysis Results</h1>
+            <a href="/" class="btn btn-outline-primary">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
+        </div>
+    </div>
+</div>
+
+{% set has_plots = boxplot_img or temp_curve_img or model_curve_img %}
+{% if has_plots %}
+<ul class="nav nav-tabs mb-4" id="resultTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="plots-tab" data-bs-toggle="tab" data-bs-target="#plots" type="button" role="tab">
+            <i class="bi bi-graph-up"></i> Plots
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="data-tab" data-bs-toggle="tab" data-bs-target="#data" type="button" role="tab">
+            <i class="bi bi-table"></i> Data
+        </button>
+    </li>
+</ul>
+{% endif %}
+
+<div class="tab-content" id="resultTabsContent">
+    {% if has_plots %}
+    <div class="tab-pane fade show active" id="plots" role="tabpanel">
+        {% if boxplot_img %}
+        <div class="row">
+            <div class="col-12">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-box-seam"></i> ED50s Boxplot</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="plot-container">
+                            <img src="data:image/png;base64,{{ boxplot_img }}" alt="ED50 Boxplot" class="img-fluid">
+                        </div>
+                        <div class="text-center">
+                            <a href="data:image/png;base64,{{ boxplot_img }}" download="ed50_boxplot.png" class="btn btn-outline-primary">
+                                <i class="bi bi-download"></i> Download plot
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if temp_curve_img %}
+        <div class="row">
+            <div class="col-12">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-graph-up-arrow"></i> Temperature Response Curves</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="plot-container">
+                            <img src="data:image/png;base64,{{ temp_curve_img }}" alt="Temperature Response Curves" class="img-fluid">
+                        </div>
+                        <div class="text-center">
+                            <a href="data:image/png;base64,{{ temp_curve_img }}" download="temperature_curves.png" class="btn btn-outline-primary">
+                                <i class="bi bi-download"></i> Download plot
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if model_curve_img %}
+        <div class="row">
+            <div class="col-12">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-activity"></i> Model Curve with ED bands</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="plot-container">
+                            <img src="data:image/png;base64,{{ model_curve_img }}" alt="Model Curve Plot" class="img-fluid">
+                        </div>
+                        <div class="text-center">
+                            <a href="data:image/png;base64,{{ model_curve_img }}" download="model_curve.png" class="btn btn-outline-primary">
+                                <i class="bi bi-download"></i> Download plot
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="tab-pane fade {% if not has_plots %}show active{% endif %}" id="data" role="tabpanel">
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="bi bi-table"></i> ED5, ED50, ED95 Values Table
+                            <span class="badge bg-primary ms-2">{{ row_count }} records</span>
+                        </h5>
+                        <button type="button" class="btn btn-success" onclick="downloadCSV()">
+                            <i class="bi bi-file-earmark-spreadsheet"></i> Download CSV
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            {{ eds_table|safe }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-bar-chart"></i> Summary Statistics</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col-md-4">
+                                <div class="border rounded p-3">
+                                    <h6 class="text-muted">Total groups</h6>
+                                    <h4 class="text-primary">{{ row_count }}</h4>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="border rounded p-3">
+                                    <h6 class="text-muted">Parameters</h6>
+                                    <h4 class="text-success">ED5, ED50, ED95</h4>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="border rounded p-3">
+                                    <h6 class="text-muted">Data format</h6>
+                                    <h4 class="text-info">CSV ready</h4>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<textarea id="csvData" style="display: none;">{{ csv_data }}</textarea>
+
+<script>
+function downloadCSV() {
+    const csvData = document.getElementById('csvData').value;
+    const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    
+    if (link.download !== undefined) {
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', 'EDsdf-results-' + new Date().toISOString().split('T')[0] + '.csv');
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const table = document.getElementById('eds-table');
+    if (table) {
+        table.classList.add('table-hover');
+        
+        const searchInput = document.createElement('input');
+        searchInput.type = 'text';
+        searchInput.className = 'form-control mb-3';
+        searchInput.placeholder = 'Search table...';
+        searchInput.addEventListener('keyup', function() {
+            const filter = this.value.toLowerCase();
+            const rows = table.getElementsByTagName('tr');
+            
+            for (let i = 1; i < rows.length; i++) {
+                const row = rows[i];
+                const cells = row.getElementsByTagName('td');
+                let found = false;
+                
+                for (let j = 0; j < cells.length; j++) {
+                    if (cells[j].textContent.toLowerCase().indexOf(filter) > -1) {
+                        found = true;
+                        break;
+                    }
+                }
+                
+                row.style.display = found ? '' : 'none';
+            }
+        });
+        
+        table.parentNode.insertBefore(searchInput, table);
+    }
+});
+</script>
+{% endblock %}

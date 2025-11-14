@@ -46,55 +46,53 @@ docker compose exec django-app python manage.py createsuperuser
 
 You can also prepare your `user_data.json` and populate your database automatically:
 
-```commandline
+```json
 [
-    {"username": "user1", "password": "password123", "first_name": "John", "last_name": "Doe", "email": "John_Doe@domain.com"},
-    {"username": "user2", "password": "password456", "first_name": "Jane", "last_name": "Smith", "email: "Jane_Smith@domain.com"},
-    {"username": "admin", "password": "adminpassword", "first_name": "Admin", "last_name": "User", "email": "Admin_User@domain.com"}
+  {
+    "username": "user1",
+    "password": "password123",
+    "first_name": "John",
+    "last_name": "Doe",
+    "email": "john_doe@domain.com"
+  },
+  {
+    "username": "user2",
+    "password": "password456",
+    "first_name": "Jane",
+    "last_name": "Smith",
+    "email": "jane_smith@domain.com"
+  },
+  {
+    "username": "admin",
+    "password": "adminpassword",
+    "first_name": "Admin",
+    "last_name": "User",
+    "email": "admin_user@domain.com"
+  }
 ]
-
 ```
 And then run custom django-admin command:
 
-```commandline
-docker compose exec django-app python manage.py create_users path/to/user_data.json
-```
-Don't forget to replace the path to your `user_data.json` file.
-
-#### Populate the database 
-
-Let's say my owner is `user1`.
-
-For complete datasets:
-
-```commandline
-docker compose exec django-app python manage.py \
-  populate_db \
-    --owner user1
-    --csv_path static/datasheets/cbass_84.csv
 ```
 
-For incomplete datasets, use `--no-pam` argument:
+## API endpoints
 
-```commandline
-docker compose exec django-app python manage.py \
-  populate_db \
-    --owner betyaevilya \
-    --csv_path static/datasheets/redsea_gradient_study.csv \
-    --no-pam
-```
+- `GET /` – FastAPI ED calculator home page with upload form.
+- `POST /process` – handles file upload/example data, invokes the R workflow, returns table + plots.
+- `GET /download-csv` – downloads the latest ED table (used by the web UI button).
 
-## Database Backups
+## FastAPI ED calculator
 
-Create a database backup:
+1. UI posts CSV/XLSX or toggled example data to `/process`.
+2. FastAPI writes the dataset to a temp CSV and calls `calculate_eds.R`.
+3. The R script loads CBASSED50, preprocesses, fits DRMs with `is_curveid = TRUE`, and writes ED5/50/95 plus PNG plots.
+4. FastAPI reads the output CSV and PNGs, embeds the table + base64 images into the results template with download buttons.
 
-```commandline
-sudo docker compose exec database pg_dump -U $DB_USER --format=custom > backup.pgdump
-```
+## Django backend endpoints
 
-Restore a database backup:
-
-```commandline
-pg_restore --clean --dbname $DB_NAME -U $DB_USER backup.pgdump
-```
-# Test commit
+- `/` — legacy Django home, keeps basic landing view, redirects to React when needed.
+- `/admin/` — standard Django admin.
+- `/projects/` — SSR views for project listings (see `projects.urls`).
+- `/user/` — auth/profile views (see `users.urls`).
+- `/api/auth/...` — authenticated REST endpoints: cart (`/cart/`, `/cart/group/<id>/`, `/cart/export/`), session helpers (`/status/`, `/csrf/`, `/login/`, `/logout/`), CSV upload/check/ED50 calculation (`/upload-csv/`, `/check-csv-ed50/`, `/calculate-ed50/`).
+- `/api/public/...` — read-only data feeds: `statistics/`, `biosamples/`, `colonies/`, `observations/`, `projects/`, `projects/<id>/`, and thermal layers (`thermal-tolerances/`, `thermal-tolerances/max-min/`, `breakpoint-temperatures/`, `breakpoint-temperatures/max-min/`, `thermal-limits/`, `thermal-limits/max-min/`).

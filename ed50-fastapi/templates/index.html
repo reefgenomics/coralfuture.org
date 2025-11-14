@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+
+{% block title %}CBASS ED50 Calculator - Home{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="display-6 mb-3">Hello CBASSEDNs!</h1>
+        <p class="lead">Application for visualizing CBASS "EDNs" data.</p>
+    </div>
+</div>
+
+<form method="post" action="/process" enctype="multipart/form-data" id="dataForm">
+    <div class="row">
+        <div class="col-12 mb-4">
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="useExample" name="use_example" checked onchange="toggleFileUpload()">
+                <label class="form-check-label fw-bold" for="useExample">
+                    Use example data
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-3">
+            <div class="sidebar" id="settingsPanel" style="display: none;">
+                <h5 class="mb-3"><i class="bi bi-gear"></i> Plot Settings</h5>
+                
+                <div class="mb-3" id="fileUpload" style="display: none;">
+                    <label for="file" class="form-label">Select file</label>
+                    <input type="file" class="form-control" id="file" name="file" accept=".csv,.xlsx">
+                    <div class="form-text">CSV and Excel files supported</div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="groupingProperties" class="form-label">Grouping properties</label>
+                    <input type="text" class="form-control" id="groupingProperties" name="grouping_properties" 
+                           value="Site,Condition,Species,Timepoint">
+                </div>
+
+                <div class="mb-3">
+                    <label for="facetingModel" class="form-label">Faceting model</label>
+                    <input type="text" class="form-control" id="facetingModel" name="faceting_model" 
+                           value="Species ~ Site ~ Condition">
+                </div>
+
+                <div class="mb-3">
+                    <label for="faceting" class="form-label">Faceting</label>
+                    <input type="text" class="form-control" id="faceting" name="faceting" 
+                           value=" ~ Species">
+                </div>
+
+                <div class="mb-3">
+                    <label for="condition" class="form-label">Condition</label>
+                    <input type="text" class="form-control" id="condition" name="condition" 
+                           value="Condition">
+                </div>
+
+                <div class="mb-3">
+                    <label for="drmFormula" class="form-label">DRM formula</label>
+                    <input type="text" class="form-control" id="drmFormula" name="drm_formula" 
+                           value="Pam_value ~ Temperature">
+                </div>
+
+                <div class="mb-3">
+                    <label for="sizeText" class="form-label">Text size: <span id="sizeTextValue">12</span></label>
+                    <input type="range" class="form-range" id="sizeText" name="size_text" 
+                           min="6" max="20" step="0.5" value="12" oninput="updateSliderValue('sizeText', 'sizeTextValue')">
+                </div>
+
+                <div class="mb-3">
+                    <label for="sizePoints" class="form-label">Point size: <span id="sizePointsValue">2.5</span></label>
+                    <input type="range" class="form-range" id="sizePoints" name="size_points" 
+                           min="1" max="6" step="0.25" value="2.5" oninput="updateSliderValue('sizePoints', 'sizePointsValue')">
+                </div>
+            </div>
+
+            <div class="d-grid gap-2">
+                <button type="button" class="btn btn-outline-primary" onclick="toggleSettings()">
+                    <i class="bi bi-gear"></i> Settings
+                </button>
+                <button type="submit" class="btn btn-primary" id="processBtn">
+                    <i class="bi bi-play-circle"></i> Process data
+                </button>
+            </div>
+        </div>
+
+        <div class="col-md-9">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="bi bi-info-circle"></i> Instructions
+                    </h5>
+                    <div class="card-text">
+                        <ol>
+                            <li><strong>Example data:</strong> Use the toggle above to work with example data</li>
+                            <li><strong>File upload:</strong> Disable "Example data" and upload your CSV or Excel file</li>
+                            <li><strong>Settings:</strong> Click "Settings" button to change analysis parameters</li>
+                            <li><strong>Processing:</strong> Click "Process data" to start analysis</li>
+                        </ol>
+                        
+                        <div class="alert alert-info mt-3">
+                            <h6><i class="bi bi-lightbulb"></i> What the application does:</h6>
+                            <ul class="mb-0">
+                                <li>Calculates ED5, ED50, ED95 values for each group</li>
+                                <li>Creates boxplot for ED50 values</li>
+                                <li>Plots temperature response curves</li>
+                                <li>Provides results table for download</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+<script>
+function toggleFileUpload() {
+    const useExample = document.getElementById('useExample').checked;
+    const fileUpload = document.getElementById('fileUpload');
+    const fileInput = document.getElementById('file');
+    
+    if (useExample) {
+        fileUpload.style.display = 'none';
+        fileInput.required = false;
+    } else {
+        fileUpload.style.display = 'block';
+        fileInput.required = true;
+    }
+}
+
+function toggleSettings() {
+    const panel = document.getElementById('settingsPanel');
+    const btn = event.target;
+    
+    if (panel.style.display === 'none') {
+        panel.style.display = 'block';
+        btn.innerHTML = '<i class="bi bi-gear-fill"></i> Hide settings';
+    } else {
+        panel.style.display = 'none';
+        btn.innerHTML = '<i class="bi bi-gear"></i> Settings';
+    }
+}
+
+function updateSliderValue(sliderId, valueId) {
+    const slider = document.getElementById(sliderId);
+    const valueSpan = document.getElementById(valueId);
+    valueSpan.textContent = slider.value;
+}
+
+document.getElementById('dataForm').addEventListener('submit', function(e) {
+    const btn = document.getElementById('processBtn');
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
+    btn.disabled = true;
+});
+</script>
+{% endblock %}

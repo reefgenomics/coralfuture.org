@@ -212,11 +212,11 @@ def map_and_transform_dataframe(
         # Post-processing: ensure critical fields filled & consistent
         # -----------------------------------------------------------------
 
-        # 1) Colony.name — нормализуем пробелы, не создаём заново
+        # normalize spaces in colony name
         if 'Colony.name' in transformed.columns:
             transformed['Colony.name'] = transformed['Colony.name'].astype(str).str.replace(' ', '_')
 
-        # 2) Experiment.name — если пустой, берём Site
+        # use site if experiment name empty
         if 'Experiment.name' in transformed.columns:
             exp_empty = transformed['Experiment.name'].isna() | (transformed['Experiment.name'].astype(str).str.strip() == '')
             if exp_empty.any():
@@ -252,7 +252,7 @@ def _evaluate_expression(df: pd.DataFrame, expr: str) -> pd.Series:
             result = pattern
             for col in df.columns:
                 result = result.replace(f"{{{col}}}", str(row[col]))
-            return result.replace(" ", "_")  # нормализуем пробелы
+            return result.replace(" ", "_")  # normalize spaces
 
         return df.apply(_format_row, axis=1)
 

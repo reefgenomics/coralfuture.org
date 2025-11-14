@@ -158,11 +158,11 @@ const UploadDataPage = () => {
     if (envUrl) return envUrl;
     try {
       const urlObj = new URL(process.env.REACT_APP_BACKEND_URL);
-      urlObj.port = '3838';
-      urlObj.pathname = '/';
+      // Use /shiny/ path instead of port 3838
+      urlObj.pathname = '/shiny/';
       return urlObj.toString();
     } catch {
-      return 'http://localhost:3838/';
+      return 'http://localhost:8000/shiny/';
     }
   })();
 

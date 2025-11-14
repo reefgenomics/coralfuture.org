@@ -29,4 +29,4 @@ RUN cd /usr/src/ && \
 ENV PATH="${PATH}:/usr/src/cwutils_3.8.0.457/bin"
 ENV MANPATH="${MANPATH}:/usr/src/cwutils_3.8.0.457/doc/man"
 
-CMD ["sh", "-c", "python manage.py migrate && python manage.py collectstatic --noinput && python manage.py runserver 0.0.0.0:8000"]
+CMD ["sh", "-c", "python manage.py migrate && python manage.py collectstatic --noinput && python manage.py create_users user_data.json && python manage.py runserver 0.0.0.0:8000"]

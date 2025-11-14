@@ -88,14 +88,12 @@ const NavigationBar = () => {
 
                 try {
                   const urlObj = new URL(backendUrl);
-                  // Replace or set port to 3838
-                  urlObj.port = '3838';
-                  // Ensure no extra path
-                  urlObj.pathname = '/';
+                  // Use /shiny/ path instead of port 3838
+                  urlObj.pathname = '/shiny/';
                   return urlObj.toString();
                 } catch (e) {
                   // Fallback to default localhost dev URL
-                  return 'http://localhost:3838/';
+                  return 'http://localhost:8000/shiny/';
                 }
               })()} target="_blank" rel="noopener noreferrer">
                 <i className="bi bi-graph-up"></i> ED50 Calculator

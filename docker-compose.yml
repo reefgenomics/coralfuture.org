@@ -1,16 +1,16 @@
-version: '3'
-
 services:
 
   database:
     image: postgres:15.3
     restart: unless-stopped
     ports:
-      - "5432:5432"
+      - "5430:5432"
     environment:
       - POSTGRES_USER=${DB_USER}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
       - POSTGRES_DB=${DB_NAME}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
 
   django-app:
     build:
@@ -34,33 +34,32 @@ services:
     depends_on:
       - database
 
-  react-app:
-    build:
-      context: ./react_app
-    restart: unless-stopped
-    ports:
-      - "3000:3000"
-    environment:
-      - REACT_APP_BACKEND_URL=${REACT_APP_BACKEND_URL}
+  # react-app:
+  #   build:
+  #     context: ./react_app
+  #   restart: unless-stopped
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     - REACT_APP_BACKEND_URL=${REACT_APP_BACKEND_URL}
 
-  ed50-shiny:
-    container_name: shiny_cbass
+  ed50-fastapi:
     build:
-      context: ./ed50-calculator/docker_components
+      context: ./ed50-fastapi
+      dockerfile: Dockerfile
+      # use cache for faster builds
+      cache_from:
+        - python:3.11-slim
+        - continuumio/miniconda3:4.12.0
     platform: linux/amd64
     restart: unless-stopped
     ports:
-      - "3838:3838"
-    environment:
-      - R_LIBS_USER=/opt/conda/lib/R/library
+      - "8001:8001"
     volumes:
-      - ./ed50-calculator/docker_components/config:/config
-      - ./ed50-calculator/examples:/home/data/Uploaded_xlsx
-      - ./ed50-calculator/examples/outputs:/home/data/outputs
+      - ./ed50-fastapi:/app
+      - ./ed50-calculator/examples:/app/data/examples:ro
     depends_on:
       - database
 
 volumes:
   postgres_data:
-  ed50_data:
-  ed50_results:

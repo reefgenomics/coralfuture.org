@@ -64,6 +64,10 @@ CSRF_TRUSTED_ORIGINS = [
     'https://coralfuture.org',
     'https://coralfuture.org:3000',
     'https://coralfuture.org:3000/map',
+    'http://hemorrhagia.online',
+    'https://hemorrhagia.online',
+    'http://www.hemorrhagia.online',
+    'https://www.hemorrhagia.online',
 ]
 
 CORS_ORIGIN_WHITELIST = [
@@ -71,10 +75,19 @@ CORS_ORIGIN_WHITELIST = [
     'http://localhost:3000',
     'https://coralfuture.org',
     'https://coralfuture.org:3000',
+    'http://hemorrhagia.online',
+    'https://hemorrhagia.online',
+    'http://www.hemorrhagia.online',
+    'https://www.hemorrhagia.online',
 ]
+
+# https settings
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_SSL_REDIRECT = False  # nginx handles https
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -155,15 +168,22 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
 
-STATIC_URL = '/static/'
+STATIC_URL = '/static/django/'
 
 # Additional directories for static files during development
-STATICFILES_DIRS = (
-    os.path.join(BASE_DIR, 'static'),
-)
+STATICFILES_DIRS = [
+    BASE_DIR / 'static',
+]
+
+REACT_STATIC_DIR = BASE_DIR.parent / 'react_app' / 'build' / 'static'
+if REACT_STATIC_DIR.exists():
+    STATICFILES_DIRS.append(REACT_STATIC_DIR)
 
 # Directory where 'collectstatic' will gather static files for production
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+WHITENOISE_MANIFEST_STRICT = False
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
