@@ -47,19 +47,22 @@ const Map = () => {
 
   return (
     mapCenter ? (
-      <MapContainer center={mapCenter} zoom={3} style={{ height: '100%', width: '100%' }}>
+      <MapContainer
+        center={mapCenter}
+        zoom={3}
+        style={{ height: '100%', width: '100%' }}
+        attributionControl={false}
+      >
         <ChangeView markers={filteredColonies} />
         <LayersControl position="topright">
         <BaseLayer name="OpenStreetMap">
             <TileLayer
               url='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
-              attribution='© OpenStreetMap contributors'
             />
           </BaseLayer>
           <BaseLayer checked name="World Imagery">
             <TileLayer
               url='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
-              attribution='Tiles © Esri — Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
             />
           </BaseLayer>
         </LayersControl>
