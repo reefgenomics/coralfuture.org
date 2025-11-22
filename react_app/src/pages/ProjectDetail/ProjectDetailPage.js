@@ -304,7 +304,7 @@ const ProjectDetailPage = () => {
                             <td>{observation.condition}</td>
                             <td>{observation.temperature}°C</td>
                             <td>{observation.timepoint}</td>
-                            <td>{observation.pam_value || 'N/A'}</td>
+                            <td>{observation.pam_value ?? 'N/A'}</td>
                             <td>
                               {observation.related_projects && observation.related_projects.length > 0 ? (
                                 <ul className="list-unstyled mb-0">

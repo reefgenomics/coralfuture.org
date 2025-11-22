@@ -186,10 +186,82 @@ async def home(request: Request):
     logger.info(f"GET request to home page from {request.client.host if request.client else 'unknown'}")
     return templates.TemplateResponse("index.html", {"request": request})
 
+@app.post("/calculate-csv")
+async def calculate_csv(
+    request: Request,
+    file: UploadFile = File(...),
+    grouping_properties: str = Form("Site,Condition,Species,Timepoint"),
+    drm_formula: str = Form("Pam_value ~ Temperature"),
+    condition: str = Form("Condition"),
+    faceting: str = Form(" ~ Species"),
+    faceting_model: str = Form("Species ~ Site ~ Condition"),
+):
+    """Calculate EDs and return CSV directly (no HTML)"""
+    input_file: Optional[str] = None
+    output_file: Optional[str] = None
+
+    try:
+        logger.info(f"📊 CSV calculation request for {file.filename}")
+        
+        # Save uploaded file
+        input_file = await materialize_uploaded_file(file)
+        output_file = create_temp_csv_file()
+
+        # Run R script (no plots needed for CSV endpoint)
+        success, error_message = run_r_script(
+            input_file,
+            output_file,
+            grouping_properties,
+            drm_formula,
+            condition,
+            faceting,
+            faceting_model,
+            12,  # default text size
+            2.5,  # default point size
+            "",  # no boxplot
+            "",  # no temp curve
+            "",  # no model curve
+        )
+
+        if not success:
+            return JSONResponse(
+                content={"error": error_message},
+                status_code=500
+            )
+
+        # Read and return CSV
+        eds_df = pd.read_csv(output_file)
+        csv_data = eds_df.to_csv(index=False)
+        
+        logger.info(f"✅ Calculated {len(eds_df)} ED rows")
+        
+        from fastapi.responses import Response
+        return Response(
+            content=csv_data,
+            media_type="text/csv",
+            headers={
+                "Content-Disposition": f"attachment; filename=eds_results.csv"
+            }
+        )
+
+    except Exception as exc:
+        logger.exception(f"❌ Error calculating EDs: {exc}")
+        return JSONResponse(
+            content={"error": f"ED calculation failed: {str(exc)}"},
+            status_code=500
+        )
+    finally:
+        for tmp_path in [input_file, output_file]:
+            if tmp_path and os.path.exists(tmp_path):
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    logger.warning(f"Failed to remove temporary file: {tmp_path}")
+
+
 @app.post("/process")
 async def process_data(
     request: Request,
-    use_example: Optional[str] = Form(None),
     file: Optional[UploadFile] = File(None),
     grouping_properties: str = Form("Site,Condition,Species,Timepoint"),
     faceting_model: str = Form("Species ~ Site ~ Condition"),
@@ -199,7 +271,8 @@ async def process_data(
     size_text: float = Form(12),
     size_points: float = Form(2.5)
 ):
-    use_example_flag = parse_checkbox(use_example)
+    # Force example data OFF to always require user input table
+    use_example_flag = False
     logger.info(
         "POST /process request: use_example=%s, grouping=%s, drm_formula=%s",
         use_example_flag,
@@ -214,33 +287,21 @@ async def process_data(
     model_curve_file: Optional[str] = None
 
     try:
-        if use_example_flag:
-            logger.info("Using example data")
-            df = load_example_data()
-            if df is None:
-                logger.error("Failed to load example data")
-                return templates.TemplateResponse(
-                    "error.html",
-                    {"request": request, "error": "Failed to load example data"},
-                )
-            logger.info("Loaded %d rows from example", len(df))
-            input_file = write_dataframe_to_temp_csv(df)
-        else:
-            if file is None:
-                logger.warning("No file uploaded while example toggle is off")
-                return templates.TemplateResponse(
-                    "error.html",
-                    {"request": request, "error": "No file uploaded"},
-                )
+        if file is None:
+            logger.warning("No file uploaded")
+            return templates.TemplateResponse(
+                "error.html",
+                {"request": request, "error": "No file uploaded"},
+            )
 
-            try:
-                input_file = await materialize_uploaded_file(file)
-            except ValueError as exc:
-                logger.warning("File upload error: %s", exc)
-                return templates.TemplateResponse(
-                    "error.html",
-                    {"request": request, "error": str(exc)},
-                )
+        try:
+            input_file = await materialize_uploaded_file(file)
+        except ValueError as exc:
+            logger.warning("File upload error: %s", exc)
+            return templates.TemplateResponse(
+                "error.html",
+                {"request": request, "error": str(exc)},
+            )
 
         output_file = create_temp_csv_file()
         boxplot_file = create_temp_png_file()

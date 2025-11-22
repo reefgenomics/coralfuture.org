@@ -9,8 +9,7 @@ const backendUrl = process.env.REACT_APP_BACKEND_URL;
 
 const UploadDataPage = () => {
   const { authData } = useContext(AuthContext);
-  const [file, setFile] = useState(null); // main data
-  const [ed50File, setEd50File] = useState(null); // optional ED50 table
+  const [file, setFile] = useState(null);
   const [csvData, setCsvData] = useState({ data: [] });
   const [headers, setHeaders] = useState([]);
   const [validationErrors, setValidationErrors] = useState([]);
@@ -18,7 +17,6 @@ const UploadDataPage = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadComplete, setUploadComplete] = useState(false);
   const fileInputRef = useRef(null);
-  const ed50FileInputRef = useRef(null);
 
   console.log('🔐 Auth status:', authData);
 
@@ -86,23 +84,8 @@ const UploadDataPage = () => {
     reader.readAsText(selectedFile);
   };
 
-  const handleED50FileSelect = (event) => {
-    const selected = event.target.files[0];
-    if (!selected) return;
-
-    if (!selected.name.toLowerCase().endsWith('.csv')) {
-      setValidationErrors(['Please select a CSV file for ED50 table']);
-      return;
-    }
-
-    setEd50File(selected);
-    setValidationErrors([]);
-    setUploadStatus(null);
-    console.log('📁 ED50 file selected:', selected.name);
-  };
-
   const handleUpload = async () => {
-    if (!file || !ed50File || !authData.authenticated) return;
+    if (!file || !authData.authenticated) return;
 
     setIsUploading(true);
     setUploadStatus(null);
@@ -111,9 +94,8 @@ const UploadDataPage = () => {
     try {
       const formData = new FormData();
       formData.append('csv_file', file, file.name);
-      formData.append('ed50_file', ed50File, ed50File.name);
 
-      console.log('🚀 Uploading...');
+      console.log('🚀 Uploading and processing...');
 
       const response = await axios.post(`${backendUrl}/api/auth/upload-csv/`, formData, {
         withCredentials: true,
@@ -143,14 +125,12 @@ const UploadDataPage = () => {
 
   const handleClear = () => {
     setFile(null);
-    setEd50File(null);
     setCsvData({ data: [] });
     setHeaders([]);
     setValidationErrors([]);
     setUploadStatus(null);
     setUploadComplete(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
-    if (ed50FileInputRef.current) ed50FileInputRef.current.value = '';
   };
 
   const shinyUrl = (() => {
@@ -180,58 +160,47 @@ const UploadDataPage = () => {
         </p>
         
         <div className="workflow-steps">
-          <div className="step mb-4">
-            <div className="d-flex align-items-start">
-              <div className="step-number me-3 mt-1">
-                <span className="badge bg-primary rounded-circle d-inline-flex align-items-center justify-content-center" style={{ width: '24px', height: '24px', fontSize: '12px' }}>1</span>
-              </div>
-              <div className="flex-grow-1">
-                <h6 className="fw-semibold text-dark mb-2">Calculate ED50 Values</h6>
-                <p className="text-muted small mb-3 lh-base">
-                  Use our calculator with your CSV file containing "Site", "Condition", "Species", "Timepoint", and PAM values.
-                </p>
-                <Button 
-                  variant="outline-primary" 
-                  size="sm" 
-                  href={shinyUrl} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="fw-medium"
-                >
-                  <span className="me-1">🧮</span>
-                  Open Calculator
-                </Button>
+            <div className="step mb-4">
+              <div className="d-flex align-items-start">
+                <div className="step-number me-3 mt-1">
+                  <span className="badge bg-primary rounded-circle d-inline-flex align-items-center justify-content-center" style={{ width: '24px', height: '24px', fontSize: '12px' }}>1</span>
+                </div>
+                <div className="flex-grow-1">
+                  <h6 className="fw-semibold text-dark mb-2">Prepare Your Data</h6>
+                  <p className="text-muted small lh-base">
+                    CSV file with coral stress experiment data including Site, Condition, Species, Timepoint, Temperature, and PAM values.
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
-          
-          <div className="step mb-4">
-            <div className="d-flex align-items-start">
-              <div className="step-number me-3 mt-1">
-                <span className="badge bg-primary rounded-circle d-inline-flex align-items-center justify-content-center" style={{ width: '24px', height: '24px', fontSize: '12px' }}>2</span>
-              </div>
-              <div className="flex-grow-1">
-                <h6 className="fw-semibold text-dark mb-2">Download Results</h6>
-                <p className="text-muted small lh-base">
-                  Save the <code className="bg-light px-1 rounded">ED50_Results.csv</code> file from the calculator.
-                </p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="step">
-            <div className="d-flex align-items-start">
-              <div className="step-number me-3 mt-1">
-                <span className="badge bg-primary rounded-circle d-inline-flex align-items-center justify-content-center" style={{ width: '24px', height: '24px', fontSize: '12px' }}>3</span>
-              </div>
-              <div className="flex-grow-1">
-                <h6 className="fw-semibold text-dark mb-2">Upload Files</h6>
-                <p className="text-muted small lh-base">
-                  Upload both your original data CSV and the ED50 results file here.
-                </p>
+            
+            <div className="step mb-4">
+              <div className="d-flex align-items-start">
+                <div className="step-number me-3 mt-1">
+                  <span className="badge bg-primary rounded-circle d-inline-flex align-items-center justify-content-center" style={{ width: '24px', height: '24px', fontSize: '12px' }}>2</span>
+                </div>
+                <div className="flex-grow-1">
+                  <h6 className="fw-semibold text-dark mb-2">Upload & Auto-Calculate</h6>
+                  <p className="text-muted small lh-base">
+                    Upload your CSV. System will automatically calculate ED5/ED50/ED95 if not included.
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
+            
+            <div className="step">
+              <div className="d-flex align-items-start">
+                <div className="step-number me-3 mt-1">
+                  <span className="badge bg-primary rounded-circle d-inline-flex align-items-center justify-content-center" style={{ width: '24px', height: '24px', fontSize: '12px' }}>3</span>
+                </div>
+                <div className="flex-grow-1">
+                  <h6 className="fw-semibold text-dark mb-2">AI Mapping & Import</h6>
+                  <p className="text-muted small lh-base">
+                    AI maps columns to standard schema and imports to database automatically.
+                  </p>
+                </div>
+              </div>
+            </div>
         </div>
         
         <div className="mt-4 pt-4 border-top">
@@ -331,31 +300,35 @@ const UploadDataPage = () => {
                 ) : (
                 <>
                   <Row>
-                    <Col md={6}>
+                    <Col md={12}>
                       <Form.Group className="mb-4">
-                        <Form.Label className="fw-medium text-dark mb-3">1. Main Data File</Form.Label>
+                        <Form.Label className="fw-medium text-dark mb-3">Select Your CSV Data File</Form.Label>
                         <div 
                           className="upload-zone position-relative text-center d-flex flex-column justify-content-center"
                           style={{
                               border: `2px dashed ${file ? '#27ae60' : '#cbd5e1'}`,
                               borderRadius: '12px',
-                              padding: '1rem',
-                              minHeight: '150px',
+                              padding: '2rem',
+                              minHeight: '200px',
                               backgroundColor: file ? '#eafaf1' : '#fafbfc',
                               transition: 'all 0.2s ease',
                           }}
                         >
-                            <div className="upload-icon" style={{ fontSize: '2.5rem', color: file ? '#27ae60' : '#6c757d', lineHeight: 1 }}>
+                            <div className="upload-icon" style={{ fontSize: '3rem', color: file ? '#27ae60' : '#6c757d', lineHeight: 1 }}>
                                 {file ? '✓' : '📄'}
                             </div>
-                            <div className="mt-2">
+                            <div className="mt-3">
                                 {file ? (
                                     <>
-                                        <p className="mb-0 fw-medium text-dark small" style={{ wordBreak: 'break-all' }}>{file.name}</p>
-                                        <p className="mb-0 text-muted small">{(file.size / 1024).toFixed(1)} KB</p>
+                                        <p className="mb-0 fw-medium text-dark" style={{ wordBreak: 'break-all' }}>{file.name}</p>
+                                        <p className="mb-0 text-muted">{(file.size / 1024).toFixed(1)} KB</p>
+                                        <p className="mb-0 text-success mt-2 small">✨ ED values will be auto-calculated if not present</p>
                                     </>
                                 ) : (
-                                    <p className="mb-0 text-muted">Click to select main data CSV</p>
+                                    <>
+                                        <p className="mb-1 text-dark fw-medium">Drop your CSV file here or click to browse</p>
+                                        <p className="mb-0 text-muted small">System will auto-calculate EDs and map columns with AI</p>
+                                    </>
                                 )}
                             </div>
 
@@ -364,45 +337,6 @@ const UploadDataPage = () => {
                                 accept=".csv"
                                 onChange={handleFileSelect}
                                 ref={fileInputRef}
-                                className="position-absolute top-0 start-0 w-100 h-100 opacity-0"
-                                style={{ cursor: 'pointer' }}
-                            />
-                        </div>
-                      </Form.Group>
-                    </Col>
-                    <Col md={6}>
-                       <Form.Group className="mb-4">
-                        <Form.Label className="fw-medium text-dark mb-3">2. ED50 Results File</Form.Label>
-                        <div 
-                          className="upload-zone position-relative text-center d-flex flex-column justify-content-center"
-                          style={{
-                              border: `2px dashed ${ed50File ? '#27ae60' : '#cbd5e1'}`,
-                              borderRadius: '12px',
-                              padding: '1rem',
-                              minHeight: '150px',
-                              backgroundColor: ed50File ? '#eafaf1' : '#fafbfc',
-                              transition: 'all 0.2s ease',
-                          }}
-                        >
-                            <div className="upload-icon" style={{ fontSize: '2.5rem', color: ed50File ? '#27ae60' : '#6c757d', lineHeight: 1 }}>
-                                {ed50File ? '✓' : '📊'}
-                            </div>
-                            <div className="mt-2">
-                                {ed50File ? (
-                                    <>
-                                        <p className="mb-0 fw-medium text-dark small" style={{ wordBreak: 'break-all' }}>{ed50File.name}</p>
-                                        <p className="mb-0 text-muted small">{(ed50File.size / 1024).toFixed(1)} KB</p>
-                                    </>
-                                ) : (
-                                    <p className="mb-0 text-muted">Click to select ED50 results CSV</p>
-                                )}
-                            </div>
-
-                            <Form.Control 
-                                type="file" 
-                                accept=".csv"
-                                onChange={handleED50FileSelect}
-                                ref={ed50FileInputRef}
                                 className="position-absolute top-0 start-0 w-100 h-100 opacity-0"
                                 style={{ cursor: 'pointer' }}
                             />
@@ -446,7 +380,7 @@ const UploadDataPage = () => {
                   )}
 
                   {(() => {
-                    const canUpload = file && ed50File && authData.authenticated && !isUploading;
+                    const canUpload = file && authData.authenticated && !isUploading;
                     if (!authData.authenticated) return null;
                     
                     return (
@@ -460,7 +394,7 @@ const UploadDataPage = () => {
                           style={{ borderRadius: '8px' }}
                         >
                           <span className="me-2">🚀</span>
-                          {isUploading ? 'Uploading...' : 'Upload Data'}
+                          {isUploading ? 'Processing...' : 'Upload & Process Data'}
                         </Button>
                         <Button 
                           variant="outline-secondary" 

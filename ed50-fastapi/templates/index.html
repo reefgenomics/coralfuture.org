@@ -12,26 +12,14 @@
 
 <form method="post" action="/process" enctype="multipart/form-data" id="dataForm">
     <div class="row">
-        <div class="col-12 mb-4">
-            <div class="form-check form-switch">
-                <input class="form-check-input" type="checkbox" id="useExample" name="use_example" checked onchange="toggleFileUpload()">
-                <label class="form-check-label fw-bold" for="useExample">
-                    Use example data
-                </label>
-            </div>
-        </div>
-    </div>
-
-    <div class="row">
         <div class="col-md-3">
+            <div class="mb-3" id="fileUpload" style="display: block;">
+                <label for="file" class="form-label">Select file</label>
+                <input type="file" class="form-control" id="file" name="file" accept=".csv,.xlsx" required>
+                <div class="form-text">CSV and Excel files supported</div>
+            </div>
             <div class="sidebar" id="settingsPanel" style="display: none;">
                 <h5 class="mb-3"><i class="bi bi-gear"></i> Plot Settings</h5>
-                
-                <div class="mb-3" id="fileUpload" style="display: none;">
-                    <label for="file" class="form-label">Select file</label>
-                    <input type="file" class="form-control" id="file" name="file" accept=".csv,.xlsx">
-                    <div class="form-text">CSV and Excel files supported</div>
-                </div>
 
                 <div class="mb-3">
                     <label for="groupingProperties" class="form-label">Grouping properties</label>
@@ -94,8 +82,7 @@
                     </h5>
                     <div class="card-text">
                         <ol>
-                            <li><strong>Example data:</strong> Use the toggle above to work with example data</li>
-                            <li><strong>File upload:</strong> Disable "Example data" and upload your CSV or Excel file</li>
+                            <li><strong>File upload:</strong> Upload your CSV or Excel file</li>
                             <li><strong>Settings:</strong> Click "Settings" button to change analysis parameters</li>
                             <li><strong>Processing:</strong> Click "Process data" to start analysis</li>
                         </ol>
@@ -117,20 +104,6 @@
 </form>
 
 <script>
-function toggleFileUpload() {
-    const useExample = document.getElementById('useExample').checked;
-    const fileUpload = document.getElementById('fileUpload');
-    const fileInput = document.getElementById('file');
-    
-    if (useExample) {
-        fileUpload.style.display = 'none';
-        fileInput.required = false;
-    } else {
-        fileUpload.style.display = 'block';
-        fileInput.required = true;
-    }
-}
-
 function toggleSettings() {
     const panel = document.getElementById('settingsPanel');
     const btn = event.target;

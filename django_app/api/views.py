@@ -226,7 +226,7 @@ class CheckCSVForED50ApiView(APIView):
 
 class UploadCSVApiView(APIView):
     """
-    This endpoint allows authenticated users to upload CSV files with coral research data.
+    Clean workflow: Raw Data → Calculate EDs → AI Mapping → Database Upload
     """
     authentication_classes = [SessionAuthentication]
     permission_classes = [IsAuthenticated]
@@ -236,192 +236,197 @@ class UploadCSVApiView(APIView):
             return Response({'error': 'No CSV file provided'}, status=status.HTTP_400_BAD_REQUEST)
 
         csv_file = request.FILES['csv_file']
-        ed50_file = request.FILES.get('ed50_file')  # optional
         no_pam = request.data.get('no_pam', False) == 'true'
 
-        print(f"📁 Main CSV: {csv_file.name} | ED50 CSV: {ed50_file.name if ed50_file else '—'} | No PAM: {no_pam}")
+        print(f"📁 Processing: {csv_file.name} | No PAM: {no_pam}")
 
-        # Validate file types
+        # Validate file type
         if not csv_file.name.lower().endswith('.csv'):
-            return Response({'error': 'Main file must be a CSV'}, status=status.HTTP_400_BAD_REQUEST)
-        if ed50_file and not ed50_file.name.lower().endswith('.csv'):
-            return Response({'error': 'ED50 file must be a CSV'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'File must be a CSV'}, status=status.HTTP_400_BAD_REQUEST)
+
+        temp_raw_csv = None
+        temp_ed_csv = None
+        temp_combined_csv = None
 
         try:
-            # Read main CSV into dataframe for ED50 presence check / potential merge
-            df_main = pd.read_csv(csv_file)
-            print(f"📊 Loaded main CSV with {len(df_main)} rows & {len(df_main.columns)} columns")
-
-            # Detect existing ED50 column in main CSV and standardise its name
-            ed50_patterns = ['ed50', 'Colony.ed50', 'ed50_value']
-            ed50_col_in_main = next((col for col in df_main.columns if any(p.lower() in col.lower() for p in ed50_patterns)), None)
-            has_ed50 = ed50_col_in_main is not None
-
-            # If ED50 present but column not yet standardised, rename it
-            if has_ed50 and ed50_col_in_main != 'Colony.ed50':
-                df_main.rename(columns={ed50_col_in_main: 'Colony.ed50'}, inplace=True)
-                print(f"🔧 Renamed '{ed50_col_in_main}' -> 'Colony.ed50' in main CSV")
-
-            if not has_ed50 and ed50_file is None:
-                return Response({
-                    'error': 'No ED50 values detected in the main CSV. Please upload a matching ED50 results CSV as well.'
-                }, status=status.HTTP_400_BAD_REQUEST)
-
-            if not has_ed50 and ed50_file is not None:
-                # Merge ED50 columns from provided file
-                df_ed = pd.read_csv(ed50_file)
-                print(f"📊 Loaded ED50 CSV with {len(df_ed)} rows & {len(df_ed.columns)} columns")
-
-                # -----------------------------------------------------------------
-                # Harmonise ED50 dataframe columns & prepare for merge
-                # -----------------------------------------------------------------
-
-                # 1) Detect the ED50 column name (case-insensitive)
-                ed50_column_name = next((c for c in df_ed.columns if c.lower() == 'ed50'), None)
-                if ed50_column_name is None:
-                    return Response({
-                        'error': 'ED50 column not found in the provided ED50 CSV.'
-                    }, status=status.HTTP_400_BAD_REQUEST)
-
-                # Also detect ED5 and ED95 columns
-                ed5_column_name = next((c for c in df_ed.columns if c.lower() == 'ed5'), None)
-                ed95_column_name = next((c for c in df_ed.columns if c.lower() == 'ed95'), None)
-
-                # 2) If the ED50 results file contains a composite "GroupingProperty"
-                #    but lacks an explicit Genotype column, extract it from the string.
-                if 'Genotype' not in df_ed.columns and 'GroupingProperty' in df_ed.columns:
-                    df_ed['Genotype'] = df_ed['GroupingProperty'].astype(str).apply(
-                        lambda s: s.split('_')[-1] if '_' in s else pd.NA
-                    )
-
-                # 3) Ensure dtype consistency between both dataframes for merge keys
-                for col in ['Site', 'Condition', 'Species', 'Genotype', 'Timepoint']:
-                    if col in df_main.columns:
-                        df_main[col] = df_main[col].astype(str)
-                    if col in df_ed.columns:
-                        df_ed[col] = df_ed[col].astype(str)
-
-                # Attempt merge using common descriptive columns
-                candidate_keys = ['Site', 'Condition', 'Species', 'Genotype', 'Timepoint']
-                merge_keys = [k for k in candidate_keys if k in df_main.columns and k in df_ed.columns]
-
-                if merge_keys:
-                    print(f"🔗 Attempting merge using keys: {merge_keys}")
+            # ==============================================================
+            # STEP 1: Load raw data and check for ED values
+            # ==============================================================
+            df_raw = pd.read_csv(csv_file)
+            print(f"📊 Loaded CSV: {len(df_raw)} rows, {len(df_raw.columns)} columns")
+            
+            # Check if ED values already exist
+            ed_patterns = ['ed50', 'ed5', 'ed95', 'ED50', 'ED5', 'ED95']
+            has_ed_columns = any(
+                any(pattern.lower() in col.lower() for pattern in ed_patterns)
+                for col in df_raw.columns
+            )
+            
+            df_with_eds = None
+            
+            if has_ed_columns:
+                print("✅ ED values detected in uploaded file")
+                df_with_eds = df_raw
+            else:
+                # ==============================================================
+                # STEP 2: Calculate ED values using ed50-fastapi service
+                # ==============================================================
+                print("📊 No ED values detected - calculating EDs...")
+                
+                # Save raw data to temp file for ED calculation
+                with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as tmp:
+                    df_raw.to_csv(tmp.name, index=False)
+                    temp_raw_csv = tmp.name
+                
+                # Call ED50 calculator service (CSV endpoint)
+                try:
+                    import requests
                     
-                    # Build list of columns to merge
-                    ed_columns_to_merge = [ed50_column_name]
-                    if ed5_column_name:
-                        ed_columns_to_merge.append(ed5_column_name)
-                    if ed95_column_name:
-                        ed_columns_to_merge.append(ed95_column_name)
-                    
-                    df_combined = df_main.merge(
-                        df_ed[merge_keys + ed_columns_to_merge],
-                        on=merge_keys,
-                        how='left'
-                    )
-                    
-                    # Rename columns to standard names
-                    df_combined.rename(columns={ed50_column_name: 'Colony.ed50'}, inplace=True)
-                    if ed5_column_name:
-                        df_combined.rename(columns={ed5_column_name: 'Colony.ed5'}, inplace=True)
-                    if ed95_column_name:
-                        df_combined.rename(columns={ed95_column_name: 'Colony.ed95'}, inplace=True)
-
-                    missing_after_merge = df_combined['Colony.ed50'].isna().sum()
-                    print(f"ℹ️ Missing ED50 after key-merge: {missing_after_merge}")
-
-                    # If still missing, try fill per Temperature group (common 10× pattern)
-                    if missing_after_merge > 0 and 'Temperature' in df_ed.columns:
-                        temp_to_ed50 = df_ed.groupby('Temperature')[ed50_column_name].first().to_dict()
-                        df_combined['Colony.ed50'] = df_combined.apply(
-                            lambda row: temp_to_ed50.get(row['Temperature']) if pd.isna(row['Colony.ed50']) else row['Colony.ed50'],
-                            axis=1
+                    with open(temp_raw_csv, 'rb') as f:
+                        files = {'file': (csv_file.name, f, 'text/csv')}
+                        
+                        # Get grouping properties from request or use defaults
+                        grouping = request.data.get('grouping_properties', 'Site,Condition,Species,Timepoint')
+                        
+                        data = {
+                            'grouping_properties': grouping,
+                            'drm_formula': 'Pam_value ~ Temperature',
+                            'condition': 'Condition',
+                            'faceting': ' ~ Species',
+                            'faceting_model': 'Species ~ Site ~ Condition',
+                        }
+                        
+                        # Use ed50-fastapi CSV endpoint
+                        ed50_service_url = os.getenv('ED50_SERVICE_URL', 'http://ed50-fastapi:8001/calculate-csv')
+                        print(f"🧮 Calling ED50 service: {ed50_service_url}")
+                        
+                        response = requests.post(
+                            ed50_service_url,
+                            files=files,
+                            data=data,
+                            timeout=600  # 10 minutes for large files
                         )
                         
-                        # Also fill ED5 and ED95 if available
-                        if ed5_column_name:
-                            temp_to_ed5 = df_ed.groupby('Temperature')[ed5_column_name].first().to_dict()
-                            df_combined['Colony.ed5'] = df_combined.apply(
-                                lambda row: temp_to_ed5.get(row['Temperature']) if pd.isna(row.get('Colony.ed5', pd.NA)) else row.get('Colony.ed5'),
-                                axis=1
+                        if response.status_code == 200:
+                            # Service returns CSV directly
+                            print("✅ ED50 calculation successful")
+                            
+                            # Save EDs to temp file
+                            with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as tmp_ed:
+                                tmp_ed.write(response.text)
+                                temp_ed_csv = tmp_ed.name
+                            
+                            # Read both files
+                            df_raw_data = pd.read_csv(temp_raw_csv)
+                            df_eds = pd.read_csv(temp_ed_csv)
+                            print(f"📊 EDs calculated: {len(df_eds)} rows")
+                            
+                            # Merge EDs into raw data
+                            # Assuming EDs has columns like: Site, Condition, Species, Timepoint, ED5, ED50, ED95
+                            # Merge on common grouping columns
+                            merge_cols = []
+                            for col in ['Site', 'Condition', 'Species', 'Timepoint', 'Genotype']:
+                                if col in df_raw_data.columns and col in df_eds.columns:
+                                    merge_cols.append(col)
+                                    # Ensure string type for merge
+                                    df_raw_data[col] = df_raw_data[col].astype(str)
+                                    df_eds[col] = df_eds[col].astype(str)
+                            
+                            if not merge_cols:
+                                print("❌ No common merge columns found")
+                                return Response({
+                                    'error': 'Cannot merge ED values - no common grouping columns found'
+                                }, status=status.HTTP_400_BAD_REQUEST)
+                            
+                            print(f"🔗 Merging EDs on columns: {merge_cols}")
+                            
+                            # Select ED columns from EDs dataframe
+                            ed_cols = [c for c in df_eds.columns if c.upper() in ['ED5', 'ED50', 'ED95']]
+                            df_with_eds = df_raw_data.merge(
+                                df_eds[merge_cols + ed_cols],
+                                on=merge_cols,
+                                how='left'
                             )
-                        if ed95_column_name:
-                            temp_to_ed95 = df_ed.groupby('Temperature')[ed95_column_name].first().to_dict()
-                            df_combined['Colony.ed95'] = df_combined.apply(
-                                lambda row: temp_to_ed95.get(row['Temperature']) if pd.isna(row.get('Colony.ed95', pd.NA)) else row.get('Colony.ed95'),
-                                axis=1
-                            )
-                        
-                        missing_after_fill = df_combined['Colony.ed50'].isna().sum()
-                        print(f"ℹ️ Missing ED50 after temperature fill: {missing_after_fill}")
-                else:
-                    # Fallback: align by row order length multiple (e.g., 10×)
-                    factor = len(df_main) // len(df_ed) if len(df_ed) > 0 else 0
-                    if factor * len(df_ed) == len(df_main):
-                        print(f"🔗 Replicating each ED row {factor}× to match main rows")
-                        repeated_ed = df_ed.loc[df_ed.index.repeat(factor)].reset_index(drop=True)
-                        df_combined = df_main.copy()
-                        df_combined['Colony.ed50'] = repeated_ed[ed50_column_name].values
-                        if ed5_column_name:
-                            df_combined['Colony.ed5'] = repeated_ed[ed5_column_name].values
-                        if ed95_column_name:
-                            df_combined['Colony.ed95'] = repeated_ed[ed95_column_name].values
-                    else:
-                        return Response({
-                            'error': 'ED50 file row count does not match main CSV and unable to merge on common keys.'
-                        }, status=status.HTTP_400_BAD_REQUEST)
-            else:
-                df_combined = df_main  # already contains ED50 (now standardised)
-
-            # -------------------------------------------------------------
-            # Verify that every row now has ED50 and save merged CSV to /tmp
-            # -------------------------------------------------------------
-            if 'Colony.ed50' not in df_combined.columns:
-                return Response({'error': 'Merge failed – Colony.ed50 column missing after processing.'}, status=status.HTTP_400_BAD_REQUEST)
-
-            missing_final = df_combined['Colony.ed50'].isna().sum()
-            if missing_final > 0:
-                return Response({'error': f'Merge incomplete – {missing_final} rows still missing ED50 after merge.'}, status=status.HTTP_400_BAD_REQUEST)
-
-            # Save merged CSV to tmp for manual inspection
-            merged_filename = f"merged_{csv_file.name}"
-            merged_path = os.path.join(tempfile.gettempdir(), merged_filename)
-            try:
-                df_combined.to_csv(merged_path, index=False)
-                print(f"📝 Merged CSV saved for audit: {merged_path}")
-            except Exception as save_exc:
-                print(f"⚠️ Could not save merged CSV for audit: {save_exc}")
-
-            # -----------------------------------------------------------------
-            # Save combined dataframe to a temporary CSV file for populate_db
-            # -----------------------------------------------------------------
+                            
+                            print(f"✅ Merged: {len(df_with_eds)} rows with ED values")
+                            
+                        else:
+                            print(f"❌ ED50 service returned status {response.status_code}")
+                            error_text = response.text[:500] if response.text else 'No error message'
+                            return Response({
+                                'error': f'ED50 calculation failed: {error_text}'
+                            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                            
+                except requests.exceptions.ConnectionError:
+                    print("❌ ED50 service unavailable")
+                    return Response({
+                        'error': 'ED50 calculation service is not available. Please pre-calculate EDs and include them in your upload.'
+                    }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+                except requests.exceptions.Timeout:
+                    print("❌ ED50 calculation timeout")
+                    return Response({
+                        'error': 'ED50 calculation timed out. Please try with a smaller dataset or pre-calculate EDs.'
+                    }, status=status.HTTP_408_REQUEST_TIMEOUT)
+            
+            # ==============================================================
+            # STEP 3: Normalize ED column names to standard format
+            # ==============================================================
+            print("🔧 Normalizing ED column names...")
+            ed_mapping = {}
+            for col in df_with_eds.columns:
+                col_lower = col.lower()
+                if 'ed50' in col_lower:
+                    ed_mapping[col] = 'Colony.ed50'
+                elif 'ed5' in col_lower and 'ed50' not in col_lower:
+                    ed_mapping[col] = 'Colony.ed5'
+                elif 'ed95' in col_lower:
+                    ed_mapping[col] = 'Colony.ed95'
+            
+            if ed_mapping:
+                df_with_eds.rename(columns=ed_mapping, inplace=True)
+                print(f"✅ Normalized ED columns: {list(ed_mapping.values())}")
+            
+            # Verify ED50 exists
+            if 'Colony.ed50' not in df_with_eds.columns:
+                return Response({
+                    'error': 'No ED50 values found after processing. Please ensure your data contains ED50 values.'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # ==============================================================
+            # STEP 4: Save to temp file for populate_db
+            # ==============================================================
             with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as temp_csv:
-                df_combined.to_csv(temp_csv.name, index=False)
-                temp_file_path = temp_csv.name
-            print(f"💾 Temp combined CSV saved to {temp_file_path}")
+                df_with_eds.to_csv(temp_csv.name, index=False)
+                temp_combined_csv = temp_csv.name
+            print(f"💾 Data with EDs saved to: {temp_combined_csv}")
 
-            # Build command args for populate_db
+            # ==============================================================
+            # STEP 5: Run populate_db (includes AI mapping inside)
+            # ==============================================================
+            print("🤖 Starting populate_db with AI mapping...")
             command_args = [
-                '--csv_path', temp_file_path,
+                '--csv_path', temp_combined_csv,
                 '--owner', request.user.username,
             ]
             if no_pam:
                 command_args.append('--no-pam')
 
-            print(f"🚀 Running command: populate_db {' '.join(command_args)}")
+            print(f"🚀 Command: populate_db {' '.join(command_args)}")
             call_command('populate_db', *command_args)
             print("✅ populate_db completed successfully")
             
-            # Automatically assign MMM values and recalculate rel numbers
-            print("🚀 Running command: assign_mmm")
+            # ==============================================================
+            # STEP 6: Assign MMM values and calculate relative metrics
+            # ==============================================================
+            print("🌡️ Assigning MMM values...")
             call_command('assign_mmm')
             print("✅ assign_mmm completed successfully")
 
             return Response({
-                'message': 'CSV data uploaded and processed successfully',
+                'message': 'Data uploaded and processed successfully',
                 'filename': csv_file.name,
-                'ed50_source': 'inline' if has_ed50 else ed50_file.name
+                'rows_processed': len(df_with_eds),
+                'ed_source': 'pre-calculated' if has_ed_columns else 'calculated'
             }, status=status.HTTP_201_CREATED)
 
         except Exception as e:
@@ -433,10 +438,14 @@ class UploadCSVApiView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         finally:
-            # Clean up temporary file
-            if 'temp_file_path' in locals() and os.path.exists(temp_file_path):
-                os.unlink(temp_file_path)
-                print(f"🗑️ Temp combined CSV deleted: {temp_file_path}")
+            # Clean up temporary files
+            for temp_file in [temp_raw_csv, temp_ed_csv, temp_combined_csv]:
+                if temp_file and os.path.exists(temp_file):
+                    try:
+                        os.unlink(temp_file)
+                        print(f"🗑️ Cleaned up: {temp_file}")
+                    except Exception as cleanup_error:
+                        print(f"⚠️ Failed to clean up {temp_file}: {cleanup_error}")
 
 
 class ProjectsApiView(APIView):
