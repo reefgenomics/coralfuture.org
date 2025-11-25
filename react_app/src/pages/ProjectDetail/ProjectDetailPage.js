@@ -25,7 +25,7 @@ const ProjectDetailPage = () => {
   useEffect(() => {
     const fetchProject = async () => {
       try {
-        const backendUrl = process.env.REACT_APP_BACKEND_URL;
+        const backendUrl = '';
         const response = await fetch(`${backendUrl}/api/public/projects/${projectId}/`);
         
         if (!response.ok) {

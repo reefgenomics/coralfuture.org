@@ -10,7 +10,7 @@ import { AuthContext } from 'contexts/AuthContext'
 const NavigationBar = () => {
 
   const { authData, logout } = useContext(AuthContext);
-  const backendUrl = process.env.REACT_APP_BACKEND_URL;
+  const backendUrl = '';
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -86,15 +86,8 @@ const NavigationBar = () => {
                 const envUrl = process.env.REACT_APP_SHINY_URL;
                 if (envUrl) return envUrl; // explicit override
 
-                try {
-                  const urlObj = new URL(backendUrl);
-                  // Use /shiny/ path instead of port 3838
-                  urlObj.pathname = '/shiny/';
-                  return urlObj.toString();
-                } catch (e) {
-                  // Fallback to default localhost dev URL
-                  return 'http://localhost:8000/shiny/';
-                }
+                // Use relative path to work with nginx proxy
+                return '/shiny/';
               })()} target="_blank" rel="noopener noreferrer">
                 <i className="bi bi-graph-up"></i> ED50 Calculator
               </Nav.Link>

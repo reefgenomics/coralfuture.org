@@ -104,7 +104,7 @@ const AuthContextProvider = (props) => {
   };
 
   useEffect(() => {
-    checkAuthentication(process.env.REACT_APP_BACKEND_URL);
+    checkAuthentication('');
   }, []);
 
   return (

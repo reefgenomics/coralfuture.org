@@ -109,7 +109,8 @@ const SidebarFilterProvider = (props) => {
       }
     };
 
-    const backendUrl = process.env.REACT_APP_BACKEND_URL;
+    // Use relative URL for API calls to work with both HTTP and HTTPS
+    const backendUrl = '';
 
     fetchColonies(backendUrl);
     fetchBioSamples(backendUrl);

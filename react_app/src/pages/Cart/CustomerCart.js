@@ -128,7 +128,7 @@ const CustomerCart = () => {
   const saveRename = async () => {
     if (editingGroup && newGroupName.trim()) {
       try {
-        await renameCartGroup(editingGroup.id, newGroupName.trim(), process.env.REACT_APP_BACKEND_URL);
+        await renameCartGroup(editingGroup.id, newGroupName.trim(), '');
         setShowRenameModal(false);
         setEditingGroup(null);
         setNewGroupName('');
@@ -141,7 +141,7 @@ const CustomerCart = () => {
   const handleDelete = async (groupId) => {
     if (window.confirm('Are you sure you want to delete this group?')) {
       try {
-        await deleteCartGroup(groupId, process.env.REACT_APP_BACKEND_URL);
+        await deleteCartGroup(groupId, '');
       } catch (error) {
         console.error('Error deleting group:', error);
       }
@@ -152,7 +152,7 @@ const CustomerCart = () => {
     setExporting(true);
     try {
       const groupIds = exportAll ? [] : Array.from(selectedGroups);
-      await exportCartGroups(groupIds, exportAll, process.env.REACT_APP_BACKEND_URL);
+      await exportCartGroups(groupIds, exportAll, '');
     } catch (error) {
       console.error('Error exporting cart:', error);
     } finally {

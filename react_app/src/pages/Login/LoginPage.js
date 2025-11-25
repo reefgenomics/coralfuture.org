@@ -18,7 +18,7 @@ const LoginPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   
-  const backendUrl = process.env.REACT_APP_BACKEND_URL;
+  const backendUrl = '';
   
   // Redirect if already authenticated
   React.useEffect(() => {

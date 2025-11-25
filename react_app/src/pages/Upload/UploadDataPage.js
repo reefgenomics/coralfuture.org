@@ -5,7 +5,7 @@ import Cookie from 'js-cookie';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { AuthContext } from 'contexts/AuthContext';
 
-const backendUrl = process.env.REACT_APP_BACKEND_URL;
+const backendUrl = '';
 
 const UploadDataPage = () => {
   const { authData } = useContext(AuthContext);
@@ -137,7 +137,7 @@ const UploadDataPage = () => {
     const envUrl = process.env.REACT_APP_SHINY_URL;
     if (envUrl) return envUrl;
     try {
-      const urlObj = new URL(process.env.REACT_APP_BACKEND_URL);
+      const urlObj = new URL(window.location.origin);
       // Use /shiny/ path instead of port 3838
       urlObj.pathname = '/shiny/';
       return urlObj.toString();

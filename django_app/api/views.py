@@ -286,7 +286,10 @@ class UploadCSVApiView(APIView):
                         files = {'file': (csv_file.name, f, 'text/csv')}
                         
                         # Get grouping properties from request or use defaults
+                        # For automatic ED calculation, always use: Site,Condition,Species,Timepoint
                         grouping = request.data.get('grouping_properties', 'Site,Condition,Species,Timepoint')
+                        if not grouping or grouping.strip() == '':
+                            grouping = 'Site,Condition,Species,Timepoint'
                         
                         data = {
                             'grouping_properties': grouping,
@@ -325,12 +328,16 @@ class UploadCSVApiView(APIView):
                             # Assuming EDs has columns like: Site, Condition, Species, Timepoint, ED5, ED50, ED95
                             # Merge on common grouping columns
                             merge_cols = []
-                            for col in ['Site', 'Condition', 'Species', 'Timepoint', 'Genotype']:
+                            # These are the grouping properties used for ED calculation
+                            required_merge_cols = ['Site', 'Condition', 'Species', 'Timepoint']
+                            for col in required_merge_cols:
                                 if col in df_raw_data.columns and col in df_eds.columns:
                                     merge_cols.append(col)
                                     # Ensure string type for merge
                                     df_raw_data[col] = df_raw_data[col].astype(str)
                                     df_eds[col] = df_eds[col].astype(str)
+                                else:
+                                    print(f"⚠️ WARNING: {col} not found in both dataframes for merge")
                             
                             if not merge_cols:
                                 print("❌ No common merge columns found")
@@ -394,6 +401,7 @@ class UploadCSVApiView(APIView):
             
             # ==============================================================
             # STEP 4: Save to temp file for populate_db
+            # NOTE: No deduplication here - populate_db will handle it via get_or_create
             # ==============================================================
             with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as temp_csv:
                 df_with_eds.to_csv(temp_csv.name, index=False)

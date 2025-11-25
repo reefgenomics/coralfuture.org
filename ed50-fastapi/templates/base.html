@@ -42,7 +42,7 @@
 <body>
     <nav class="navbar navbar-expand-lg navbar-light bg-light shadow-sm">
         <div class="container">
-            <a class="navbar-brand fw-bold" href="/">
+            <a class="navbar-brand fw-bold" href="{{ request.scope.get('root_path', '') }}/">
                 <i class="bi bi-graph-up"></i> CBASS ED50 Calculator
             </a>
             <span class="navbar-text">

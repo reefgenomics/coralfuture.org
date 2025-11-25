@@ -70,7 +70,7 @@ const AddToCartButton = () => {
 
     setAlertShow(true);
     try {
-      const backendUrl = process.env.REACT_APP_BACKEND_URL;
+      const backendUrl = '';
       const coloniesIds = filteredColonies.map(colony => colony.id);
       
       // Add to cart with group name and filter params

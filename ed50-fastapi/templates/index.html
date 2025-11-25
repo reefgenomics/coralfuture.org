@@ -10,7 +10,7 @@
     </div>
 </div>
 
-<form method="post" action="/process" enctype="multipart/form-data" id="dataForm">
+<form method="post" action="{{ request.scope.get('root_path', '') }}/process" enctype="multipart/form-data" id="dataForm">
     <div class="row">
         <div class="col-md-3">
             <div class="mb-3" id="fileUpload" style="display: block;">

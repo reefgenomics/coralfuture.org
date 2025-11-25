@@ -21,7 +21,11 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="CBASS ED50 Calculator", description="FastAPI application for ED50 calculations using R")
+app = FastAPI(
+    title="CBASS ED50 Calculator",
+    description="FastAPI application for ED50 calculations using R",
+    root_path="/shiny"
+)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
@@ -190,7 +194,7 @@ async def home(request: Request):
 async def calculate_csv(
     request: Request,
     file: UploadFile = File(...),
-    grouping_properties: str = Form("Site,Condition,Species,Timepoint"),
+    grouping_properties: str = Form("Site,Condition,Species,Genotype,Timepoint"),
     drm_formula: str = Form("Pam_value ~ Temperature"),
     condition: str = Form("Condition"),
     faceting: str = Form(" ~ Species"),
@@ -263,7 +267,7 @@ async def calculate_csv(
 async def process_data(
     request: Request,
     file: Optional[UploadFile] = File(None),
-    grouping_properties: str = Form("Site,Condition,Species,Timepoint"),
+    grouping_properties: str = Form("Site,Condition,Species,Genotype,Timepoint"),
     faceting_model: str = Form("Species ~ Site ~ Condition"),
     faceting: str = Form(" ~ Species"),
     condition: str = Form("Condition"),

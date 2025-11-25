@@ -20,7 +20,7 @@ const Statistics = () => {
     const fetchStatistics = async () => {
       try {
         setLoading(true);
-        const backendUrl = process.env.REACT_APP_BACKEND_URL;
+        const backendUrl = '';
         const fullUrl = `${backendUrl}/api/public/statistics/`;
         
         console.log('Fetching statistics from:', fullUrl);
