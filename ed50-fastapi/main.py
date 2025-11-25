@@ -1,5 +1,5 @@
 from fastapi import FastAPI, File, UploadFile, Request, Form
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import pandas as pd
@@ -333,13 +333,54 @@ async def process_data(
                 {"request": request, "error": error_message},
             )
 
-        eds_df = pd.read_csv(output_file)
+        # Try to read aggregated statistics from separate file first
+        aggregated_file = output_file.replace('.csv', '_aggregated.csv')
+        aggregated_df = None
+        if os.path.exists(aggregated_file):
+            try:
+                aggregated_df = pd.read_csv(aggregated_file)
+                logger.info(f"✅ Loaded aggregated statistics from separate file: {len(aggregated_df)} rows")
+            except Exception as e:
+                logger.warning(f"Failed to read aggregated file: {e}")
+        
+        # Read individual ED values (handle file with separator)
+        with open(output_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        # Split file by separator: individual first, then aggregated
+        from io import StringIO
+        individual_csv = content
+        if '#AGGREGATED_STATISTICS' in content:
+            parts = content.split('#AGGREGATED_STATISTICS', 1)
+            individual_csv = parts[0].strip()
+            # If we don't have aggregated from separate file, try to parse from main file
+            if aggregated_df is None and len(parts) > 1:
+                aggregated_csv = parts[1].strip()
+                try:
+                    aggregated_df = pd.read_csv(StringIO(aggregated_csv))
+                    logger.info(f"✅ Loaded aggregated statistics from main file: {len(aggregated_df)} rows")
+                except Exception as e:
+                    logger.warning(f"Failed to parse aggregated data from main file: {e}")
+        
+        # Parse individual CSV
+        try:
+            eds_df = pd.read_csv(StringIO(individual_csv))
+        except Exception as e:
+            logger.error(f"Failed to parse individual CSV: {e}")
+            raise
+        
+        # Combine CSV data: individual first, then aggregated
+        csv_data = eds_df.to_csv(index=False)
+        if aggregated_df is not None and len(aggregated_df) > 0:
+            csv_data += "\n#AGGREGATED_STATISTICS\n"
+            csv_data += aggregated_df.to_csv(index=False)
+        
+        # Create HTML table (show individual values by default)
         eds_table_html = eds_df.to_html(
             classes="table table-striped",
             table_id="eds-table",
             index=False,
         )
-        csv_data = eds_df.to_csv(index=False)
 
         boxplot_img = base64_from_file(boxplot_file)
         temp_curve_img = base64_from_file(temp_curve_file)
@@ -376,6 +417,13 @@ async def process_data(
                     os.unlink(tmp_path)
                 except OSError:
                     logger.warning("Failed to remove temporary output file: %s", tmp_path)
+        # Also clean up aggregated file if it exists
+        aggregated_file = output_file.replace('.csv', '_aggregated.csv') if output_file else None
+        if aggregated_file and os.path.exists(aggregated_file):
+            try:
+                os.unlink(aggregated_file)
+            except OSError:
+                logger.warning("Failed to remove temporary aggregated file: %s", aggregated_file)
 
 @app.get("/download-csv")
 async def download_csv(csv_data: str):

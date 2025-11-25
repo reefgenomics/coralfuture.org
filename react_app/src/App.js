@@ -14,6 +14,7 @@ import UploadDataPage from 'pages/Upload/UploadDataPage';
 import LoginPage from 'pages/Login/LoginPage';
 import ProjectsPage from 'pages/Projects/ProjectsPage';
 import ProjectDetailPage from 'pages/ProjectDetail/ProjectDetailPage';
+import ED50CalculatorPage from 'pages/ED50Calculator/ED50CalculatorPage';
 // Components
 import NavigationBar from 'components/Navbar/Navbar';
 
@@ -34,6 +35,7 @@ const App = () => {
               <Route path="/login" element={<LoginPage />} />
               <Route path="/projects" element={<ProjectsPage />} />
               <Route path="/project/:projectId" element={<ProjectDetailPage />} />
+              <Route path="/ed-calculator" element={<ED50CalculatorPage />} />
             </Routes>
           </div>
           

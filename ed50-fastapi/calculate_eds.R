@@ -182,12 +182,121 @@ eds_df <- eds_df[, cols_order, drop = FALSE]
 cat(paste0("[INFO] Final result columns: ", paste(colnames(eds_df), collapse = ", "), "\n"))
 flush.console()
 
-cat(paste0("[INFO] Saving results to: ", output_csv, "\n"))
+# Calculate aggregated statistics (Mean, SD, SE, Conf_Int) for each ED value
+cat("[INFO] Calculating aggregated statistics...\n")
 flush.console()
-write.csv(eds_df, output_csv, row.names = FALSE)
 
-cat(paste0("[INFO] Calculations completed successfully. Results saved to: ", output_csv, "\n"))
-flush.console()
+# Ensure grouping properties are present for aggregation
+grouping_cols <- intersect(grouping_props, colnames(eds_df))
+if (length(grouping_cols) == 0) {
+  cat("[WARN] No grouping columns found for aggregation. Using GroupingProperty if available.\n")
+  flush.console()
+  if ("GroupingProperty" %in% colnames(eds_df)) {
+    grouping_cols <- "GroupingProperty"
+  }
+}
+
+if (length(grouping_cols) > 0 && all(c("ED5", "ED50", "ED95") %in% colnames(eds_df))) {
+  # Helper function to calculate SE and Conf_Int safely
+  calc_se <- function(x) {
+    n <- sum(!is.na(x))
+    if (n > 1) {
+      sd_val <- sd(x, na.rm = TRUE)
+      if (!is.na(sd_val) && sd_val > 0) {
+        return(sd_val / sqrt(n))
+      }
+    }
+    return(NA)
+  }
+  
+  calc_conf_int <- function(x) {
+    n <- sum(!is.na(x))
+    if (n > 1) {
+      sd_val <- sd(x, na.rm = TRUE)
+      if (!is.na(sd_val) && sd_val > 0) {
+        se <- sd_val / sqrt(n)
+        df <- n - 1
+        if (df > 0) {
+          t_val <- tryCatch(qt(0.975, df = df), error = function(e) NA)
+          if (!is.na(t_val)) {
+            return(t_val * se)
+          }
+        }
+      }
+    }
+    return(NA)
+  }
+  
+  # Calculate statistics for each group
+  aggregated_df <- eds_df %>%
+    dplyr::group_by(across(all_of(grouping_cols))) %>%
+    dplyr::summarise(
+      Mean_ED5 = mean(ED5, na.rm = TRUE),
+      SD_ED5 = sd(ED5, na.rm = TRUE),
+      SE_ED5 = calc_se(ED5),
+      Conf_Int_5 = calc_conf_int(ED5),
+      Mean_ED50 = mean(ED50, na.rm = TRUE),
+      SD_ED50 = sd(ED50, na.rm = TRUE),
+      SE_ED50 = calc_se(ED50),
+      Conf_Int_50 = calc_conf_int(ED50),
+      Mean_ED95 = mean(ED95, na.rm = TRUE),
+      SD_ED95 = sd(ED95, na.rm = TRUE),
+      SE_ED95 = calc_se(ED95),
+      Conf_Int_95 = calc_conf_int(ED95),
+      .groups = "drop"
+    ) %>%
+    dplyr::mutate(
+      # Replace NaN and Inf with NA
+      across(where(is.numeric), ~ ifelse(is.nan(.) | is.infinite(.), NA, .))
+    )
+  
+  cat(paste0("[INFO] Aggregated statistics calculated. Rows: ", nrow(aggregated_df), "\n"))
+  cat(paste0("[INFO] Aggregated columns: ", paste(colnames(aggregated_df), collapse = ", "), "\n"))
+  flush.console()
+  
+  # Combine individual ED values with aggregated statistics
+  # First, save individual values
+  individual_df <- eds_df
+  
+  # Reorder aggregated columns to match expected format
+  expected_agg_cols <- c(grouping_cols, 
+                        "Mean_ED5", "SD_ED5", "SE_ED5", "Conf_Int_5",
+                        "Mean_ED50", "SD_ED50", "SE_ED50", "Conf_Int_50",
+                        "Mean_ED95", "SD_ED95", "SE_ED95", "Conf_Int_95")
+  available_agg_cols <- intersect(expected_agg_cols, colnames(aggregated_df))
+  other_agg_cols <- setdiff(colnames(aggregated_df), expected_agg_cols)
+  aggregated_df <- aggregated_df[, c(available_agg_cols, other_agg_cols), drop = FALSE]
+  
+  # Save aggregated statistics to separate file
+  aggregated_csv <- sub("\\.csv$", "_aggregated.csv", output_csv)
+  cat(paste0("[INFO] Saving aggregated statistics to: ", aggregated_csv, "\n"))
+  flush.console()
+  write.csv(aggregated_df, aggregated_csv, row.names = FALSE)
+  cat(paste0("[INFO] Aggregated statistics saved: ", nrow(aggregated_df), " rows\n"))
+  flush.console()
+  
+  # Save individual values to main output file
+  cat(paste0("[INFO] Saving individual ED values to: ", output_csv, "\n"))
+  flush.console()
+  write.csv(individual_df, output_csv, row.names = FALSE)
+  
+  # Append aggregated statistics to main file
+  cat("\n#AGGREGATED_STATISTICS\n", file = output_csv, append = TRUE)
+  write.table(aggregated_df, output_csv, sep = ",", row.names = FALSE, col.names = TRUE, append = TRUE)
+  
+  cat(paste0("[INFO] Calculations completed successfully.\n"))
+  cat(paste0("[INFO] Individual ED values saved to: ", output_csv, " (", nrow(individual_df), " rows)\n"))
+  cat(paste0("[INFO] Aggregated statistics saved to: ", aggregated_csv, " (", nrow(aggregated_df), " rows)\n"))
+  flush.console()
+} else {
+  cat("[WARN] Cannot calculate aggregated statistics. Missing required columns or grouping properties.\n")
+  flush.console()
+  cat(paste0("[INFO] Saving results to: ", output_csv, "\n"))
+  flush.console()
+  write.csv(eds_df, output_csv, row.names = FALSE)
+  cat(paste0("[INFO] Calculations completed successfully. Results saved to: ", output_csv, "\n"))
+  flush.console()
+}
 
 safe_numeric <- function(value, fallback) {
   if (is.na(value) || !is.finite(value)) {

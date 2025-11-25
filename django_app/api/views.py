@@ -286,10 +286,41 @@ class UploadCSVApiView(APIView):
                         files = {'file': (csv_file.name, f, 'text/csv')}
                         
                         # Get grouping properties from request or use defaults
-                        # For automatic ED calculation, always use: Site,Condition,Species,Timepoint
-                        grouping = request.data.get('grouping_properties', 'Site,Condition,Species,Timepoint')
+                        # Check if Genotype column exists in raw data (case-insensitive)
+                        genotype_col = None
+                        for col in df_raw.columns:
+                            if col.lower() == 'genotype':
+                                genotype_col = col
+                                break
+                        
+                        has_genotype = genotype_col is not None
+                        if has_genotype:
+                            print(f"✅ Found Genotype column: {genotype_col}")
+                        
+                        # Base grouping without Genotype
+                        base_grouping = 'Site,Condition,Species,Timepoint'
+                        
+                        # Get user-provided grouping or use default
+                        grouping = request.data.get('grouping_properties', base_grouping)
                         if not grouping or grouping.strip() == '':
-                            grouping = 'Site,Condition,Species,Timepoint'
+                            grouping = base_grouping
+                        
+                        # ALWAYS add Genotype to grouping if it exists in the data
+                        # This prevents mixing ED values from different genotypes
+                        if has_genotype:
+                            grouping_list = [g.strip() for g in grouping.split(',')]
+                            # Use the actual column name (case-sensitive for the grouping string)
+                            if genotype_col not in grouping_list:
+                                # Insert Genotype before Timepoint if not already present
+                                if 'Timepoint' in grouping_list:
+                                    timepoint_idx = grouping_list.index('Timepoint')
+                                    grouping_list.insert(timepoint_idx, genotype_col)
+                                else:
+                                    grouping_list.append(genotype_col)
+                                grouping = ','.join(grouping_list)
+                                print(f"⚠️ Genotype column found but not in grouping - adding it automatically")
+                        
+                        print(f"📊 Using grouping properties: {grouping}")
                         
                         data = {
                             'grouping_properties': grouping,
@@ -323,21 +354,49 @@ class UploadCSVApiView(APIView):
                             df_raw_data = pd.read_csv(temp_raw_csv)
                             df_eds = pd.read_csv(temp_ed_csv)
                             print(f"📊 EDs calculated: {len(df_eds)} rows")
+                            print(f"📊 ED columns: {df_eds.columns.tolist()}")
+                            print(f"📊 Raw data columns: {df_raw_data.columns.tolist()}")
                             
                             # Merge EDs into raw data
-                            # Assuming EDs has columns like: Site, Condition, Species, Timepoint, ED5, ED50, ED95
-                            # Merge on common grouping columns
+                            # Merge on ALL grouping columns used for ED calculation (including Genotype if present)
                             merge_cols = []
-                            # These are the grouping properties used for ED calculation
-                            required_merge_cols = ['Site', 'Condition', 'Species', 'Timepoint']
-                            for col in required_merge_cols:
+                            # Parse grouping properties to get all columns
+                            grouping_list = [g.strip() for g in grouping.split(',')]
+                            
+                            # Check which grouping columns exist in both dataframes
+                            for col in grouping_list:
+                                # Try exact match first
                                 if col in df_raw_data.columns and col in df_eds.columns:
                                     merge_cols.append(col)
                                     # Ensure string type for merge
                                     df_raw_data[col] = df_raw_data[col].astype(str)
                                     df_eds[col] = df_eds[col].astype(str)
+                                    print(f"✅ Found merge column: {col}")
                                 else:
-                                    print(f"⚠️ WARNING: {col} not found in both dataframes for merge")
+                                    # Try case-insensitive match (for Genotype or other columns)
+                                    found_in_raw = None
+                                    found_in_eds = None
+                                    
+                                    for c in df_raw_data.columns:
+                                        if c.lower() == col.lower():
+                                            found_in_raw = c
+                                            break
+                                    
+                                    for c in df_eds.columns:
+                                        if c.lower() == col.lower():
+                                            found_in_eds = c
+                                            break
+                                    
+                                    if found_in_raw and found_in_eds:
+                                        # Map EDs column to match raw data column name
+                                        if found_in_raw != found_in_eds:
+                                            df_eds = df_eds.rename(columns={found_in_eds: found_in_raw})
+                                        merge_cols.append(found_in_raw)
+                                        df_raw_data[found_in_raw] = df_raw_data[found_in_raw].astype(str)
+                                        df_eds[found_in_raw] = df_eds[found_in_raw].astype(str)
+                                        print(f"✅ Found merge column (case-insensitive): {found_in_raw}")
+                                    else:
+                                        print(f"⚠️ WARNING: {col} not found in both dataframes for merge")
                             
                             if not merge_cols:
                                 print("❌ No common merge columns found")

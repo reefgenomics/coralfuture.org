@@ -87,9 +87,9 @@ const NavigationBar = () => {
                 if (envUrl) return envUrl; // explicit override
 
                 // Use relative path to work with nginx proxy
-                return '/shiny/';
+                return '/ed-calculator/';
               })()} target="_blank" rel="noopener noreferrer">
-                <i className="bi bi-graph-up"></i> ED50 Calculator
+                <i className="bi bi-graph-up"></i> ED Calculator
               </Nav.Link>
             </Nav.Item>
 
