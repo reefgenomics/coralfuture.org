@@ -26,6 +26,7 @@ boxplot_path <- get_arg(10)
 temp_curve_path <- get_arg(11)
 model_curve_path <- get_arg(12)
 
+#sorry for this all logs, i need them because R is not very verbose and i need to know what is going on.
 cat("[INFO] Starting ED calculation\n")
 flush.console()
 cat(paste0("[INFO] Input file: ", input_csv, "\n"))
@@ -64,35 +65,123 @@ grouping_props <- trimws(strsplit(grouping_properties, ",")[[1]])
 cat(paste0("[INFO] Grouping properties: ", paste(grouping_props, collapse = ", "), "\n"))
 flush.console()
 
+# Universal function to clean dataset from empty/invalid columns
+clean_dataset <- function(df) {
+  if (is.null(df) || nrow(df) == 0) {
+    return(df)
+  }
+  
+  original_cols <- ncol(df)
+  
+  # Remove columns that are completely empty (all NA)
+  empty_cols <- colnames(df)[colSums(!is.na(df)) == 0]
+  
+  # Remove columns with "Unnamed" prefix that are empty or have no useful data
+  unnamed_cols <- colnames(df)[grepl("^Unnamed", colnames(df), ignore.case = TRUE)]
+  unnamed_empty <- unnamed_cols[colSums(!is.na(df[, unnamed_cols, drop = FALSE])) == 0]
+  
+  # Remove columns with empty names that are empty
+  empty_names <- colnames(df)[nchar(trimws(colnames(df))) == 0]
+  empty_names_empty <- empty_names[colSums(!is.na(df[, empty_names, drop = FALSE])) == 0]
+  
+  # Combine all columns to remove
+  cols_to_remove <- unique(c(empty_cols, unnamed_empty, empty_names_empty))
+  
+  if (length(cols_to_remove) > 0) {
+    cat(paste0("[INFO] Removing ", length(cols_to_remove), " empty/invalid columns: ", paste(cols_to_remove, collapse = ", "), "\n"))
+    flush.console()
+    df <- df[, !colnames(df) %in% cols_to_remove, drop = FALSE]
+  }
+  
+  if (ncol(df) < original_cols) {
+    cat(paste0("[INFO] Dataset cleaned: ", original_cols, " -> ", ncol(df), " columns\n"))
+    flush.console()
+  }
+  
+  return(df)
+}
+
 cat("[INFO] Reading input data...\n")
 flush.console()
 raw_dataset <- NULL
 tryCatch({
   dataset <- CBASSED50::read_data(input_csv)
-  raw_dataset <<- dataset
-  cat(paste0("[INFO] Data loaded successfully. Rows: ", nrow(dataset), ", Columns: ", ncol(dataset), "\n"))
+  cat(paste0("[INFO] Data loaded via CBASSED50::read_data. Rows: ", nrow(dataset), ", Columns: ", ncol(dataset), "\n"))
   flush.console()
 }, error = function(e) {
   cat(paste0("[WARN] CBASSED50::read_data failed, trying readr::read_csv: ", e$message, "\n"))
   flush.console()
   dataset <<- readr::read_csv(input_csv, show_col_types = FALSE)
-  raw_dataset <<- dataset
   cat(paste0("[INFO] Data loaded via readr. Rows: ", nrow(dataset), ", Columns: ", ncol(dataset), "\n"))
   flush.console()
 })
 
+# Clean dataset from empty/invalid columns
+dataset <- clean_dataset(dataset)
+raw_dataset <- dataset
+
+cat(paste0("[INFO] Final dataset: ", nrow(dataset), " rows, ", ncol(dataset), " columns\n"))
+cat(paste0("[INFO] Column names: ", paste(colnames(dataset), collapse = ", "), "\n"))
+if ("Temperature" %in% colnames(dataset)) {
+  cat(paste0("[INFO] Temperature column found. Unique values: ", length(unique(dataset$Temperature)), "\n"))
+  if (nrow(dataset) > 0) {
+    cat(paste0("[INFO] Temperature range: ", min(dataset$Temperature, na.rm = TRUE), " - ", max(dataset$Temperature, na.rm = TRUE), "\n"))
+  }
+} else {
+  cat("[WARN] Temperature column not found in dataset!\n")
+}
+flush.console()
+
 cat("[INFO] Preprocessing dataset...\n")
+cat(paste0("[INFO] Before preprocessing: ", nrow(dataset), " rows, ", ncol(dataset), " columns\n"))
+if ("Temperature" %in% colnames(dataset)) {
+  cat(paste0("[INFO] Temperature column found. Unique values: ", length(unique(dataset$Temperature)), "\n"))
+  cat(paste0("[INFO] Temperature values: ", paste(sort(unique(dataset$Temperature)), collapse = ", "), "\n"))
+}
 flush.console()
 dataset <- CBASSED50::preprocess_dataset(dataset)
 cat("[INFO] Dataset preprocessed successfully\n")
 cat(paste0("[INFO] Preprocessed data: ", nrow(dataset), " rows, ", ncol(dataset), " columns\n"))
+if ("Temperature" %in% colnames(dataset)) {
+  cat(paste0("[INFO] After preprocessing - Unique temperature values: ", length(unique(dataset$Temperature)), "\n"))
+}
 flush.console()
 
 cat("[INFO] Processing dataset...\n")
+cat(paste0("[INFO] Before processing: ", nrow(dataset), " rows\n"))
+if ("Temperature" %in% colnames(dataset)) {
+  cat(paste0("[INFO] Before processing - Unique temperature values: ", length(unique(dataset$Temperature)), "\n"))
+}
 flush.console()
 dataset <- CBASSED50::process_dataset(dataset, grouping_properties = grouping_props)
 cat("[INFO] Dataset processed successfully\n")
 cat(paste0("[INFO] Processed data: ", nrow(dataset), " rows, ", ncol(dataset), " columns\n"))
+if ("Temperature" %in% colnames(dataset)) {
+  cat(paste0("[INFO] After processing - Unique temperature values: ", length(unique(dataset$Temperature)), "\n"))
+  if (nrow(dataset) > 0) {
+    # Check temperature distribution by groups
+    groups_check <- dataset %>% 
+      dplyr::group_by(across(all_of(grouping_props))) %>% 
+      dplyr::summarise(
+        n_rows = n(),
+        n_temps = length(unique(Temperature)),
+        temps = paste(sort(unique(Temperature)), collapse = ", "),
+        .groups = "drop"
+      )
+    cat(paste0("[INFO] Number of groups after processing: ", nrow(groups_check), "\n"))
+    if (nrow(groups_check) > 0) {
+      cat(paste0("[INFO] Groups with < 4 temps: ", sum(groups_check$n_temps < 4), "\n"))
+      if (sum(groups_check$n_temps < 4) > 0) {
+        cat("[INFO] Sample groups with < 4 temps:\n")
+        print(head(groups_check[groups_check$n_temps < 4, ], 3))
+      }
+    }
+  } else {
+    cat("[ERROR] Dataset is empty after processing!\n")
+  }
+} else {
+  cat("[ERROR] Temperature column missing after processing!\n")
+}
 flush.console()
 
 cat("[INFO] Calculating EDs...\n")

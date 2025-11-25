@@ -233,8 +233,21 @@ async def calculate_csv(
                 status_code=500
             )
 
-        # Read and return CSV
-        eds_df = pd.read_csv(output_file)
+        # Read individual ED values (handle file with separator)
+        with open(output_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        # Split file by separator: individual first, then aggregated
+        from io import StringIO
+        individual_csv = content
+        if '#AGGREGATED_STATISTICS' in content:
+            parts = content.split('#AGGREGATED_STATISTICS', 1)
+            individual_csv = parts[0].strip()
+        
+        # Parse individual CSV
+        eds_df = pd.read_csv(StringIO(individual_csv))
+        
+        # Return only individual values for CSV endpoint
         csv_data = eds_df.to_csv(index=False)
         
         logger.info(f"✅ Calculated {len(eds_df)} ED rows")
@@ -261,6 +274,13 @@ async def calculate_csv(
                     os.unlink(tmp_path)
                 except OSError:
                     logger.warning(f"Failed to remove temporary file: {tmp_path}")
+        # Also clean up aggregated file if it exists
+        aggregated_file = output_file.replace('.csv', '_aggregated.csv') if output_file else None
+        if aggregated_file and os.path.exists(aggregated_file):
+            try:
+                os.unlink(aggregated_file)
+            except OSError:
+                logger.warning(f"Failed to remove temporary aggregated file: {aggregated_file}")
 
 
 @app.post("/process")
