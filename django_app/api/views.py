@@ -1073,3 +1073,6 @@ class StatisticsApiView(APIView):
             return Response({
                 'error': f'Failed to get statistics: {str(e)}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Container, Row, Col, Card, Form, Button, Alert, Table, Nav, Pagination, InputGroup } from 'react-bootstrap';
 import axios from 'axios';
 import 'bootstrap/dist/css/bootstrap.min.css';
@@ -35,26 +35,22 @@ const ED50CalculatorPage = () => {
     setResults(null);
   };
 
-  const handleSettingChange = (key, value) => {
-    setSettings(prev => ({ ...prev, [key]: value }));
-  };
+  const isInitialMount = useRef(true);
+  const lastProcessedSettings = useRef(null);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const processData = async (currentSettings) => {
     if (!file) {
-      setError('Please select a file');
       return;
     }
 
     setIsProcessing(true);
     setError(null);
-    setResults(null);
 
     try {
       const formData = new FormData();
       formData.append('file', file);
-      Object.keys(settings).forEach(key => {
-        formData.append(key, settings[key]);
+      Object.keys(currentSettings).forEach(key => {
+        formData.append(key, currentSettings[key]);
       });
 
       const response = await axios.post(`${apiUrl}/process`, formData, {
@@ -176,17 +172,47 @@ const ED50CalculatorPage = () => {
         csvData
       });
       setActiveTab((boxplotImg || tempCurveImg || modelCurveImg) ? 'plots' : 'data');
-      setDataView('individual'); // Default to individual view (first table)
-      setSearchTerm('');
-      setSortColumn(null);
-      setSortDirection('asc');
-      setCurrentPage(1);
+      if (!results) {
+        setDataView('individual'); // Default to individual view (first table)
+        setSearchTerm('');
+        setSortColumn(null);
+        setSortDirection('asc');
+        setCurrentPage(1);
+      }
+      lastProcessedSettings.current = { ...currentSettings };
     } catch (err) {
       setError(err.response?.data || err.message || 'Processing failed');
     } finally {
       setIsProcessing(false);
     }
   };
+
+  const handleSettingChange = (key, value) => {
+    setSettings(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!file) {
+      setError('Please select a file');
+      return;
+    }
+    setResults(null);
+    await processData(settings);
+  };
+
+  // Auto-reprocess when size_text or size_points change (if file is loaded and results exist)
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+
+    if (file && results && (lastProcessedSettings.current?.size_text !== settings.size_text || 
+                           lastProcessedSettings.current?.size_points !== settings.size_points)) {
+      processData(settings);
+    }
+  }, [settings.size_text, settings.size_points]);
 
   const downloadTable = (table, headers, filename) => {
     if (!table || !headers || table.length === 0) return;
@@ -420,6 +446,20 @@ const ED50CalculatorPage = () => {
                   <li>Provides results table for download</li>
                 </ul>
               </Alert>
+              <Button 
+                size="sm" 
+                variant="outline-primary" 
+                onClick={() => {
+                  const link = document.createElement('a');
+                  link.href = '/WorkShop_template.csv';
+                  link.download = 'WorkShop_template.csv';
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                }}
+              >
+                Download Template CSV
+              </Button>
             </Card.Body>
           </Card>
 
