@@ -397,6 +397,38 @@ safe_numeric <- function(value, fallback) {
 size_text <- safe_numeric(size_text, 12)
 size_points <- safe_numeric(size_points, 2.5)
 
+# Переопределение функций графиков для обхода ограничения в 12 цветов
+plot_ED50_box_unlimited <- function(cbass_dataset, grouping_properties, drm_formula, Condition, faceting, size_text, size_points) {
+  plot_obj <- CBASSED50::plot_ED50_box(cbass_dataset, grouping_properties, drm_formula, Condition, faceting, size_text, size_points)
+  n_colors <- length(unique(cbass_dataset[[Condition]]))
+  if (n_colors > 8) {
+    plot_obj <- plot_obj + ggplot2::scale_color_manual(values = grDevices::rainbow(n_colors))
+  }
+  return(plot_obj)
+}
+
+exploratory_tr_curve_unlimited <- function(cbass_dataset, grouping_properties, faceting, size_text, size_points) {
+  plot_obj <- CBASSED50::exploratory_tr_curve(cbass_dataset, grouping_properties, faceting, size_text, size_points)
+  n_colors <- length(unique(cbass_dataset$Genotype))
+  if (n_colors > 12) {
+    plot_obj <- plot_obj + ggplot2::scale_color_manual(values = grDevices::rainbow(n_colors))
+  }
+  return(plot_obj)
+}
+
+plot_model_curve_unlimited <- function(cbass_dataset, grouping_properties, drm_formula, faceting_model, size_text, size_points, condition_col = "Condition") {
+  plot_obj <- CBASSED50::plot_model_curve(cbass_dataset, grouping_properties, drm_formula, faceting_model, size_text, size_points)
+  if (condition_col %in% colnames(cbass_dataset)) {
+    n_colors <- length(unique(cbass_dataset[[condition_col]]))
+    if (n_colors > 8) {
+      plot_obj <- plot_obj + 
+        ggplot2::scale_color_manual(values = grDevices::rainbow(n_colors)) +
+        ggplot2::scale_fill_manual(values = grDevices::rainbow(n_colors))
+    }
+  }
+  return(plot_obj)
+}
+
 save_plot_if_requested <- function(plot_fn, output_path, description) {
   if (is.na(output_path) || !nzchar(output_path)) {
     return(invisible(NULL))
@@ -416,7 +448,7 @@ save_plot_if_requested <- function(plot_fn, output_path, description) {
 
 save_plot_if_requested(
   function() {
-    CBASSED50::plot_ED50_box(
+    plot_ED50_box_unlimited(
       raw_dataset,
       grouping_properties = grouping_props,
       drm_formula = drm_formula,
@@ -432,7 +464,7 @@ save_plot_if_requested(
 
 save_plot_if_requested(
   function() {
-    CBASSED50::exploratory_tr_curve(
+    exploratory_tr_curve_unlimited(
       raw_dataset,
       grouping_properties = grouping_props,
       faceting = faceting_formula,
@@ -446,13 +478,14 @@ save_plot_if_requested(
 
 save_plot_if_requested(
   function() {
-    CBASSED50::plot_model_curve(
+    plot_model_curve_unlimited(
       raw_dataset,
       grouping_properties = grouping_props,
       drm_formula = drm_formula,
       faceting_model = faceting_model_formula,
       size_text = size_text,
-      size_points = size_points
+      size_points = size_points,
+      condition_col = condition_column
     )
   },
   model_curve_path,

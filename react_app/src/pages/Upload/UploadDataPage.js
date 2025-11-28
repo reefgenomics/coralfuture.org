@@ -188,19 +188,6 @@ const UploadDataPage = () => {
               </div>
             </div>
             
-            <div className="step">
-              <div className="d-flex align-items-start">
-                <div className="step-number me-3 mt-1">
-                  <span className="badge bg-primary rounded-circle d-inline-flex align-items-center justify-content-center" style={{ width: '24px', height: '24px', fontSize: '12px' }}>3</span>
-                </div>
-                <div className="flex-grow-1">
-                  <h6 className="fw-semibold text-dark mb-2">AI Mapping & Import</h6>
-                  <p className="text-muted small lh-base">
-                    AI maps columns to standard schema and imports to database automatically.
-                  </p>
-                </div>
-              </div>
-            </div>
         </div>
         
         <div className="mt-4 pt-4 border-top">

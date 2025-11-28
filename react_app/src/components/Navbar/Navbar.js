@@ -82,14 +82,16 @@ const NavigationBar = () => {
             </Nav.Item>
 
             <Nav.Item>
-              <Nav.Link href={(() => {
-                const envUrl = process.env.REACT_APP_SHINY_URL;
-                if (envUrl) return envUrl; // explicit override
-
-                // Use relative path to work with nginx proxy
-                return '/ed-calculator/';
-              })()} target="_blank" rel="noopener noreferrer">
-                <i className="bi bi-graph-up"></i> ED Calculator
+              <Nav.Link 
+                as={Link}
+                to={(() => {
+                  const envUrl = process.env.REACT_APP_SHINY_URL;
+                  if (envUrl) return envUrl.replace(window.location.origin, '') || '/ed-calculator/';
+                  return '/ed-calculator/';
+                })()}
+                className={isActive('/ed-calculator') ? 'active fw-medium' : ''}
+              >
+                <i className="bi bi-journal-text"></i> ED Calculator
               </Nav.Link>
             </Nav.Item>
 
