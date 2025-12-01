@@ -80,7 +80,12 @@ const LoginPage = () => {
                 {/* Header */}
                 <div className="login-header text-center mb-5">
                   <div className="login-icon-wrapper">
-                    <span className="login-icon">🪸</span>
+                    <img
+                      src="/logo192.png"
+                      alt="CoralFuture logo"
+                      className="login-logo"
+                      style={{ width: 64, height: 64 }}
+                    />
                   </div>
                   <p className="login-subtitle">Sign in to your CoralFuture account</p>
                 </div>

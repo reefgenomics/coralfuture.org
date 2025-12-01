@@ -40,6 +40,37 @@
   border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
+.hero-logo-wrapper {
+  margin-bottom: 2rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  animation: logoFadeIn 1s ease-out;
+}
+
+.hero-logo {
+  max-width: 560px;
+  width: 100%;
+  height: auto;
+  border-radius: 40px;
+
+  box-shadow: 0 8px 24px rgba(74, 186, 190, 0.3);
+  object-fit: contain;
+  background: white;
+  padding: 8px;
+}
+
+@keyframes logoFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 .hero-badge {
   display: inline-block;
   background: linear-gradient(135deg, #0ea5e9, #0891b2);

@@ -85,13 +85,19 @@ const HomePage = () => {
       <section className="hero-section">
         <div className="hero-background-image"></div>
         <div className="hero-content">
+
           <div className="hero-badge">
             🌊 Marine Research Platform
           </div>
+          <div className="hero-logo-wrapper">
+            <img 
+              src="/Logo with capture.png" 
+              alt="CoralFuture Logo" 
+              className="hero-logo"
+            />
+          </div>
           
-          <h1 className="hero-title">
-            CoralFuture
-          </h1>
+          
           
           <p className="hero-subtitle">
             Advancing <span className="highlight">coral reef research</span> through{' '}

@@ -397,20 +397,18 @@ safe_numeric <- function(value, fallback) {
 size_text <- safe_numeric(size_text, 12)
 size_points <- safe_numeric(size_points, 2.5)
 
-# Переопределение функций графиков для обхода ограничения в 12 цветов
+# Переопределение функций графиков с неограниченной палитрой rainbow()
 plot_ED50_box_unlimited <- function(cbass_dataset, grouping_properties, drm_formula, Condition, faceting, size_text, size_points) {
   plot_obj <- CBASSED50::plot_ED50_box(cbass_dataset, grouping_properties, drm_formula, Condition, faceting, size_text, size_points)
   n_colors <- length(unique(cbass_dataset[[Condition]]))
-  if (n_colors > 8) {
-    plot_obj <- plot_obj + ggplot2::scale_color_manual(values = grDevices::rainbow(n_colors))
-  }
+  plot_obj <- plot_obj + ggplot2::scale_color_manual(values = grDevices::rainbow(n_colors))
   return(plot_obj)
 }
 
 exploratory_tr_curve_unlimited <- function(cbass_dataset, grouping_properties, faceting, size_text, size_points) {
   plot_obj <- CBASSED50::exploratory_tr_curve(cbass_dataset, grouping_properties, faceting, size_text, size_points)
-  n_colors <- length(unique(cbass_dataset$Genotype))
-  if (n_colors > 12) {
+  if ("Genotype" %in% colnames(cbass_dataset)) {
+    n_colors <- length(unique(cbass_dataset$Genotype))
     plot_obj <- plot_obj + ggplot2::scale_color_manual(values = grDevices::rainbow(n_colors))
   }
   return(plot_obj)
@@ -420,11 +418,9 @@ plot_model_curve_unlimited <- function(cbass_dataset, grouping_properties, drm_f
   plot_obj <- CBASSED50::plot_model_curve(cbass_dataset, grouping_properties, drm_formula, faceting_model, size_text, size_points)
   if (condition_col %in% colnames(cbass_dataset)) {
     n_colors <- length(unique(cbass_dataset[[condition_col]]))
-    if (n_colors > 8) {
-      plot_obj <- plot_obj + 
-        ggplot2::scale_color_manual(values = grDevices::rainbow(n_colors)) +
-        ggplot2::scale_fill_manual(values = grDevices::rainbow(n_colors))
-    }
+    plot_obj <- plot_obj + 
+      ggplot2::scale_color_manual(values = grDevices::rainbow(n_colors)) +
+      ggplot2::scale_fill_manual(values = grDevices::rainbow(n_colors))
   }
   return(plot_obj)
 }

@@ -931,12 +931,11 @@ class CartExportApiView(APIView):
             
             # Write header
             header = [
-                'Group Name', 'Colony ID', 'Colony Name', 'Species', 'Country', 
-                'Latitude', 'Longitude', 'Collection Date', 'Condition', 
-                'Temperature', 'Timepoint', 'PAM Value', 'Experiment Name', 
-                'Project Name', 'Abs Thermal Tolerance', 'Rel Thermal Tolerance',
-                'SST Clim MMM', 'Abs Breakpoint Temperature', 'Rel Breakpoint Temperature',
-                'Abs Thermal Limit', 'Rel Thermal Limit'
+                'Group Name', 'Project Name', 'Experiment Name', 'Colony ID', 'Colony Name', 
+                'Species', 'Country', 'Latitude', 'Longitude', 'SST Clim MMM', 
+                'Collection Date', 'Site', 'Condition', 'Temperature', 'Timepoint',
+                'abs. ED50', 'rel. ED50 (ED50-MMM)', 'abs. ED5', 'rel. ED5 (ED5-MMM)', 
+                'abs. ED95', 'rel. ED95 (ED95-MMM)'
             ]
             writer.writerow(header)
             
@@ -951,53 +950,60 @@ class CartExportApiView(APIView):
                     # Process biosamples and observations
                     for biosample in colony_data.get('biosamples', []):
                         for observation in biosample.get('observations', []):
+                            # Initialize row with proper order
                             row = [
-                                group.name,  # Group Name
-                                colony['id'],  # Colony ID
-                                colony['name'],  # Colony Name
-                                colony['species'],  # Species
-                                colony['country'],  # Country
-                                colony['latitude'],  # Latitude
-                                colony['longitude'],  # Longitude
-                                biosample.get('collection_date', ''),  # Collection Date
-                                observation.get('condition', ''),  # Condition
-                                observation.get('temperature', ''),  # Temperature
-                                observation.get('timepoint', ''),  # Timepoint
-                                observation.get('pam_value', ''),  # PAM Value
-                                observation.get('experiment', {}).get('name', ''),  # Experiment Name
-                                observation.get('experiment', {}).get('project', {}).get('name', ''),  # Project Name
-                                '',  # Abs Thermal Tolerance (will be filled from thermal data)
-                                '',  # Rel Thermal Tolerance
-                                '',  # SST Clim MMM
-                                '',  # Abs Breakpoint Temperature
-                                '',  # Rel Breakpoint Temperature
-                                '',  # Abs Thermal Limit
-                                ''   # Rel Thermal Limit
+                                group.name,  # 0: Group Name
+                                observation.get('experiment', {}).get('project', {}).get('name', ''),  # 1: Project Name
+                                observation.get('experiment', {}).get('name', ''),  # 2: Experiment Name
+                                colony['id'],  # 3: Colony ID
+                                colony['name'],  # 4: Colony Name
+                                colony['species'],  # 5: Species
+                                colony['country'],  # 6: Country
+                                colony['latitude'],  # 7: Latitude
+                                colony['longitude'],  # 8: Longitude
+                                '',  # 9: SST Clim MMM (will be filled from thermal data)
+                                biosample.get('collection_date', ''),  # 10: Collection Date
+                                observation.get('experiment', {}).get('name', ''),  # 11: Site
+                                observation.get('condition', ''),  # 12: Condition
+                                observation.get('temperature', ''),  # 13: Temperature
+                                observation.get('timepoint', ''),  # 14: Timepoint
+                                '',  # 15: abs. ED50 (will be filled from thermal data)
+                                '',  # 16: rel. ED50 (ED50-MMM)
+                                '',  # 17: abs. ED5 (will be filled from breakpoint data)
+                                '',  # 18: rel. ED5 (ED5-MMM)
+                                '',  # 19: abs. ED95 (will be filled from thermal limit data)
+                                ''   # 20: rel. ED95 (ED95-MMM)
                             ]
                             
                             # Add thermal tolerance data if available
                             for tt in colony_data.get('thermal_tolerances', []):
                                 if (tt.get('condition') == observation.get('condition') and 
                                     tt.get('timepoint') == observation.get('timepoint')):
-                                    row[14] = tt.get('abs_thermal_tolerance', '')  # Abs TT
-                                    row[15] = tt.get('rel_thermal_tolerance', '')  # Rel TT
-                                    row[16] = tt.get('sst_clim_mmm', '')  # SST
+                                    row[9] = tt.get('sst_clim_mmm', '')  # SST Clim MMM
+                                    row[15] = tt.get('abs_thermal_tolerance', '')  # abs. ED50
+                                    row[16] = tt.get('rel_thermal_tolerance', '')  # rel. ED50 (ED50-MMM)
                                     break
                             
                             # Add breakpoint temperature data if available
                             for bt in colony_data.get('breakpoint_temperatures', []):
                                 if (bt.get('condition') == observation.get('condition') and 
                                     bt.get('timepoint') == observation.get('timepoint')):
-                                    row[17] = bt.get('abs_breakpoint_temperature', '')  # Abs BT
-                                    row[18] = bt.get('rel_breakpoint_temperature', '')  # Rel BT
+                                    # Use SST from breakpoint if not already set
+                                    if not row[9]:
+                                        row[9] = bt.get('sst_clim_mmm', '')
+                                    row[17] = bt.get('abs_breakpoint_temperature', '')  # abs. ED5
+                                    row[18] = bt.get('rel_breakpoint_temperature', '')  # rel. ED5 (ED5-MMM)
                                     break
                             
                             # Add thermal limit data if available
                             for tl in colony_data.get('thermal_limits', []):
                                 if (tl.get('condition') == observation.get('condition') and 
                                     tl.get('timepoint') == observation.get('timepoint')):
-                                    row[19] = tl.get('abs_thermal_limit', '')  # Abs TL
-                                    row[20] = tl.get('rel_thermal_limit', '')  # Rel TL
+                                    # Use SST from thermal limit if not already set
+                                    if not row[9]:
+                                        row[9] = tl.get('sst_clim_mmm', '')
+                                    row[19] = tl.get('abs_thermal_limit', '')  # abs. ED95
+                                    row[20] = tl.get('rel_thermal_limit', '')  # rel. ED95 (ED95-MMM)
                                     break
                             
                             writer.writerow(row)
