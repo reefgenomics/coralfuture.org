@@ -2,6 +2,8 @@
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.authentication import SessionAuthentication
+from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 
 from projects.models import Project, Experiment, Observation, Colony
@@ -23,7 +25,10 @@ class ProjectDetailApiView(APIView):
     """
     API endpoint for retrieving detailed information about a specific project.
     This includes experiments, colonies, and observations related to the project.
+    Requires authentication - only registered users can view project details.
     """
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAuthenticated]
     
     def get(self, request, project_id):
         try:

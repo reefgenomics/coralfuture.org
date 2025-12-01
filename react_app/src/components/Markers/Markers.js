@@ -49,8 +49,8 @@ const Markers = ({ colonies }) => {
                           <ul style={{ marginTop: '3px', paddingLeft: '15px', marginBottom: '5px' }}>
                             {filteredThermalTolerances.map((tolerance, index) => (
                               <li key={tolerance.id || `tolerance-${index}`} style={{ marginBottom: '5px' }}>
-                                <p style={{ margin: '1px 0', fontSize: '0.85rem' }}><strong>Abs. TT:</strong> {tolerance.abs_thermal_tolerance}</p>
-                                <p style={{ margin: '1px 0', fontSize: '0.85rem' }}><strong>Rel. TT:</strong> {tolerance.rel_thermal_tolerance || 'N/A'}</p>
+                                <p style={{ margin: '1px 0', fontSize: '0.85rem' }}><strong>Abs. ED50:</strong> {tolerance.abs_thermal_tolerance}</p>
+                                <p style={{ margin: '1px 0', fontSize: '0.85rem' }}><strong>Rel. ED50:</strong> {tolerance.rel_thermal_tolerance || 'N/A'}</p>
                                 <p style={{ margin: '1px 0', fontSize: '0.85rem' }}><strong>MMM:</strong> {tolerance.sst_clim_mmm || 'N/A'}</p>
                                 <p style={{ margin: '1px 0', fontSize: '0.85rem' }}><strong>Condition:</strong> {tolerance.condition || 'N/A'}</p>
                                 <p style={{ margin: '1px 0', fontSize: '0.85rem' }}><strong>Timepoint:</strong> {tolerance.timepoint}</p>
@@ -69,8 +69,8 @@ const Markers = ({ colonies }) => {
                           <ul style={{ marginTop: '3px', paddingLeft: '15px', marginBottom: '5px' }}>
                             {filteredBreakpointTemperatures.map((breakpoint, index) => (
                               <li key={breakpoint.id || `breakpoint-${index}`} style={{ marginBottom: '5px' }}>
-                                <p style={{ margin: '1px 0', fontSize: '0.85rem' }}><strong>Abs. BT:</strong> {breakpoint.abs_breakpoint_temperature}</p>
-                                <p style={{ margin: '1px 0', fontSize: '0.85rem' }}><strong>Rel. BT:</strong> {breakpoint.rel_breakpoint_temperature || 'N/A'}</p>
+                                <p style={{ margin: '1px 0', fontSize: '0.85rem' }}><strong>Abs. ED5:</strong> {breakpoint.abs_breakpoint_temperature}</p>
+                                <p style={{ margin: '1px 0', fontSize: '0.85rem' }}><strong>Rel. ED5:</strong> {breakpoint.rel_breakpoint_temperature || 'N/A'}</p>
                                 <p style={{ margin: '1px 0', fontSize: '0.85rem' }}><strong>MMM:</strong> {breakpoint.sst_clim_mmm || 'N/A'}</p>
                                 <p style={{ margin: '1px 0', fontSize: '0.85rem' }}><strong>Condition:</strong> {breakpoint.condition || 'N/A'}</p>
                                 <p style={{ margin: '1px 0', fontSize: '0.85rem' }}><strong>Timepoint:</strong> {breakpoint.timepoint}</p>
@@ -89,8 +89,8 @@ const Markers = ({ colonies }) => {
                           <ul style={{ marginTop: '3px', paddingLeft: '15px', marginBottom: '5px' }}>
                             {filteredThermalLimits.map((limit, index) => (
                               <li key={limit.id || `limit-${index}`} style={{ marginBottom: '5px' }}>
-                                <p style={{ margin: '1px 0', fontSize: '0.85rem' }}><strong>Abs. TL:</strong> {limit.abs_thermal_limit}</p>
-                                <p style={{ margin: '1px 0', fontSize: '0.85rem' }}><strong>Rel. TL:</strong> {limit.rel_thermal_limit || 'N/A'}</p>
+                                <p style={{ margin: '1px 0', fontSize: '0.85rem' }}><strong>Abs. ED95:</strong> {limit.abs_thermal_limit}</p>
+                                <p style={{ margin: '1px 0', fontSize: '0.85rem' }}><strong>Rel. ED95:</strong> {limit.rel_thermal_limit || 'N/A'}</p>
                                 <p style={{ margin: '1px 0', fontSize: '0.85rem' }}><strong>MMM:</strong> {limit.sst_clim_mmm || 'N/A'}</p>
                                 <p style={{ margin: '1px 0', fontSize: '0.85rem' }}><strong>Condition:</strong> {limit.condition || 'N/A'}</p>
                                 <p style={{ margin: '1px 0', fontSize: '0.85rem' }}><strong>Timepoint:</strong> {limit.timepoint}</p>

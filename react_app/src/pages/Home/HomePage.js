@@ -124,6 +124,57 @@ const HomePage = () => {
       {/* Stats Section */}
       <Statistics />
 
+      {/* Contribute Section */}
+      <section id="contribute" className="contribute-section">
+        <Container>
+          <Row className="justify-content-center text-center mb-5">
+            <Col lg={8}>
+              <h2 className="section-title">Contribute to CoralFuture</h2>
+              <p className="section-subtitle">
+                Join our global community of researchers and help expand our coral reef database
+              </p>
+              
+              <div className="contribute-info">
+                <p className="mb-4">
+                  To access the platform and contribute to our database, please fill out the{' '}
+                  <a href="https://docs.google.com/forms/d/e/1FAIpQLSfPhRauM0YEVddxvRcwd-bOeL7NepnmwzIDkB8cm9GFFi0fzA/viewform" target="_blank" rel="noopener noreferrer" className="text-decoration-none">
+                    <strong>account request form</strong>
+                  </a>. For more information, check our{' '}
+                  <a href="https://github.com/greenjune-ship-it/coral-future" target="_blank" rel="noopener noreferrer" className="text-decoration-none">
+                    <strong>Wiki page</strong>
+                  </a> or contact{' '}
+                  <a href="mailto:coralfuture.org@gmail.com" className="text-decoration-none">
+                    <strong>coralfuture.org@gmail.com</strong>
+                  </a>.
+                </p>
+              </div>
+              
+              <div className="contribute-actions">
+                <Button 
+                  href="https://github.com/greenjune-ship-it/coral-future" 
+                  variant="light" 
+                  size="lg" 
+                  className="me-3"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Github className="me-2" />
+                  View on GitHub
+                </Button>
+                <Button 
+                  href="/upload" 
+                  variant="outline-light" 
+                  size="lg"
+                >
+                  <Upload className="me-2" />
+                  Upload Data
+                </Button>
+              </div>
+            </Col>
+          </Row>
+        </Container>
+      </section>
+
       {/* CBASS System Section */}
       <section className="cbass-section">
         <Container>
@@ -196,57 +247,6 @@ const HomePage = () => {
                 </Card>
               </Col>
             ))}
-          </Row>
-        </Container>
-      </section>
-
-      {/* Contribute Section */}
-      <section id="contribute" className="contribute-section">
-        <Container>
-          <Row className="justify-content-center text-center mb-5">
-            <Col lg={8}>
-              <h2 className="section-title">Contribute to CoralFuture</h2>
-              <p className="section-subtitle">
-                Join our global community of researchers and help expand our coral reef database
-              </p>
-              
-              <div className="contribute-info">
-                <p className="mb-4">
-                  To access the platform and contribute to our database, please fill out the{' '}
-                  <a href="https://docs.google.com/forms/d/e/1FAIpQLSfPhRauM0YEVddxvRcwd-bOeL7NepnmwzIDkB8cm9GFFi0fzA/viewform" target="_blank" rel="noopener noreferrer" className="text-decoration-none">
-                    <strong>account request form</strong>
-                  </a>. For more information, check our{' '}
-                  <a href="https://github.com/greenjune-ship-it/coral-future" target="_blank" rel="noopener noreferrer" className="text-decoration-none">
-                    <strong>Wiki page</strong>
-                  </a> or contact{' '}
-                  <a href="mailto:coralfuture.org@gmail.com" className="text-decoration-none">
-                    <strong>coralfuture.org@gmail.com</strong>
-                  </a>.
-                </p>
-              </div>
-              
-              <div className="contribute-actions">
-                <Button 
-                  href="https://github.com/greenjune-ship-it/coral-future" 
-                  variant="light" 
-                  size="lg" 
-                  className="me-3"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Github className="me-2" />
-                  View on GitHub
-                </Button>
-                <Button 
-                  href="/upload" 
-                  variant="outline-light" 
-                  size="lg"
-                >
-                  <Upload className="me-2" />
-                  Upload Data
-                </Button>
-              </div>
-            </Col>
           </Row>
         </Container>
       </section>

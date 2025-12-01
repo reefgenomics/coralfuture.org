@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { Container, Row, Col, Card, Badge, Button } from 'react-bootstrap';
 import { 
   JournalText, 
@@ -8,10 +8,14 @@ import {
   FileText,
   Globe
 } from 'react-bootstrap-icons';
+import { useNavigate } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './ProjectsPage.css';
+import { AuthContext } from '../../contexts/AuthContext';
 
 const ProjectsPage = () => {
+  const navigate = useNavigate();
+  const { authData } = useContext(AuthContext);
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -131,7 +135,13 @@ const ProjectsPage = () => {
                   <Button 
                     variant="outline-primary" 
                     className="w-100 project-button"
-                    onClick={() => window.location.href = `/project/${project.id}`}
+                    onClick={() => {
+                      if (authData.authenticated) {
+                        navigate(`/project/${project.id}`);
+                      } else {
+                        navigate('/login');
+                      }
+                    }}
                   >
                     <Globe className="me-2" size={16} />
                     View Project Details

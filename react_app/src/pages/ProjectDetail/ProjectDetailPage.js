@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { Container, Row, Col, Card, Badge, Table, Button, Spinner } from 'react-bootstrap';
 import { 
   ArrowLeft, 
@@ -14,21 +14,35 @@ import {
 import { useParams, useNavigate } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './ProjectDetailPage.css';
+import { AuthContext } from '../../contexts/AuthContext';
 
 const ProjectDetailPage = () => {
   const { projectId } = useParams();
   const navigate = useNavigate();
+  const { authData } = useContext(AuthContext);
   const [project, setProject] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     const fetchProject = async () => {
+      // Check if user is authenticated
+      if (!authData.authenticated) {
+        setError('You must be logged in to view project details.');
+        setLoading(false);
+        return;
+      }
+
       try {
         const backendUrl = '';
-        const response = await fetch(`${backendUrl}/api/public/projects/${projectId}/`);
+        const response = await fetch(`${backendUrl}/api/public/projects/${projectId}/`, {
+          credentials: 'include'
+        });
         
         if (!response.ok) {
+          if (response.status === 401 || response.status === 403) {
+            throw new Error('You must be logged in to view project details.');
+          }
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         
@@ -45,7 +59,7 @@ const ProjectDetailPage = () => {
     if (projectId) {
       fetchProject();
     }
-  }, [projectId]);
+  }, [projectId, authData.authenticated]);
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -285,7 +299,7 @@ const ProjectDetailPage = () => {
                     <Table responsive striped hover>
                       <thead>
                         <tr>
-                          <th>BioSample Name</th>
+                          <th>Exp. Measurement</th>
                           <th>Collection Date</th>
                           <th>Experiment</th>
                           <th>Condition</th>
