@@ -17,3 +17,5 @@ django_app/venv/
 
 django_app/user_data.json
 django_app/users/management/commands/user_data.json
+
+nginx/nginx.conf

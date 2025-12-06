@@ -8,6 +8,58 @@ from projects.models import Project, Experiment, Colony, BioSample, \
 class ProjectAdmin(admin.ModelAdmin):
     list_display = ('name', 'registration_date', 'owner')
     search_fields = ('name', 'owner__username')
+    def _delete_thermal_data(self, colony):
+        """Delete all thermal data for a colony."""
+        ThermalTolerance.objects.filter(colony=colony).delete()
+        BreakpointTemperature.objects.filter(colony=colony).delete()
+        ThermalLimit.objects.filter(colony=colony).delete()
+    
+    def _should_delete_colony(self, colony):
+        """Check if colony can be safely deleted."""
+        return (colony.biosamples.count() == 0 and 
+                colony.cart_items.count() == 0 and 
+                colony.cart_groups.count() == 0)
+    
+    def delete_model(self, request, obj):
+        """Delete project and all related data."""
+        # Collect related objects before clearing relationships
+        biosamples = list(obj.biosamples.all())
+        publications = list(obj.publications.all())
+        colony_ids = {bs.colony.id for bs in biosamples}
+        
+        # Clear ManyToMany relationships
+        obj.publications.clear()
+        obj.biosamples.clear()
+        
+        # Delete biosamples with no projects
+        for bs in biosamples:
+            bs.refresh_from_db()
+            if bs.projects.count() == 0:
+                bs.delete()
+        
+        # Delete orphaned colonies
+        for colony_id in colony_ids:
+            try:
+                colony = Colony.objects.get(id=colony_id)
+                if self._should_delete_colony(colony):
+                    self._delete_thermal_data(colony)
+                    colony.delete()
+            except Colony.DoesNotExist:
+                pass
+        
+        # Delete orphaned publications
+        for pub in publications:
+            pub.refresh_from_db()
+            if pub.projects.count() == 0:
+                pub.delete()
+        
+        # Delete project (cascades to experiments/observations)
+        obj.delete()
+    
+    def delete_queryset(self, request, queryset):
+        """Handle bulk deletion from admin list view."""
+        for obj in queryset:
+            self.delete_model(request, obj)
 
 
 @admin.register(Experiment)

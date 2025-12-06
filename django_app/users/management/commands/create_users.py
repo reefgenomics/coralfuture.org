@@ -33,10 +33,7 @@ class Command(BaseCommand):
 
         user.set_password(password)
         user.is_staff = True
-
-        if 'adm' in username:
-            user.is_superuser = True
-
+        user.is_superuser = True
         user.save()
 
         self.stdout.write(
