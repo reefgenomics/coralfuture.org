@@ -18,8 +18,6 @@ const UploadDataPage = () => {
   const [uploadComplete, setUploadComplete] = useState(false);
   const fileInputRef = useRef(null);
 
-  console.log('🔐 Auth status:', authData);
-
   // Front-end no longer hard-validates required columns; backend AI handles mapping/validation.
   const requiredFields = [ // kept only for guideline display
     'Project.name',
@@ -47,9 +45,6 @@ const UploadDataPage = () => {
     if (lines.length < 2) return { headers: [], data: [], rawLines: [] };
 
     const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
-    
-    console.log('📄 Headers:', headers);
-    console.log('📊 Total lines:', lines.length);
 
     return { headers, data: lines.slice(1), rawLines: lines };
   };
@@ -57,8 +52,6 @@ const UploadDataPage = () => {
   const handleFileSelect = (event) => {
     const selectedFile = event.target.files[0];
     if (!selectedFile) return;
-
-    console.log('📁 Main data file selected:', selectedFile.name);
 
     if (!selectedFile.name.toLowerCase().endsWith('.csv')) {
       setValidationErrors(['Please select a CSV file for the main data']);
@@ -76,10 +69,6 @@ const UploadDataPage = () => {
       
       setHeaders(headers);
       setCsvData({ data });
-      
-      console.log('✅ Main data file processed, data rows:', data.length);
-      console.log('📊 Headers set:', headers);
-      console.log('📊 CSV data set:', { data });
     };
     reader.readAsText(selectedFile);
   };
@@ -95,8 +84,6 @@ const UploadDataPage = () => {
       const formData = new FormData();
       formData.append('csv_file', file, file.name);
 
-      console.log('🚀 Uploading and processing...');
-
       const response = await axios.post(`${backendUrl}/api/auth/upload-csv/`, formData, {
         withCredentials: true,
         headers: {
@@ -105,7 +92,6 @@ const UploadDataPage = () => {
         },
       });
 
-      console.log('✅ Upload response:', response.data);
       setUploadStatus({ 
         type: 'success', 
         message: response.data?.message || 'Your files have been successfully uploaded and are now queued for processing. You can upload another dataset or navigate away from this page.' 
@@ -113,7 +99,7 @@ const UploadDataPage = () => {
       setUploadComplete(true);
 
     } catch (error) {
-      console.error('❌ Upload error:', error);
+      console.error('Upload error:', error);
       setUploadStatus({ 
         type: 'error', 
         message: error.response?.data?.error || 'Upload failed' 
@@ -150,7 +136,6 @@ const UploadDataPage = () => {
     <Card className="h-100 border-0 shadow-sm" style={{ backgroundColor: '#f8fafc' }}>
       <Card.Header className="border-0" style={{ backgroundColor: '#3b82f6', borderRadius: '0.5rem 0.5rem 0 0' }}>
         <div className="d-flex align-items-center">
-          <div className="me-2" style={{ fontSize: '1.25rem' }}>📋</div>
           <h5 className="mb-0 text-white fw-normal">Upload Workflow</h5>
         </div>
       </Card.Header>
@@ -205,22 +190,17 @@ const UploadDataPage = () => {
       <Container className="py-5" style={{ maxWidth: '1400px' }}>
         <Row className="justify-content-center">
           <Col md={12}>
-            <div className="text-center mb-5">
-              <div className="mb-3">
-                <span style={{ fontSize: '3rem' }}>🪸</span>
-              </div>
+            <div className="text-center mb-5 mt-3">
               <h1 className="display-6 fw-light text-dark mb-3">Upload Coral Research Data</h1>
               <p className="lead text-muted fw-normal mb-4">
                 Upload and validate your CSV data files for coral thermal tolerance research
               </p>
               {authData.authenticated ? (
                 <div className="d-inline-flex align-items-center px-3 py-2 bg-success bg-opacity-10 border border-success border-opacity-25 rounded-pill">
-                  <span className="text-success me-2">✓</span>
                   <span className="text-success fw-medium">Logged in as {authData.username}</span>
                 </div>
               ) : (
                 <div className="d-inline-flex align-items-center px-3 py-2 bg-warning bg-opacity-10 border border-warning border-opacity-25 rounded-pill">
-                  <span className="text-warning me-2">⚠</span>
                   <span className="text-warning fw-medium">Please log in to upload data</span>
                 </div>
               )}
@@ -237,14 +217,7 @@ const UploadDataPage = () => {
                       borderLeft: `4px solid ${uploadStatus.type === 'success' ? '#27ae60' : '#e74c3c'}`
                     }}
                   >
-                    <div className="d-flex align-items-center">
-                      <span className="me-3" style={{ fontSize: '1.25rem' }}>
-                        {uploadStatus.type === 'success' ? '✅' : '❌'}
-                      </span>
-                      <div>
-                        <div className="fw-medium">{uploadStatus.message}</div>
-                      </div>
-                    </div>
+                    <div className="fw-medium">{uploadStatus.message}</div>
                   </Alert>
                 </Col>
               </Row>
@@ -260,16 +233,12 @@ const UploadDataPage = () => {
           <Col lg={8}>
             <Card className="border-0 shadow-sm mb-4">
               <Card.Header className="border-0 bg-white py-4">
-                <div className="d-flex align-items-center">
-                  <div className="me-3" style={{ fontSize: '1.25rem' }}>📤</div>
-                  <h5 className="mb-0 fw-normal text-dark">File Upload</h5>
-                </div>
+                <h5 className="mb-0 fw-normal text-dark">File Upload</h5>
               </Card.Header>
               <Card.Body className="px-4 pb-4">
                 {uploadComplete ? (
                   <div className="text-center py-5">
-                    <div style={{ fontSize: '4rem', color: '#27ae60' }}>✓</div>
-                    <h3 className="mt-4 mb-3 fw-normal">Upload Successful</h3>
+                    <h3 className="mb-3 fw-normal">Upload Successful</h3>
                     <p className="text-muted lead px-4" style={{ fontSize: '1.1rem' }}>
                       {uploadStatus?.message || 'Your files have been queued for processing.'}
                     </p>
@@ -280,7 +249,6 @@ const UploadDataPage = () => {
                       className="mt-4 px-5 fw-medium shadow-sm"
                       style={{ borderRadius: '8px' }}
                     >
-                      <span className="me-2">📤</span>
                       Upload Another Dataset
                     </Button>
                   </div>
@@ -302,14 +270,14 @@ const UploadDataPage = () => {
                           }}
                         >
                             <div className="upload-icon" style={{ fontSize: '3rem', color: file ? '#27ae60' : '#6c757d', lineHeight: 1 }}>
-                                {file ? '✓' : '📄'}
+                                {file ? '✓' : ''}
                             </div>
                             <div className="mt-3">
                                 {file ? (
                                     <>
                                         <p className="mb-0 fw-medium text-dark" style={{ wordBreak: 'break-all' }}>{file.name}</p>
                                         <p className="mb-0 text-muted">{(file.size / 1024).toFixed(1)} KB</p>
-                                        <p className="mb-0 text-success mt-2 small">✨ ED values will be auto-calculated if not present</p>
+                                        <p className="mb-0 text-success mt-2 small">ED values will be auto-calculated if not present</p>
                                     </>
                                 ) : (
                                     <>
@@ -335,17 +303,12 @@ const UploadDataPage = () => {
 
                   {validationErrors.length > 0 && (
                     <Alert variant="danger" className="border-0 shadow-sm mb-4">
-                      <div className="d-flex align-items-start">
-                        <span className="me-2 mt-1">❌</span>
-                        <div>
-                          <Alert.Heading className="h6 fw-medium">Validation Errors</Alert.Heading>
-                          <ul className="mb-0 ps-3">
-                            {validationErrors.map((error, index) => (
-                              <li key={index} className="small">{error}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      </div>
+                      <Alert.Heading className="h6 fw-medium">Validation Errors</Alert.Heading>
+                      <ul className="mb-0 ps-3">
+                        {validationErrors.map((error, index) => (
+                          <li key={index} className="small">{error}</li>
+                        ))}
+                      </ul>
                     </Alert>
                   )}
 
@@ -380,7 +343,6 @@ const UploadDataPage = () => {
                           className="px-5 fw-medium shadow-sm"
                           style={{ borderRadius: '8px' }}
                         >
-                          <span className="me-2">🚀</span>
                           {isUploading ? 'Processing...' : 'Upload & Process Data'}
                         </Button>
                         <Button 
@@ -391,7 +353,6 @@ const UploadDataPage = () => {
                           className="px-4 fw-medium"
                           style={{ borderRadius: '8px' }}
                         >
-                          <span className="me-2">🗑️</span>
                           Clear
                         </Button>
                       </div>
@@ -403,24 +364,11 @@ const UploadDataPage = () => {
             </Card>
 
             {/* Data preview */}
-            {(() => {
-              console.log('🔍 Preview condition check:', {
-                uploadComplete,
-                hasCsvData: !!csvData.data,
-                dataLength: csvData.data?.length,
-                headersLength: headers.length,
-                csvData,
-                headers
-              });
-              return !uploadComplete && csvData.data && csvData.data.length > 0 && headers.length > 0;
-            })() && (
+            {!uploadComplete && csvData.data && csvData.data.length > 0 && headers.length > 0 && (
               <Card className="border-0 shadow-sm">
                 <Card.Header className="border-0 bg-info bg-opacity-10 py-4">
                   <div className="d-flex align-items-center justify-content-between">
-                    <div className="d-flex align-items-center">
-                      <div className="me-3" style={{ fontSize: '1.25rem' }}>👀</div>
-                      <h5 className="mb-0 fw-normal text-dark">Data Preview</h5>
-                    </div>
+                    <h5 className="mb-0 fw-normal text-dark">Data Preview</h5>
                     <div className="text-muted small">
                       {csvData.data.length} rows • {headers.length} columns
                     </div>
@@ -488,7 +436,7 @@ const UploadDataPage = () => {
                               className="text-center py-4 text-muted fst-italic"
                               style={{ fontSize: '0.875rem' }}
                             >
-                              📊 ... and {csvData.data.length - 50} more rows (showing first 50 for performance)
+                              ... and {csvData.data.length - 50} more rows (showing first 50 for performance)
                             </td>
                           </tr>
                         )}
@@ -498,7 +446,7 @@ const UploadDataPage = () => {
                   <div className="px-4 py-3 bg-light border-top">
                     <div className="d-flex align-items-center justify-content-between">
                       <small className="text-muted">
-                        💡 Use horizontal and vertical scrolling to view all data
+                        Use horizontal and vertical scrolling to view all data
                       </small>
                       <small className="text-muted fw-medium">
                         Showing {Math.min(50, csvData.data.length)} of {csvData.data.length} rows

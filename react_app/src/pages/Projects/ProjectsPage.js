@@ -74,7 +74,7 @@ const ProjectsPage = () => {
           {projects.map((project) => (
             <Col key={project.id} lg={6} xl={4}>
               <Card className="project-card h-100">
-                <Card.Body className="p-4">
+                <Card.Body className="p-4 d-flex flex-column">
                   <div className="d-flex align-items-start justify-content-between mb-3">
                     <div className="project-icon">
                       <JournalText size={24} className="text-primary" />
@@ -100,7 +100,7 @@ const ProjectsPage = () => {
                     </div>
                   </div>
                   
-                  {project.publications && project.publications.length > 0 && (
+                  {project.publications && project.publications.length > 0 ? (
                     <div className="publications-section mb-4">
                       <h6 className="publications-title">
                         <FileText size={16} className="me-2" />
@@ -130,11 +130,21 @@ const ProjectsPage = () => {
                         )}
                       </div>
                     </div>
+                  ) : (
+                    <div className="publications-section mb-4">
+                      <h6 className="publications-title">
+                        <FileText size={16} className="me-2" />
+                        Publications
+                      </h6>
+                      <div className="publications-list">
+                        <div className="text-muted small">No publications available</div>
+                      </div>
+                    </div>
                   )}
                   
                   <Button 
                     variant="outline-primary" 
-                    className="w-100 project-button"
+                    className="w-100 project-button mt-auto"
                     onClick={() => {
                       if (authData.authenticated) {
                         navigate(`/project/${project.id}`);

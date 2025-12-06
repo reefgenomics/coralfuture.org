@@ -104,7 +104,7 @@
 }
 
 .hero-subtitle {
-  color: #0ea5e9;
+  color: #1e293b;
   font-size: 1.4rem;
   margin-bottom: 3rem;
   line-height: 1.7;
@@ -295,14 +295,20 @@
   gap: 0.5rem;
 }
 
+.references-list a {
+  text-decoration: none;
+  display: inline-block;
+}
+
 .references-list .badge {
   font-size: 0.8rem;
   font-weight: 500;
   border-radius: 20px;
   transition: all 0.2s ease;
+  cursor: pointer;
 }
 
-.references-list .badge:hover {
+.references-list a:hover .badge {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }

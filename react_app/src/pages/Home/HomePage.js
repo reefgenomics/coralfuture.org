@@ -60,11 +60,22 @@ const HomePage = () => {
       title: "CBASS assays",
       description: "A portable experimental system to run standardized short-term acute heat stress assays. CBASS assays allow determination of the ED50, the standardized temperature threshold at which 50% of initial photosystem efficiency is lost.",
       references: [
-        "Evensen et al. 2023",
-        "Voolstra et al. 2020", 
-        "Voolstra et al. 2021",
-        "Savary et al. 2021",
-        "Evensen et al. 2021"
+        {
+          text: "Evensen et al. 2023",
+          url: "https://doi.org/10.1002/lom3.10555"
+        },
+        {
+          text: "Voolstra et al. 2020",
+          url: "https://doi.org/10.1111/gcb.15148"
+        },
+        {
+          text: "Voolstra et al. 2025",
+          url: "https://doi.org/10.1146/annurev-marine-032223-024511"
+        },
+        {
+          text: "Iakovleva et al. 2025",
+          url: "https://doi.org/10.5281/ZENODO.8370644"
+        }
       ],
       icon: <GraphUp className="cbass-icon" />
     },
@@ -72,8 +83,14 @@ const HomePage = () => {
       title: "R Package",
       description: "R package to process CBASS-derived PAM data. Minimal requirements are PAM data (or data from any other continuous variable that changes with temperature, e.g. relative bleaching scores) from 4 samples (e.g., nubbins) subjected to 4 temperature profiles of at least 2 colonies from 1 coral species from 1 site.",
       references: [
-        "Source Code",
-        "Zenodo Record"
+        {
+          text: "Source Code",
+          url: "https://github.com/reefgenomics/CBASSED50"
+        },
+        {
+          text: "Zenodo Record",
+          url: "https://zenodo.org/records/10381500"
+        }
       ],
       icon: <Book className="cbass-icon" />
     }
@@ -87,7 +104,7 @@ const HomePage = () => {
         <div className="hero-content">
 
           <div className="hero-badge">
-            🌊 Marine Research Platform
+            Marine Research Platform
           </div>
           <div className="hero-logo-wrapper">
             <img 
@@ -202,14 +219,21 @@ const HomePage = () => {
                       <h6 className="fw-semibold mb-3 text-muted">References:</h6>
                       <div className="references-list">
                         {feature.references.map((ref, refIndex) => (
-                          <Badge 
-                            key={refIndex} 
-                            bg="light" 
-                            text="dark" 
-                            className="me-2 mb-2 px-3 py-2"
+                          <a
+                            key={refIndex}
+                            href={ref.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ textDecoration: 'none' }}
                           >
-                            {ref}
-                          </Badge>
+                            <Badge 
+                              bg="light" 
+                              text="dark" 
+                              className="me-2 mb-2 px-3 py-2 reference-badge"
+                            >
+                              {ref.text}
+                            </Badge>
+                          </a>
                         ))}
                       </div>
                     </div>
