@@ -1,5 +1,6 @@
 import React from 'react';
 import { Container, Row, Col, Button, Card, Badge } from 'react-bootstrap';
+import { Link } from 'react-router-dom';
 import { 
   Globe, 
   Map, 
@@ -32,25 +33,29 @@ const HomePage = () => {
       icon: <Map className="feature-icon" />,
       title: "Interactive Coral Map",
       description: "Explore coral colonies worldwide with our interactive mapping system. Filter by species, location, and thermal tolerance data.",
-      color: "primary"
+      color: "primary",
+      link: "/map"
     },
     {
       icon: <GraphUp className="feature-icon" />,
       title: "ED50 Calculator",
       description: "Advanced thermal tolerance analysis tools for researchers. Calculate ED50 values and generate comprehensive reports.",
-      color: "success"
+      color: "success",
+      link: "/ed-calculator"
     },
     {
       icon: <Database className="feature-icon" />,
       title: "Data Repository",
       description: "Access and contribute to our growing database of coral research data from global studies and experiments.",
-      color: "info"
+      color: "info",
+      link: "/projects"
     },
     {
       icon: <Upload className="feature-icon" />,
       title: "Data Upload",
       description: "Share your research findings by uploading CSV datasets. Our AI-powered system ensures data quality and consistency.",
-      color: "warning"
+      color: "warning",
+      link: "/upload"
     }
   ];
 
@@ -260,15 +265,17 @@ const HomePage = () => {
           <Row className="g-4">
             {features.map((feature, index) => (
               <Col lg={6} key={index}>
-                <Card className={`feature-card h-100 border-0 shadow-sm feature-${feature.color}`}>
-                  <Card.Body className="p-4 text-center">
-                    <div className={`feature-icon-wrapper bg-${feature.color} bg-opacity-10 mb-3`}>
-                      {feature.icon}
-                    </div>
-                    <h5 className="card-title fw-bold mb-3">{feature.title}</h5>
-                    <p className="card-text text-muted">{feature.description}</p>
-                  </Card.Body>
-                </Card>
+                <Link to={feature.link} style={{ textDecoration: 'none', color: 'inherit' }}>
+                  <Card className={`feature-card h-100 border-0 shadow-sm feature-${feature.color}`} style={{ cursor: 'pointer', transition: 'transform 0.2s' }}>
+                    <Card.Body className="p-4 text-center">
+                      <div className={`feature-icon-wrapper bg-${feature.color} bg-opacity-10 mb-3`}>
+                        {feature.icon}
+                      </div>
+                      <h5 className="card-title fw-bold mb-3">{feature.title}</h5>
+                      <p className="card-text text-muted">{feature.description}</p>
+                    </Card.Body>
+                  </Card>
+                </Link>
               </Col>
             ))}
           </Row>

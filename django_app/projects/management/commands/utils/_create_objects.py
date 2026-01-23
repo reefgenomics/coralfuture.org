@@ -29,10 +29,12 @@ def create_experiment(project, experiment_key):
 
 
 def create_colony(colony_key):
+    # Ensure country code is max 3 characters (ISO code)
+    country_code = str(colony_key[2])[:3].upper() if colony_key[2] else ""
     return Colony.objects.get_or_create(
         name=colony_key[0],
         species=colony_key[1],
-        country=colony_key[2],
+        country=country_code,
         latitude=colony_key[3],
         longitude=colony_key[4])
 

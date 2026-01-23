@@ -1,7 +1,6 @@
 import React, { useState, useRef, useContext } from 'react';
 import { Container, Row, Col, Card, Form, Button, Alert, Table, ProgressBar } from 'react-bootstrap';
 import axios from 'axios';
-import Cookie from 'js-cookie';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { AuthContext } from 'contexts/AuthContext';
 
@@ -18,7 +17,7 @@ const UploadDataPage = () => {
   const [uploadComplete, setUploadComplete] = useState(false);
   const fileInputRef = useRef(null);
 
-  // Front-end no longer hard-validates required columns; backend AI handles mapping/validation.
+  // Front-end no longer hard-validates required columns; backend handles mapping/validation.
   const requiredFields = [ // kept only for guideline display
     'Project.name',
     'Experiment.name',
@@ -81,6 +80,11 @@ const UploadDataPage = () => {
     setUploadComplete(false);
 
     try {
+      // Get fresh CSRF token
+      const csrfResponse = await axios.get(`${backendUrl}/api/auth/csrf/`, {
+        withCredentials: true,
+      });
+
       const formData = new FormData();
       formData.append('csv_file', file, file.name);
 
@@ -88,7 +92,7 @@ const UploadDataPage = () => {
         withCredentials: true,
         headers: {
           'Content-Type': 'multipart/form-data',
-          'X-CSRFToken': Cookie.get('csrftoken'),
+          'X-CSRFToken': csrfResponse.data.csrfToken,
         },
       });
 
@@ -282,7 +286,7 @@ const UploadDataPage = () => {
                                 ) : (
                                     <>
                                         <p className="mb-1 text-dark fw-medium">Drop your CSV file here or click to browse</p>
-                                        <p className="mb-0 text-muted small">System will auto-calculate EDs and map columns with AI</p>
+                                        <p className="mb-0 text-muted small">System will auto-calculate EDs and map columns automatically</p>
                                     </>
                                 )}
                             </div>

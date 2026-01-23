@@ -5,6 +5,7 @@ import json
 import re
 
 from django.core.management.base import BaseCommand
+from django.db import transaction
 
 from users.models import CustomUser
 from projects.models import BioSample, Observation
@@ -16,8 +17,8 @@ from projects.management.commands.utils._create_objects import (
 
 from projects.management.commands.utils._validate_datasheet import validate_datasheet
 
-# New: smart column auto-mapper using DeepSeek/OpenAI
-from projects.management.commands.utils.column_auto_mapper import (
+# Column mapper using programmatic rules
+from projects.management.commands.utils.column_mapper import (
     map_and_transform_dataframe,
 )
 
@@ -51,13 +52,13 @@ class Command(BaseCommand):
             return
 
         # --------------------------------------------------------------
-        # 1. Auto-map raw dataframe to standard schema columns
+        # 1. Map raw dataframe to standard schema columns
         # --------------------------------------------------------------
         try:
             result = map_and_transform_dataframe(df_raw, return_instructions=True)
             df_std, mapping_instructions = result
         except Exception as e:
-            sys.stdout.write(f"❌ Column auto-mapping failed: {e}\n")
+            sys.stdout.write(f"❌ Column mapping failed: {e}\n")
             return
 
         # Temporary compatibility: validator expects 'Colony.ed50_value'
@@ -109,7 +110,16 @@ class Command(BaseCommand):
         # 3. Validate transformed dataframe & create DB instances
         # --------------------------------------------------------------
         validate_datasheet(df_std)
-        self.create_instances(df_std, owner, csv_path, use_pam)
+        
+        # Use transaction to rollback on error
+        try:
+            with transaction.atomic():
+                self.create_instances(df_std, owner, csv_path, use_pam)
+        except Exception as e:
+            # Transaction will automatically rollback all database changes
+            # But if transaction fails, manually clean up created projects
+            sys.stdout.write(f"❌ Failed to create instances: {e}\n")
+            raise
 
     def create_instances(self, df, owner, csv_path, use_pam):
         for _, row in df.iterrows():

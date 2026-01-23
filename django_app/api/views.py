@@ -22,9 +22,12 @@ from api.serializers import BioSampleSerializer, \
     ColonySerializer, ThermalToleranceSerializer, \
     ObservationSerializer, ProjectSerializer, BreakpointTemperatureSerializer, ThermalLimitSerializer
 # Apps imports
-from projects.models import BioSample, Observation, Colony, \
+from projects.models import BioSample, Observation, Colony, Project, \
     ThermalTolerance, Project, CartGroup, CartItem, BreakpointTemperature, ThermalLimit
 from django.db.models import Count, Q
+from django.db import transaction
+from django.utils import timezone
+from datetime import timedelta
 
 
 class CheckAuthenticationApiView(APIView):
@@ -134,7 +137,7 @@ class LogoutApiView(APIView):
 
 class CheckCSVForED50ApiView(APIView):
     """
-    This endpoint checks if a CSV file contains ED50 values after AI processing. 
+    This endpoint checks if a CSV file contains ED50 values after column mapping. 
     """
     authentication_classes = [SessionAuthentication]
     permission_classes = [IsAuthenticated]
@@ -150,16 +153,14 @@ class CheckCSVForED50ApiView(APIView):
             return Response({'error': 'File must be a CSV'}, status=status.HTTP_400_BAD_REQUEST)
         
         try:
-            # Read CSV and process with AI mapper
+            # Read CSV and map columns to standard schema
             df = pd.read_csv(csv_file)
-            print(f"📊 Original CSV columns: {df.columns.tolist()}")
             
-            # Use AI mapper to transform to standard schema
-            from projects.management.commands.utils.column_auto_mapper import map_and_transform_dataframe
+            # Use column mapper to transform to standard schema
+            from projects.management.commands.utils.column_mapper import map_and_transform_dataframe
             
             try:
                 transformed_df, instructions = map_and_transform_dataframe(df, return_instructions=True)
-                print(f"🤖 AI transformed columns: {transformed_df.columns.tolist()}")
                 
                 # Check if Colony.ed50 column has actual values (not all NaN/null)
                 ed50_column = 'Colony.ed50'
@@ -182,20 +183,20 @@ class CheckCSVForED50ApiView(APIView):
                     else:
                         print(f"⚠️ ED50 column exists but all values are null/NaN")
                 else:
-                    print(f"❌ ED50 column not found in transformed data")
+                    print(f"❌ ED50 column not found in mapped data")
                 
                 return Response({
                     'has_ed50': has_ed50,
                     'ed50_info': ed50_info,
-                    'ai_mapping': instructions.get('mapping', {}),
+                    'column_mapping': instructions.get('mapping', {}),
                     'original_columns': df.columns.tolist(),
                     'transformed_columns': transformed_df.columns.tolist(),
                     'filename': csv_file.name
                 }, status=status.HTTP_200_OK)
                 
-            except Exception as ai_error:
-                print(f"🤖 AI mapping failed: {str(ai_error)}")
-                # Fallback to simple column check if AI fails
+            except Exception as mapping_error:
+                print(f"❌ Column mapping failed: {str(mapping_error)}")
+                # Fallback to simple column check if mapping fails
                 columns = df.columns.tolist()
                 ed50_columns = []
                 ed50_patterns = ['ed50', 'Colony.ed50', 'colony.ed50_value', 'ed50_value', 'ED50']
@@ -211,8 +212,8 @@ class CheckCSVForED50ApiView(APIView):
                 return Response({
                     'has_ed50': has_ed50,
                     'ed50_columns': ed50_columns,
-                    'ai_mapping_failed': True,
-                    'ai_error': str(ai_error),
+                    'mapping_failed': True,
+                    'error': str(mapping_error),
                     'original_columns': columns,
                     'filename': csv_file.name
                 }, status=status.HTTP_200_OK)
@@ -226,7 +227,7 @@ class CheckCSVForED50ApiView(APIView):
 
 class UploadCSVApiView(APIView):
     """
-    Clean workflow: Raw Data → Calculate EDs → AI Mapping → Database Upload
+    Clean workflow: Raw Data → Calculate EDs → Column Mapping → Database Upload
     """
     authentication_classes = [SessionAuthentication]
     permission_classes = [IsAuthenticated]
@@ -247,13 +248,14 @@ class UploadCSVApiView(APIView):
         temp_raw_csv = None
         temp_ed_csv = None
         temp_combined_csv = None
+        upload_description = f'Datasheet {csv_file.name}'
+        created_project_ids = set()
 
         try:
             # ==============================================================
             # STEP 1: Load raw data and check for ED values
             # ==============================================================
             df_raw = pd.read_csv(csv_file)
-            print(f"📊 Loaded CSV: {len(df_raw)} rows, {len(df_raw.columns)} columns")
             
             # Check if ED values already exist
             ed_patterns = ['ed50', 'ed5', 'ed95', 'ED50', 'ED5', 'ED95']
@@ -353,9 +355,6 @@ class UploadCSVApiView(APIView):
                             # Read both files
                             df_raw_data = pd.read_csv(temp_raw_csv)
                             df_eds = pd.read_csv(temp_ed_csv)
-                            print(f"📊 EDs calculated: {len(df_eds)} rows")
-                            print(f"📊 ED columns: {df_eds.columns.tolist()}")
-                            print(f"📊 Raw data columns: {df_raw_data.columns.tolist()}")
                             
                             # Merge EDs into raw data
                             # Merge on ALL grouping columns used for ED calculation (including Genotype if present)
@@ -414,7 +413,6 @@ class UploadCSVApiView(APIView):
                                 how='left'
                             )
                             
-                            print(f"✅ Merged: {len(df_with_eds)} rows with ED values")
                             
                         else:
                             print(f"❌ ED50 service returned status {response.status_code}")
@@ -468,9 +466,16 @@ class UploadCSVApiView(APIView):
             print(f"💾 Data with EDs saved to: {temp_combined_csv}")
 
             # ==============================================================
-            # STEP 5: Run populate_db (includes AI mapping inside)
+            # STEP 5: Run populate_db (includes column mapping inside)
             # ==============================================================
-            print("🤖 Starting populate_db with AI mapping...")
+            print("🔄 Starting populate_db with column mapping...")
+            
+            # Track projects created during this upload for cleanup on error
+            projects_before = set(Project.objects.filter(
+                owner=request.user,
+                description=upload_description
+            ).values_list('id', flat=True))
+            
             command_args = [
                 '--csv_path', temp_combined_csv,
                 '--owner', request.user.username,
@@ -478,9 +483,14 @@ class UploadCSVApiView(APIView):
             if no_pam:
                 command_args.append('--no-pam')
 
-            print(f"🚀 Command: populate_db {' '.join(command_args)}")
             call_command('populate_db', *command_args)
-            print("✅ populate_db completed successfully")
+            
+            # Get projects created during this upload
+            projects_after = set(Project.objects.filter(
+                owner=request.user,
+                description=upload_description
+            ).values_list('id', flat=True))
+            created_project_ids = projects_after - projects_before
             
             # ==============================================================
             # STEP 6: Assign MMM values and calculate relative metrics
@@ -500,6 +510,27 @@ class UploadCSVApiView(APIView):
             print(f"❌ Error during upload processing: {str(e)}")
             import traceback
             traceback.print_exc()
+            
+            # Clean up projects created during this failed upload
+            try:
+                if created_project_ids:
+                    Project.objects.filter(id__in=created_project_ids).delete()
+                    print(f"🗑️ Deleted {len(created_project_ids)} projects from failed upload")
+                else:
+                    # Fallback: delete projects with this description created recently
+                    cutoff_time = timezone.now() - timedelta(minutes=5)
+                    failed_projects = Project.objects.filter(
+                        owner=request.user,
+                        description=upload_description,
+                        registration_date__gte=cutoff_time.date()
+                    )
+                    count = failed_projects.count()
+                    failed_projects.delete()
+                    if count > 0:
+                        print(f"🗑️ Deleted {count} projects from failed upload (fallback cleanup)")
+            except Exception as cleanup_error:
+                print(f"⚠️ Failed to clean up projects: {cleanup_error}")
+            
             return Response({
                 'error': f'Failed to process CSV file: {str(e)}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

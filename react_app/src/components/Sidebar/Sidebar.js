@@ -115,8 +115,24 @@ const InputSidebar = () => {
   };
 
   const handleProjectChange = (e) => {
-    setSelectedProject(e.target.value);
-    console.log('Selected project:', e.target.value);
+    const newProject = e.target.value;
+    setSelectedProject(newProject);
+    console.log('Selected project:', newProject);
+    
+    // Auto-apply filters when project is selected
+    const newFilters = {
+      species: selectedSpecies,
+      project: newProject,
+      years: selectedDates,
+      // Keep existing temperature filters from global state
+      ...temperatureFilters,
+      // Add main slider filters
+      absThermalTolerance: filters.absThermalTolerance,
+      absBreakpointTemperature: filters.absBreakpointTemperature,
+      absThermalLimit: filters.absThermalLimit
+    };
+    
+    setFilters(newFilters);
   };
 
   const handleTemperatureFiltersChange = (newFilters) => {

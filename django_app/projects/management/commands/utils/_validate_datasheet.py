@@ -34,7 +34,6 @@ def validate_file_structure(df):
     if len(df.columns) == 0:
         raise ValueError("CSV file has no columns")
     
-    print(f"✅ File structure: {len(df)} rows, {len(df.columns)} columns")
 
 
 def validate_required_columns(df):
@@ -70,8 +69,7 @@ def validate_data_content(df):
     """Validate data content and formats."""
     # Check for completely empty rows
     empty_rows = df.isnull().all(axis=1).sum()
-    if empty_rows > 0:
-        print(f"⚠️ Warning: {empty_rows} completely empty rows found")
+    # Note: empty rows are allowed, just checked for info
     
     # Check critical fields are not empty
     critical_fields = ['Project.name', 'Colony.ed50_value', 'BioSample.name']
@@ -85,9 +83,24 @@ def validate_data_content(df):
     numeric_fields = ['Colony.ed50_value', 'Observation.temperature']
     for field in numeric_fields:
         if field in df.columns:
-            non_numeric = pd.to_numeric(df[field], errors='coerce').isnull().sum()
-            if non_numeric > 0:
-                raise ValueError(f"Field '{field}' has {non_numeric} non-numeric values")
+            # Check if values are numeric (int/float) or NaN
+            # Values should already be cleaned by column_mapper, so we check the dtype
+            series = df[field]
+            
+            # If dtype is already numeric, it's fine (NaN values are allowed)
+            if pd.api.types.is_numeric_dtype(series):
+                continue
+            
+            # Otherwise, try to convert and count failures (excluding original NaN)
+            original_nulls = series.isnull().sum()
+            converted = pd.to_numeric(series, errors='coerce')
+            converted_nulls = converted.isnull().sum()
+            
+            # Non-numeric count = new nulls after conversion (excluding original nulls)
+            non_numeric_count = converted_nulls - original_nulls
+            
+            if non_numeric_count > 0:
+                raise ValueError(f"Field '{field}' has {non_numeric_count} non-numeric values")
     
     # Check optional numeric fields
     optional_numeric_fields = ['Colony.ed5', 'Colony.ed95']
@@ -97,7 +110,6 @@ def validate_data_content(df):
             if non_numeric > 0:
                 print(f"⚠️ Warning: Field '{field}' has {non_numeric} non-numeric values")
     
-    print(f"✅ Data content: Validation passed for {len(df)} rows")
 
 
 def validate_datasheet(df):
