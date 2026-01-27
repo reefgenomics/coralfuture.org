@@ -6,7 +6,7 @@ from api.views import BioSamplesApiView, ObservationsApiView, \
     BreakpointTemperatureApiView, BreakpointTemperatureMinMaxView, \
     ThermalLimitApiView, ThermalLimitMinMaxView, \
     ProjectsApiView, CSRFTokenView, LoginApiView, LogoutApiView
-from api.projects_api import ProjectsApiView as NewProjectsApiView, ProjectDetailApiView
+from api.projects_api import ProjectsApiView as NewProjectsApiView, ProjectDetailApiView, ProjectED50CalculateApiView, UpdateED50AttachmentDescriptionApiView
 
 urlpatterns = [
     path('auth/', include([
@@ -20,6 +20,8 @@ urlpatterns = [
         path('upload-csv/', UploadCSVApiView.as_view()),
         path('check-csv-ed50/', CheckCSVForED50ApiView.as_view()),
         path('calculate-ed50/', CalculateED50ApiView.as_view()),
+        path('projects/<int:project_id>/calculate-ed50/', ProjectED50CalculateApiView.as_view()),
+        path('ed50-attachments/<int:attachment_id>/description/', UpdateED50AttachmentDescriptionApiView.as_view()),
     ])),
     path('public/', include([
         path('statistics/', StatisticsApiView.as_view()),

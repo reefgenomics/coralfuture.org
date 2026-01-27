@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from projects.models import BioSample, Colony, ThermalTolerance, \
-    Observation, Project, BreakpointTemperature, ThermalLimit, Experiment
+    Observation, Project, BreakpointTemperature, ThermalLimit, Experiment, ProjectED50Attachment
 
 
 class BioSampleSerializer(serializers.ModelSerializer):
@@ -201,6 +201,7 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
     experiments = serializers.SerializerMethodField()
     colonies = serializers.SerializerMethodField()
     observations = serializers.SerializerMethodField()
+    ed50_attachments = serializers.SerializerMethodField()
     
     def get_owner(self, obj):
         return {
@@ -232,7 +233,68 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
             'current_project_id': obj.id
         }).data
     
+    def get_ed50_attachments(self, obj):
+        attachments = obj.ed50_attachments.all()
+        request = self.context.get('request')
+        return ProjectED50AttachmentSerializer(
+            attachments, 
+            many=True, 
+            context={'request': request}
+        ).data
+    
     class Meta:
         model = Project
         fields = ['id', 'name', 'registration_date', 'description', 'owner', 
-                 'publications', 'experiments', 'colonies', 'observations']
+                 'publications', 'experiments', 'colonies', 'observations', 'ed50_attachments']
+
+
+class ProjectED50AttachmentSerializer(serializers.ModelSerializer):
+    """
+    Serializer for ED50 attachments with image URLs and statistical data.
+    """
+    boxplot_image_url = serializers.SerializerMethodField()
+    temperature_curve_image_url = serializers.SerializerMethodField()
+    model_curve_image_url = serializers.SerializerMethodField()
+    created_by_username = serializers.CharField(source='created_by.username', read_only=True)
+    
+    def get_boxplot_image_url(self, obj):
+        if obj.boxplot_image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.boxplot_image.url)
+            return obj.boxplot_image.url
+        return None
+    
+    def get_temperature_curve_image_url(self, obj):
+        if obj.temperature_curve_image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.temperature_curve_image.url)
+            return obj.temperature_curve_image.url
+        return None
+    
+    def get_model_curve_image_url(self, obj):
+        if obj.model_curve_image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.model_curve_image.url)
+            return obj.model_curve_image.url
+        return None
+    
+    class Meta:
+        model = ProjectED50Attachment
+        fields = [
+            'id', 
+            'project',
+            'boxplot_image_url',
+            'temperature_curve_image_url', 
+            'model_curve_image_url',
+            'aggregated_statistics',
+            'individual_eds',
+            'calculation_params',
+            'description',
+            'created_by_username',
+            'created_at',
+            'updated_at'
+        ]
+        read_only_fields = ['created_at', 'updated_at']

@@ -4,6 +4,7 @@ import tempfile
 import pandas as pd
 import csv
 import json
+import io
 from django.db.models import Max, Min
 from django.core.management import call_command
 from django.contrib.auth import authenticate, login, logout
@@ -247,8 +248,168 @@ class UploadCSVApiView(APIView):
         temp_raw_csv = None
         temp_ed_csv = None
         temp_combined_csv = None
+        ed50_plots = {}  # Store plot data for later attachment
 
         try:
+            # ==============================================================
+            # STEP 0: Calculate ED50 FIRST (before any DB operations)
+            # ==============================================================
+            print("📊 STEP 0: Calculating ED50 values and generating plots...")
+            
+            # Read raw CSV
+            csv_file.seek(0)  # Reset file pointer
+            df_raw = pd.read_csv(csv_file)
+            
+            # Check if we have necessary columns for ED50 calculation
+            required_cols = ['Site', 'Species', 'Condition', 'Temperature', 'Timepoint', 'Pam_value']
+            has_required = all(col in df_raw.columns or col.lower() in [c.lower() for c in df_raw.columns] for col in required_cols)
+            
+            if has_required and not no_pam:
+                try:
+                    import requests
+                    from io import BytesIO
+                    
+                    # Prepare CSV for ED50 service
+                    csv_data = df_raw.to_csv(index=False)
+                    
+                    # Determine grouping - STRICT: Site,Condition,Species,Timepoint (NO Genotype)
+                    # According to ED calculator settings, grouping should be exactly:
+                    # Site,Condition,Species,Timepoint
+                    grouping = 'Site,Condition,Species,Timepoint'
+                    
+                    print(f"🧮 Calling ED50 service with grouping: {grouping}")
+                    
+                    # IMPORTANT: Call /process endpoint to get HTML with images
+                    # Then call /calculate-csv to get clean CSV data
+                    
+                    # Save CSV to temp file for /process endpoint
+                    with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as tmp_csv:
+                        tmp_csv.write(csv_data)
+                        tmp_csv_path = tmp_csv.name
+                    
+                    try:
+                        # Step 1: Call /process to get HTML with base64 images AND CSV data
+                        # STRICT SETTINGS matching https://coralfuture.org/ed-calculator/:
+                        # - Grouping properties: Site,Condition,Species,Timepoint
+                        # - Faceting model: Species ~ Site ~ Condition
+                        # - Faceting: ~ Species
+                        # - Condition: Condition
+                        # - DRM formula: Pam_value ~ Temperature
+                        # - Text size: 10
+                        # - Point size: 1
+                        with open(tmp_csv_path, 'rb') as f:
+                            files = {'file': ('data.csv', f, 'text/csv')}
+                            data = {
+                                'grouping_properties': 'Site,Condition,Species,Timepoint',
+                                'drm_formula': 'Pam_value ~ Temperature',
+                                'condition': 'Condition',
+                                'faceting': ' ~ Species',
+                                'faceting_model': 'Species ~ Site ~ Condition',
+                                'size_text': '10',
+                                'size_points': '1'
+                            }
+                            
+                            process_response = requests.post(
+                                'http://ed50-fastapi:8001/process',
+                                files=files,
+                                data=data,
+                                timeout=600
+                            )
+                        
+                        if process_response.status_code == 200:
+                            print("✅ ED50 calculation successful (HTML + CSV)")
+                            
+                            html_content = process_response.text
+                            
+                            # Extract CSV data from textarea in HTML
+                            import re
+                            csv_match = re.search(r'<textarea id="csvData"[^>]*>(.*?)</textarea>', html_content, re.DOTALL)
+                            if not csv_match:
+                                print("⚠️ Could not find CSV data in HTML response")
+                                raise Exception("CSV data not found in HTML")
+                            
+                            csv_content = csv_match.group(1).strip()
+                            
+                            # Parse CSV content (individual + aggregated)
+                            # Helper function to clean NaN values recursively
+                            import math
+                            import json
+                            
+                            def clean_nan_in_dict(data):
+                                """Recursively replace NaN with None in nested structures"""
+                                if isinstance(data, dict):
+                                    return {k: clean_nan_in_dict(v) for k, v in data.items()}
+                                elif isinstance(data, list):
+                                    return [clean_nan_in_dict(item) for item in data]
+                                elif isinstance(data, float) and (math.isnan(data) or math.isinf(data)):
+                                    return None
+                                else:
+                                    return data
+                            
+                            individual_csv = csv_content
+                            aggregated_data = []
+                            
+                            if '#AGGREGATED_STATISTICS' in csv_content:
+                                parts = csv_content.split('#AGGREGATED_STATISTICS', 1)
+                                individual_csv = parts[0].strip()
+                                if len(parts) > 1:
+                                    aggregated_csv = parts[1].strip()
+                                    aggregated_df = pd.read_csv(io.StringIO(aggregated_csv))
+                                    # Replace NaN with None for JSON compatibility
+                                    aggregated_df = aggregated_df.where(pd.notnull(aggregated_df), None)
+                                    aggregated_data = clean_nan_in_dict(aggregated_df.to_dict('records'))
+                            
+                            individual_df = pd.read_csv(io.StringIO(individual_csv))
+                            # Replace NaN with None for JSON compatibility
+                            individual_df = individual_df.where(pd.notnull(individual_df), None)
+                            individual_data = clean_nan_in_dict(individual_df.to_dict('records'))
+                            
+                            # Extract base64 images from HTML
+                            # Find images by their context (near specific text markers)
+                            boxplot_match = re.search(r'ED50s Boxplot.*?src="data:image/png;base64,([^"]+)"', html_content, re.DOTALL)
+                            temp_curve_match = re.search(r'Temperature Response Curves.*?src="data:image/png;base64,([^"]+)"', html_content, re.DOTALL)
+                            model_curve_match = re.search(r'Model Curve with ED bands.*?src="data:image/png;base64,([^"]+)"', html_content, re.DOTALL)
+                            
+                            # Store for later (including base64 images)
+                            ed50_plots = {
+                                'aggregated_statistics': aggregated_data,
+                                'individual_eds': individual_data,
+                                'calculation_params': {
+                                    'grouping_properties': 'Site,Condition,Species,Timepoint',
+                                    'drm_formula': 'Pam_value ~ Temperature',
+                                    'condition': 'Condition',
+                                    'faceting': ' ~ Species',
+                                    'faceting_model': 'Species ~ Site ~ Condition',
+                                    'size_text': '10',
+                                    'size_points': '1'
+                                },
+                                'boxplot_base64': boxplot_match.group(1) if boxplot_match else None,
+                                'temp_curve_base64': temp_curve_match.group(1) if temp_curve_match else None,
+                                'model_curve_base64': model_curve_match.group(1) if model_curve_match else None,
+                            }
+                            
+                            print(f"✅ Stored ED50 data: {len(individual_data)} individual, {len(aggregated_data)} aggregated")
+                            if boxplot_match:
+                                print("✅ Extracted boxplot image")
+                            if temp_curve_match:
+                                print("✅ Extracted temperature curve image")
+                            if model_curve_match:
+                                print("✅ Extracted model curve image")
+                        else:
+                            print(f"⚠️ ED50 calculation failed: status={process_response.status_code}")
+                    
+                    finally:
+                        if os.path.exists(tmp_csv_path):
+                            os.unlink(tmp_csv_path)
+                        
+                except Exception as ed_error:
+                    print(f"⚠️ ED50 calculation error (continuing with upload): {str(ed_error)}")
+            else:
+                print("ℹ️ Skipping ED50 calculation (no PAM data or missing columns)")
+            
+            # Reset file pointer for next steps
+            csv_file.seek(0)
+            
             # ==============================================================
             # STEP 1: Load raw data and check for ED values
             # ==============================================================
@@ -488,12 +649,78 @@ class UploadCSVApiView(APIView):
             print("🌡️ Assigning MMM values...")
             call_command('assign_mmm')
             print("✅ assign_mmm completed successfully")
+            
+            # ==============================================================
+            # STEP 7: Create ED50 attachment for the project (if calculated)
+            # ==============================================================
+            if ed50_plots:
+                print("📎 Creating ED50 attachment for project...")
+                try:
+                    # Find the project from uploaded data
+                    # Get project from experiment
+                    from projects.models import Project, ProjectED50Attachment
+                    from django.core.files.base import ContentFile
+                    import base64
+                    
+                    # Find project through experiments that were just created
+                    project = Project.objects.filter(
+                        owner=request.user
+                    ).order_by('-registration_date').first()
+                    
+                    if project:
+                        # Create attachment
+                        attachment = ProjectED50Attachment.objects.create(
+                            project=project,
+                            created_by=request.user,
+                            aggregated_statistics=ed50_plots.get('aggregated_statistics', []),
+                            individual_eds=ed50_plots.get('individual_eds', []),
+                            calculation_params=ed50_plots.get('calculation_params', {})
+                        )
+                        
+                        # Save images from base64
+                        if ed50_plots.get('boxplot_base64'):
+                            img_data = base64.b64decode(ed50_plots['boxplot_base64'])
+                            attachment.boxplot_image.save(
+                                f'boxplot_{project.id}_{attachment.id}.png',
+                                ContentFile(img_data),
+                                save=False
+                            )
+                            print("✅ Saved boxplot image")
+                        
+                        if ed50_plots.get('temp_curve_base64'):
+                            img_data = base64.b64decode(ed50_plots['temp_curve_base64'])
+                            attachment.temperature_curve_image.save(
+                                f'temp_curve_{project.id}_{attachment.id}.png',
+                                ContentFile(img_data),
+                                save=False
+                            )
+                            print("✅ Saved temperature curve image")
+                        
+                        if ed50_plots.get('model_curve_base64'):
+                            img_data = base64.b64decode(ed50_plots['model_curve_base64'])
+                            attachment.model_curve_image.save(
+                                f'model_curve_{project.id}_{attachment.id}.png',
+                                ContentFile(img_data),
+                                save=False
+                            )
+                            print("✅ Saved model curve image")
+                        
+                        attachment.save()
+                        print(f"✅ ED50 attachment created for project {project.name}")
+                    else:
+                        print("⚠️ Could not find project to attach ED50 data")
+                        
+                except Exception as attach_error:
+                    print(f"⚠️ Failed to create ED50 attachment: {attach_error}")
+                    import traceback
+                    traceback.print_exc()
 
             return Response({
                 'message': 'Data uploaded and processed successfully',
                 'filename': csv_file.name,
                 'rows_processed': len(df_with_eds),
-                'ed_source': 'pre-calculated' if has_ed_columns else 'calculated'
+                'ed_source': 'pre-calculated' if has_ed_columns else 'calculated',
+                'ed50_attached': bool(ed50_plots)
             }, status=status.HTTP_201_CREATED)
 
         except Exception as e:

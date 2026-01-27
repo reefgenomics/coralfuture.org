@@ -117,18 +117,14 @@ class Command(BaseCommand):
                 owner, row['Project.name'],
                 description=f'Datasheet {os.path.basename(csv_path)}')
 
-            sys.stdout.write(f"Project: {project}, created: {created}\n")
-
             experiment, created = create_experiment(project, (
                 row['Experiment.name'], row['Experiment.date']))
-            sys.stdout.write(f"Experiment: {experiment}, created: {created}\n")
 
             colony, created = create_colony((row['Colony.name'],
                                              row['Colony.species'],
                                              row['Colony.country'],
                                              row['Colony.latitude'],
                                              row['Colony.longitude']))
-            sys.stdout.write(f"Colony: {colony}, created: {created}\n")
 
             # Create ED50 (Thermal Tolerance)
             thermal_tolerance, created = create_thermaltolerance(
@@ -147,7 +143,6 @@ class Command(BaseCommand):
                     condition=row['Observation.condition'],
                     timepoint=str(row['Observation.timepoint']) if not pd.isnull(row['Observation.timepoint']) else None
                 )
-                sys.stdout.write(f"Breakpoint Temperature (ED5): {breakpoint_temp}, created: {created}\n")
             
             # Create ED95 (Thermal Limit) if available
             if 'Colony.ed95' in row and not pd.isnull(row['Colony.ed95']):
@@ -157,22 +152,15 @@ class Command(BaseCommand):
                     condition=row['Observation.condition'],
                     timepoint=str(row['Observation.timepoint']) if not pd.isnull(row['Observation.timepoint']) else None
                 )
-                sys.stdout.write(f"Thermal Limit (ED95): {thermal_limit}, created: {created}\n")
 
             if use_pam:
                 biosample, created = create_biosample(colony, (
                     row['BioSample.name'], row['BioSample.collection_date']))
-                sys.stdout.write(
-                    f"Biosample: {biosample}, created: {created}\n")
 
                 observation, created = create_observation(experiment, biosample,
                                                           row)
-                sys.stdout.write(
-                    f"Observation: {observation}, created: {created}\n")
 
                 publication, created = create_publication(row)
-                sys.stdout.write(
-                    f"Publication: {publication}, created: {created}\n")
 
                 publication.biosamples.add(biosample)
                 project.publications.add(publication)
@@ -195,8 +183,8 @@ class Command(BaseCommand):
                         collection_date=experiment.date,
                         colony=colony
                     )
-                    sys.stdout.write(
-                        f"Biosample: {biosample}, created: {created}\n")
+                    # sys.stdout.write(
+                    #     f"Biosample: {biosample}, created: {created}\n")
 
                     observation, created = Observation.objects.get_or_create(
                         experiment=experiment,
@@ -205,12 +193,8 @@ class Command(BaseCommand):
                         temperature=temp,
                         timepoint=row['Observation.timepoint'],
                     )
-                    sys.stdout.write(
-                        f"Observation: {observation}, created: {created}\n")
 
                     publication, created = create_publication(row)
-                    sys.stdout.write(
-                        f"Publication: {publication}, created: {created}\n")
 
                     publication.biosamples.add(biosample)
                     project.publications.add(publication)

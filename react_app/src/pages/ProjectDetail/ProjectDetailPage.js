@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { Container, Row, Col, Card, Badge, Table, Button, Spinner } from 'react-bootstrap';
+import { Container, Row, Col, Card, Badge, Table, Button, Spinner, Form } from 'react-bootstrap';
 import { 
   ArrowLeft, 
   Calendar, 
@@ -9,12 +9,19 @@ import {
   FileText,
   BoxArrowUpRight,
   ThermometerHalf,
-  MapPin
+  MapPin,
+  GraphUp,
+  Pencil,
+  Check,
+  X
 } from 'react-bootstrap-icons';
 import { useParams, useNavigate } from 'react-router-dom';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './ProjectDetailPage.css';
 import { AuthContext } from '../../contexts/AuthContext';
+import Cookies from 'js-cookie';
 
 const ProjectDetailPage = () => {
   const { projectId } = useParams();
@@ -23,16 +30,28 @@ const ProjectDetailPage = () => {
   const [project, setProject] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [editingDescription, setEditingDescription] = useState(null); // attachment id being edited
+  const [descriptionValue, setDescriptionValue] = useState('');
+  const [savingDescription, setSavingDescription] = useState(false);
+
+  // Check if current user is the project owner
+  const isProjectOwner = React.useMemo(() => {
+    if (!project || !authData?.user) return false;
+    
+    const currentUsername = authData.user.username;
+    const ownerUsername = project.owner?.username;
+    
+    console.log('Auth check:', {
+      currentUser: currentUsername,
+      projectOwner: ownerUsername,
+      isOwner: currentUsername === ownerUsername
+    });
+    
+    return currentUsername === ownerUsername;
+  }, [project, authData]);
 
   useEffect(() => {
     const fetchProject = async () => {
-      // Check if user is authenticated
-      if (!authData.authenticated) {
-        setError('You must be logged in to view project details.');
-        setLoading(false);
-        return;
-      }
-
       try {
         const backendUrl = '';
         const response = await fetch(`${backendUrl}/api/public/projects/${projectId}/`, {
@@ -40,9 +59,6 @@ const ProjectDetailPage = () => {
         });
         
         if (!response.ok) {
-          if (response.status === 401 || response.status === 403) {
-            throw new Error('You must be logged in to view project details.');
-          }
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         
@@ -59,7 +75,7 @@ const ProjectDetailPage = () => {
     if (projectId) {
       fetchProject();
     }
-  }, [projectId, authData.authenticated]);
+  }, [projectId]);
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -67,6 +83,56 @@ const ProjectDetailPage = () => {
       month: 'long',
       day: 'numeric'
     });
+  };
+
+  const handleEditDescription = (attachment) => {
+    setEditingDescription(attachment.id);
+    setDescriptionValue(attachment.description || '');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingDescription(null);
+    setDescriptionValue('');
+  };
+
+  const handleSaveDescription = async (attachmentId) => {
+    setSavingDescription(true);
+    try {
+      const backendUrl = '';
+      const csrfToken = Cookies.get('csrftoken');
+      
+      const response = await fetch(`${backendUrl}/api/auth/ed50-attachments/${attachmentId}/description/`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrfToken,
+        },
+        credentials: 'include',
+        body: JSON.stringify({ description: descriptionValue }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update description');
+      }
+
+      const result = await response.json();
+      
+      // Update the project state with new description
+      setProject(prevProject => ({
+        ...prevProject,
+        ed50_attachments: prevProject.ed50_attachments.map(att =>
+          att.id === attachmentId ? { ...att, description: descriptionValue } : att
+        ),
+      }));
+
+      setEditingDescription(null);
+      setDescriptionValue('');
+    } catch (error) {
+      console.error('Error updating description:', error);
+      alert('Failed to update description');
+    } finally {
+      setSavingDescription(false);
+    }
   };
 
   const formatThermalData = (data, type) => {
@@ -154,7 +220,7 @@ const ProjectDetailPage = () => {
       </div>
 
       <Container className="py-5">
-        {/* Publications */}
+        {/* Publications - First */}
         {project.publications && project.publications.length > 0 && (
           <Row className="mb-5">
             <Col>
@@ -187,6 +253,175 @@ const ProjectDetailPage = () => {
                       </div>
                     ))}
                   </div>
+                </Card.Body>
+              </Card>
+            </Col>
+          </Row>
+        )}
+
+        {/* Attachments Section */}
+        {project.ed50_attachments && project.ed50_attachments.length > 0 && (
+          <Row className="mb-5">
+            <Col>
+              <Card className="section-card">
+                <Card.Header className="section-header">
+                  <GraphUp className="me-2" size={20} />
+                  Attachments
+                </Card.Header>
+                <Card.Body>
+                  {project.ed50_attachments.map((attachment) => (
+                    <div key={attachment.id}>
+                      {/* Description Section */}
+                      <div className="mb-4">
+                        <div className="d-flex justify-content-between align-items-center mb-2">
+                          <h6 className="mb-0">Description</h6>
+                          {isProjectOwner && editingDescription !== attachment.id && (
+                            <Button 
+                              variant="outline-primary" 
+                              size="sm"
+                              onClick={() => handleEditDescription(attachment)}
+                            >
+                              <Pencil size={14} className="me-1" />
+                              Edit
+                            </Button>
+                          )}
+                        </div>
+                        
+                        {editingDescription === attachment.id ? (
+                          <div>
+                            <ReactQuill 
+                              theme="snow"
+                              value={descriptionValue}
+                              onChange={setDescriptionValue}
+                              style={{ marginBottom: '10px' }}
+                            />
+                            <div className="mt-2">
+                              <Button 
+                                variant="success" 
+                                size="sm" 
+                                className="me-2"
+                                onClick={() => handleSaveDescription(attachment.id)}
+                                disabled={savingDescription}
+                              >
+                                <Check size={16} className="me-1" />
+                                {savingDescription ? 'Saving...' : 'Save'}
+                              </Button>
+                              <Button 
+                                variant="secondary" 
+                                size="sm"
+                                onClick={handleCancelEdit}
+                                disabled={savingDescription}
+                              >
+                                <X size={16} className="me-1" />
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div 
+                            className="border rounded p-3 bg-light"
+                            dangerouslySetInnerHTML={{ 
+                              __html: attachment.description || '<em>No description provided</em>' 
+                            }}
+                          />
+                        )}
+                      </div>
+
+                      {/* Plots - 1 graph per row, larger */}
+                      {attachment.boxplot_image_url && (
+                        <div className="mb-4">
+                          <div className="text-center mb-2">
+                            <h6 className="mb-0">ED50s Boxplot</h6>
+                          </div>
+                          <img 
+                            src={attachment.boxplot_image_url} 
+                            alt="ED50s Boxplot"
+                            className="img-fluid border rounded"
+                            style={{ cursor: 'pointer', width: '100%' }}
+                            onClick={() => window.open(attachment.boxplot_image_url, '_blank')}
+                          />
+                        </div>
+                      )}
+                      {attachment.temperature_curve_image_url && (
+                        <div className="mb-4">
+                          <div className="text-center mb-2">
+                            <h6 className="mb-0">Temperature Response Curves</h6>
+                          </div>
+                          <img 
+                            src={attachment.temperature_curve_image_url} 
+                            alt="Temperature Response Curves"
+                            className="img-fluid border rounded"
+                            style={{ cursor: 'pointer', width: '100%' }}
+                            onClick={() => window.open(attachment.temperature_curve_image_url, '_blank')}
+                          />
+                        </div>
+                      )}
+                      {attachment.model_curve_image_url && (
+                        <div className="mb-4">
+                          <div className="text-center mb-2">
+                            <h6 className="mb-0">Model Curve with ED bands</h6>
+                          </div>
+                          <img 
+                            src={attachment.model_curve_image_url} 
+                            alt="Model Curve with ED bands"
+                            className="img-fluid border rounded"
+                            style={{ cursor: 'pointer', width: '100%' }}
+                            onClick={() => window.open(attachment.model_curve_image_url, '_blank')}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </Card.Body>
+              </Card>
+            </Col>
+          </Row>
+        )}
+
+        {/* Aggregated Statistics Section */}
+        {project.ed50_attachments && project.ed50_attachments.length > 0 && 
+         project.ed50_attachments.some(att => att.aggregated_statistics && att.aggregated_statistics.length > 0) && (
+          <Row className="mb-5">
+            <Col>
+              <Card className="section-card">
+                <Card.Header className="section-header">
+                  <GraphUp className="me-2" size={20} />
+                  Aggregated Statistics
+                </Card.Header>
+                <Card.Body>
+                  {project.ed50_attachments.map((attachment) => (
+                    attachment.aggregated_statistics && 
+                    attachment.aggregated_statistics.length > 0 && (
+                      <div 
+                        key={attachment.id} 
+                        style={{ 
+                          maxHeight: '500px', 
+                          overflowY: 'auto', 
+                          overflowX: 'auto',
+                          display: 'block'
+                        }}
+                      >
+                        <Table striped hover style={{ minWidth: '100%', width: 'max-content' }}>
+                          <thead style={{ position: 'sticky', top: 0, backgroundColor: 'white', zIndex: 1 }}>
+                            <tr>
+                              {Object.keys(attachment.aggregated_statistics[0]).map((key) => (
+                                <th key={key} className="text-nowrap">{key}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {attachment.aggregated_statistics.map((row, idx) => (
+                              <tr key={idx}>
+                                {Object.values(row).map((value, vidx) => (
+                                  <td key={vidx} className="text-nowrap">{value !== null && value !== undefined ? value : 'N/A'}</td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </Table>
+                      </div>
+                    )
+                  ))}
                 </Card.Body>
               </Card>
             </Col>

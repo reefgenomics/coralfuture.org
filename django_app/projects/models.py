@@ -329,3 +329,79 @@ class CartItem(models.Model):
             data['thermal_limits'].append(tl_data)
         
         return data
+
+
+class ProjectED50Attachment(models.Model):
+    """
+    Stores ED50 calculation results for a project including plots and statistics.
+    """
+    project = models.ForeignKey(
+        Project, 
+        on_delete=models.CASCADE,
+        related_name='ed50_attachments'
+    )
+    
+    # Image files
+    boxplot_image = models.ImageField(
+        upload_to='ed50_attachments/boxplots/',
+        null=True,
+        blank=True,
+        help_text='ED50s Boxplot'
+    )
+    temperature_curve_image = models.ImageField(
+        upload_to='ed50_attachments/temp_curves/',
+        null=True,
+        blank=True,
+        help_text='Temperature Response Curves'
+    )
+    model_curve_image = models.ImageField(
+        upload_to='ed50_attachments/model_curves/',
+        null=True,
+        blank=True,
+        help_text='Model Curve with ED bands'
+    )
+    
+    # Statistical data
+    aggregated_statistics = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='Aggregated Statistics (Mean, SD, SE, Conf_Int for ED5, ED50, ED95)'
+    )
+    individual_eds = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='Individual ED values'
+    )
+    
+    # Calculation parameters
+    calculation_params = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text='Parameters used for calculation (grouping, formula, etc.)'
+    )
+    
+    # Description field with HTML support
+    description = models.TextField(
+        blank=True,
+        null=True,
+        help_text='HTML description for the attachment'
+    )
+    
+    # Metadata
+    created_by = models.ForeignKey(
+        CustomUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_ed50_attachments'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = 'Project ED50 Attachment'
+        verbose_name_plural = 'Project ED50 Attachments'
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"ED50 Attachment for {self.project.name} ({self.created_at.strftime('%Y-%m-%d')})"

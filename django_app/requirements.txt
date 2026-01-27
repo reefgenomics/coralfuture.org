@@ -23,3 +23,4 @@ tzdata==2023.4
 openai
 requests==2.31.0
 whitenoise==6.6.0
+Pillow==10.1.0

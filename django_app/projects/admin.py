@@ -1,7 +1,7 @@
 # projects/admin.py
 from django.contrib import admin
 from projects.models import Project, Experiment, Colony, BioSample, \
-    Observation, Publication, CartGroup, CartItem, ThermalTolerance, BreakpointTemperature, ThermalLimit
+    Observation, Publication, CartGroup, CartItem, ThermalTolerance, BreakpointTemperature, ThermalLimit, ProjectED50Attachment
 
 
 @admin.register(Project)
@@ -153,3 +153,16 @@ class CartItemAdmin(admin.ModelAdmin):
     def colony_name(self, obj):
         return obj.colony.name
     colony_name.short_description = 'Colony Name'
+
+
+@admin.register(ProjectED50Attachment)
+class ProjectED50AttachmentAdmin(admin.ModelAdmin):
+    list_display = ('project', 'created_by', 'created_at', 'has_images')
+    search_fields = ('project__name', 'created_by__username')
+    list_filter = ('created_at', 'project')
+    readonly_fields = ('created_at', 'updated_at')
+    
+    def has_images(self, obj):
+        return bool(obj.boxplot_image or obj.temperature_curve_image or obj.model_curve_image)
+    has_images.boolean = True
+    has_images.short_description = 'Has Images'
