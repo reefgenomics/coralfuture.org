@@ -34,6 +34,32 @@ class Project(models.Model):
         return f"Project {self.name}"
 
 
+class Attachment(models.Model):
+    """
+    Attachments for Project: graphs, statistics, photos, description.
+    """
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='attachments')
+    boxplot = models.ImageField(upload_to='attachments/', null=True, blank=True)
+    temp_curve = models.ImageField(upload_to='attachments/', null=True, blank=True)
+    model_curve = models.ImageField(upload_to='attachments/', null=True, blank=True)
+    publications = models.ManyToManyField(
+        Publication,
+        related_name='attachments',
+        blank=True,
+        help_text='Related publications (can be multiple)'
+    )
+    statistics = models.JSONField(null=True, blank=True)
+    cover_photo = models.ImageField(upload_to='attachments/', null=True, blank=True)
+    other_photos = models.JSONField(null=True, blank=True)  # List of image URLs/paths
+    additional_links = models.JSONField(default=list, blank=True)  # List of URL strings
+    description = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Attachment for {self.project.name}"
+
+
 class Experiment(models.Model):
     """
     Experiment includes Observation(s).

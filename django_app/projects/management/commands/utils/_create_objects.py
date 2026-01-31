@@ -3,6 +3,7 @@ import pandas as pd
 
 from projects.models import BioSample, Colony, ThermalTolerance, \
     Experiment, Observation, Project, Publication, BreakpointTemperature, ThermalLimit
+from projects.management.commands.utils.doi_citation import fetch_title_and_year_from_doi
 
 
 def create_project(owner, project_key, description):
@@ -111,7 +112,18 @@ def create_observation(experiment, biosample, row):
 
 
 def create_publication(row):
+    doi = row['Publication.doi']
+    title_from_api, year_from_api = fetch_title_and_year_from_doi(doi)
+    if title_from_api is not None and year_from_api is not None:
+        title = title_from_api
+        year = year_from_api
+    else:
+        title = row['Publication.title']
+        try:
+            year = int(row['Publication.year']) if row['Publication.year'] is not None and not pd.isna(row['Publication.year']) else datetime.now().year
+        except (TypeError, ValueError):
+            year = datetime.now().year
+    # Look up by doi only to avoid duplicates when API returns different title/year than CSV
     return Publication.objects.get_or_create(
-        title=row['Publication.title'],
-        year=row['Publication.year'],
-        doi=row['Publication.doi'])
+        doi=doi,
+        defaults={'title': title, 'year': year})

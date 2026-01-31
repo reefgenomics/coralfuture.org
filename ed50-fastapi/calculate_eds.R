@@ -26,7 +26,6 @@ boxplot_path <- get_arg(10)
 temp_curve_path <- get_arg(11)
 model_curve_path <- get_arg(12)
 
-#sorry for this all logs, i need them because R is not very verbose and i need to know what is going on.
 cat("[INFO] Starting ED calculation\n")
 flush.console()
 cat(paste0("[INFO] Input file: ", input_csv, "\n"))
@@ -271,6 +270,17 @@ eds_df <- eds_df[, cols_order, drop = FALSE]
 cat(paste0("[INFO] Final result columns: ", paste(colnames(eds_df), collapse = ", "), "\n"))
 flush.console()
 
+# Функция для очистки NaN значений перед сохранением
+clean_numeric_values <- function(x) {
+  if (is.numeric(x)) {
+    x[is.nan(x) | is.infinite(x)] <- NA_real_
+  }
+  return(x)
+}
+
+# Очищаем данные от NaN перед сохранением
+eds_df <- as.data.frame(lapply(eds_df, clean_numeric_values))
+
 # Calculate aggregated statistics (Mean, SD, SE, Conf_Int) for each ED value
 cat("[INFO] Calculating aggregated statistics...\n")
 flush.console()
@@ -295,7 +305,7 @@ if (length(grouping_cols) > 0 && all(c("ED5", "ED50", "ED95") %in% colnames(eds_
         return(sd_val / sqrt(n))
       }
     }
-    return(NA)
+    return(NA_real_)
   }
   
   calc_conf_int <- function(x) {
@@ -306,14 +316,14 @@ if (length(grouping_cols) > 0 && all(c("ED5", "ED50", "ED95") %in% colnames(eds_
         se <- sd_val / sqrt(n)
         df <- n - 1
         if (df > 0) {
-          t_val <- tryCatch(qt(0.975, df = df), error = function(e) NA)
+          t_val <- tryCatch(qt(0.975, df = df), error = function(e) NA_real_)
           if (!is.na(t_val)) {
             return(t_val * se)
           }
         }
       }
     }
-    return(NA)
+    return(NA_real_)
   }
   
   # Calculate statistics for each group
@@ -336,8 +346,11 @@ if (length(grouping_cols) > 0 && all(c("ED5", "ED50", "ED95") %in% colnames(eds_
     ) %>%
     dplyr::mutate(
       # Replace NaN and Inf with NA
-      across(where(is.numeric), ~ ifelse(is.nan(.) | is.infinite(.), NA, .))
+      across(where(is.numeric), ~ ifelse(is.nan(.) | is.infinite(.), NA_real_, .))
     )
+  
+  # Очищаем агрегированные данные
+  aggregated_df <- as.data.frame(lapply(aggregated_df, clean_numeric_values))
   
   cat(paste0("[INFO] Aggregated statistics calculated. Rows: ", nrow(aggregated_df), "\n"))
   cat(paste0("[INFO] Aggregated columns: ", paste(colnames(aggregated_df), collapse = ", "), "\n"))
@@ -360,18 +373,26 @@ if (length(grouping_cols) > 0 && all(c("ED5", "ED50", "ED95") %in% colnames(eds_
   aggregated_csv <- sub("\\.csv$", "_aggregated.csv", output_csv)
   cat(paste0("[INFO] Saving aggregated statistics to: ", aggregated_csv, "\n"))
   flush.console()
-  write.csv(aggregated_df, aggregated_csv, row.names = FALSE)
+  
+  # ИСПРАВЛЕНИЕ ЗДЕСЬ: Используем na = "" для сохранения NA как пустых полей
+  write.csv(aggregated_df, aggregated_csv, row.names = FALSE, na = "")
+  
   cat(paste0("[INFO] Aggregated statistics saved: ", nrow(aggregated_df), " rows\n"))
   flush.console()
   
   # Save individual values to main output file
   cat(paste0("[INFO] Saving individual ED values to: ", output_csv, "\n"))
   flush.console()
-  write.csv(individual_df, output_csv, row.names = FALSE)
+  
+  # ИСПРАВЛЕНИЕ ЗДЕСЬ: Используем na = "" для сохранения NA как пустых полей
+  write.csv(individual_df, output_csv, row.names = FALSE, na = "")
   
   # Append aggregated statistics to main file
   cat("\n#AGGREGATED_STATISTICS\n", file = output_csv, append = TRUE)
-  write.table(aggregated_df, output_csv, sep = ",", row.names = FALSE, col.names = TRUE, append = TRUE)
+  
+  # ИСПРАВЛЕНИЕ ЗДЕСЬ: Используем write.table с na = ""
+  write.table(aggregated_df, output_csv, sep = ",", row.names = FALSE, 
+              col.names = TRUE, append = TRUE, na = "")
   
   cat(paste0("[INFO] Calculations completed successfully.\n"))
   cat(paste0("[INFO] Individual ED values saved to: ", output_csv, " (", nrow(individual_df), " rows)\n"))
@@ -382,7 +403,10 @@ if (length(grouping_cols) > 0 && all(c("ED5", "ED50", "ED95") %in% colnames(eds_
   flush.console()
   cat(paste0("[INFO] Saving results to: ", output_csv, "\n"))
   flush.console()
-  write.csv(eds_df, output_csv, row.names = FALSE)
+  
+  # ИСПРАВЛЕНИЕ ЗДЕСЬ: Используем na = "" для сохранения NA как пустых полей
+  write.csv(eds_df, output_csv, row.names = FALSE, na = "")
+  
   cat(paste0("[INFO] Calculations completed successfully. Results saved to: ", output_csv, "\n"))
   flush.console()
 }

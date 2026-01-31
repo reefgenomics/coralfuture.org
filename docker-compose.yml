@@ -31,6 +31,7 @@ services:
       - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE}
     volumes:
       - ./django_app:/usr/src/app
+      - ./shared_data:/shared_data
     depends_on:
       - database
 
@@ -55,9 +56,12 @@ services:
     restart: unless-stopped
     ports:
       - "8001:8001"
+    environment:
+      - SHARED_DATA_PATH=/shared_data
     volumes:
       - ./ed50-fastapi:/app
       - ./ed50-calculator/examples:/app/data/examples:ro
+      - ./shared_data:/shared_data
     depends_on:
       - database
 

@@ -29,20 +29,64 @@
   z-index: 1;
 }
 
+.project-header-has-cover::before {
+  opacity: 0;
+  background-image: none;
+}
+
+.project-header-has-cover::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 1;
+}
+
+/* Светлый текст поверх кастомного фона */
+.project-header-has-cover .project-title,
+.project-header-has-cover .project-meta,
+.project-header-has-cover .meta-item,
+.project-header-has-cover .project-title-input,
+.project-header-has-cover .text-white,
+.project-header-has-cover p {
+  color: #fff !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.project-header-has-cover .project-title {
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+
 .project-header .container {
   position: relative;
   z-index: 2;
 }
 
+.cover-photo-preview {
+  max-width: 100%;
+  max-height: 200px;
+  object-fit: contain;
+  border: 1px solid #e2e8f0;
+}
+
 .project-title {
-  font-size: 2.5rem;
+  font-size: 2.1rem;
   font-weight: 800;
   margin-bottom: 1rem;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
+.project-title-input {
+  font-size: 1.35rem;
+  font-weight: 600;
+}
+
 .project-meta {
   display: flex;
+  align-items: center;
   gap: 2rem;
   margin-bottom: 1.5rem;
   flex-wrap: wrap;
@@ -50,18 +94,34 @@
 }
 
 .meta-item {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   font-size: 0.95rem;
+  line-height: 1;
   opacity: 0.9;
+}
+
+.meta-item:nth-child(2) {
+  margin-bottom: 0.5rem;
+}
+
+.meta-item svg {
+  flex-shrink: 0;
+  vertical-align: middle;
 }
 
 .project-description {
   font-size: 1.1rem;
   line-height: 1.6;
   opacity: 0.95;
-  max-width: 800px;
-  margin: 0 auto;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.section-card .card-body .project-description {
+  margin: 0;
+  padding: 0;
 }
 
 /* Section Cards */
@@ -86,10 +146,131 @@
   align-items: center;
 }
 
-/* Publications */
+/* Graphs carousel */
+.graphs-card-body,
+.graph-carousel {
+  padding: 0;
+}
+
+.graph-carousel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1rem 1.5rem;
+}
+
+.graph-carousel-image-wrap {
+  width: 100%;
+  max-width: 800px;
+  text-align: center;
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.graph-carousel-image {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
+
+.graph-carousel-caption {
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 1rem;
+}
+
+.graph-carousel-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.graph-carousel-dots {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.graph-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid #0ea5e9;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.2s ease;
+}
+
+.graph-dot:hover {
+  background: rgba(14, 165, 233, 0.3);
+}
+
+.graph-dot.active {
+  background: #0ea5e9;
+}
+
+/* Statistics table: scrollable box */
+.section-card.statistics-card {
+  overflow: visible;
+}
+
+.statistics-card-body {
+  overflow: visible;
+  padding-bottom: 0;
+}
+
+.statistics-table-wrap {
+  height: 400px;
+  width: 100%;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  position: relative;
+}
+
+.statistics-table {
+  width: max-content;
+  min-width: 100%;
+  margin-bottom: 0;
+}
+
+.statistics-table thead th {
+  background: #f1f5f9;
+  color: #475569;
+  font-weight: 600;
+  text-transform: capitalize;
+  white-space: nowrap;
+  padding: 0.75rem;
+}
+
+.statistics-table tbody td {
+  vertical-align: middle;
+  white-space: nowrap;
+  padding: 0.75rem;
+}
+
+/* Publications: block grows with content, no scroll */
+.publications-card {
+  overflow: visible;
+}
+
+.publications-card .publications-card-body {
+  overflow: visible;
+  max-height: none;
+}
+
 .publications-list {
   display: grid;
   gap: 1rem;
+  max-height: none;
+  overflow: visible;
 }
 
 .publication-item {
@@ -225,7 +406,7 @@
 /* Responsive Design */
 @media (max-width: 768px) {
   .project-title {
-    font-size: 2rem;
+    font-size: 1.75rem;
   }
   
   .project-meta {
@@ -265,7 +446,7 @@
   }
   
   .project-title {
-    font-size: 1.75rem;
+    font-size: 1.5rem;
   }
   
   .table-responsive {

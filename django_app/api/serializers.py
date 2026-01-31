@@ -198,17 +198,18 @@ class ObservationDetailSerializer(serializers.ModelSerializer):
 class ProjectDetailSerializer(serializers.ModelSerializer):
     owner = serializers.SerializerMethodField()
     publications = serializers.SerializerMethodField()
+    attachment = serializers.SerializerMethodField()
     experiments = serializers.SerializerMethodField()
     colonies = serializers.SerializerMethodField()
     observations = serializers.SerializerMethodField()
-    
+
     def get_owner(self, obj):
         return {
             'id': obj.owner.id,
             'username': obj.owner.username,
             'email': obj.owner.email
         }
-    
+
     def get_publications(self, obj):
         publications = obj.publications.all()
         return [{
@@ -217,22 +218,48 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
             'year': pub.year,
             'doi': pub.doi
         } for pub in publications]
-    
+
+    def get_attachment(self, obj):
+        from projects.models import Attachment
+        request = self.context.get('request')
+        attachment = Attachment.objects.filter(project=obj).first()
+        if not attachment:
+            return None
+        def url(field):
+            if not field:
+                return None
+            if request:
+                return request.build_absolute_uri(field.url)
+            return field.url
+        return {
+            'id': attachment.id,
+            'boxplot': url(attachment.boxplot),
+            'boxplot_filename': attachment.boxplot.name if attachment.boxplot else None,
+            'temp_curve': url(attachment.temp_curve),
+            'temp_curve_filename': attachment.temp_curve.name if attachment.temp_curve else None,
+            'model_curve': url(attachment.model_curve),
+            'model_curve_filename': attachment.model_curve.name if attachment.model_curve else None,
+            'cover_photo': url(attachment.cover_photo),
+            'cover_photo_filename': attachment.cover_photo.name if attachment.cover_photo else None,
+            'additional_links': attachment.additional_links if attachment.additional_links is not None else [],
+            'statistics': attachment.statistics,
+        }
+
     def get_experiments(self, obj):
         experiments = self.context.get('experiments', [])
         return ExperimentSerializer(experiments, many=True).data
-    
+
     def get_colonies(self, obj):
         colonies = self.context.get('colonies', [])
         return ColonyDetailSerializer(colonies, many=True).data
-    
+
     def get_observations(self, obj):
         observations = self.context.get('observations', [])
         return ObservationDetailSerializer(observations, many=True, context={
             'current_project_id': obj.id
         }).data
-    
+
     class Meta:
         model = Project
-        fields = ['id', 'name', 'registration_date', 'description', 'owner', 
-                 'publications', 'experiments', 'colonies', 'observations']
+        fields = ['id', 'name', 'registration_date', 'description', 'owner',
+                  'publications', 'attachment', 'experiments', 'colonies', 'observations']

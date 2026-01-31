@@ -5,6 +5,10 @@ __pycache__/
 
 database/
 django_app/staticfiles/
+django_app/static/
+shared_data/
+
+*.csv
 
 pg_dump.sql
 backup.pgdump

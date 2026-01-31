@@ -14,6 +14,7 @@ from projects.management.commands.utils._create_objects import (
     create_biosample, create_colony, create_thermaltolerance, create_experiment,
     create_observation, create_project, create_publication,
     create_breakpointtemperature, create_thermallimit)
+from projects.management.commands.utils.doi_citation import fetch_title_and_year_from_doi
 
 from projects.management.commands.utils._validate_datasheet import validate_datasheet
 
@@ -122,6 +123,13 @@ class Command(BaseCommand):
             raise
 
     def create_instances(self, df, owner, csv_path, use_pam):
+        # Pre-fill DOI citation cache: one API request per unique DOI (not per row)
+        if 'Publication.doi' in df.columns:
+            unique_dois = df['Publication.doi'].dropna().astype(str).str.strip().unique()
+            skip = {'', 'no doi available', 'n/a', 'na', '-', 'nan'}
+            for doi in unique_dois:
+                if doi and doi.lower() not in skip:
+                    fetch_title_and_year_from_doi(doi)
         for _, row in df.iterrows():
             project, created = create_project(
                 owner, row['Project.name'],

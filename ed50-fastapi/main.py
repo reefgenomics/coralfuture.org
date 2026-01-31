@@ -8,6 +8,7 @@ import io
 from pathlib import Path
 import tempfile
 import os
+import shutil
 import logging
 import sys
 from typing import Optional, Tuple
@@ -31,6 +32,27 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
 R_SCRIPT_PATH = Path(__file__).parent / "calculate_eds.R"
+
+# Defaults: match user's working settings (Grouping Site,Condition,Species,Timepoint; Text size 10; Point size 1)
+ED_CALCULATOR_DEFAULTS = {
+    "grouping_properties": "Site,Condition,Species,Timepoint",
+    "drm_formula": "Pam_value ~ Temperature",
+    "condition": "Condition",
+    "faceting": " ~ Species",
+    "faceting_model": "Species ~ Site ~ Condition",
+    "size_text": 10.0,
+    "size_points": 1.0,
+}
+
+# Get shared data path from environment variable, default to /shared_data
+SHARED_DATA_PATH = Path(os.getenv("SHARED_DATA_PATH", "/shared_data"))
+
+# Log shared data path configuration at startup
+logger.info(f"📁 Shared data path configured: {SHARED_DATA_PATH}")
+if SHARED_DATA_PATH.exists():
+    logger.info(f"✅ Shared data directory exists: {SHARED_DATA_PATH}")
+else:
+    logger.warning(f"⚠️  Shared data directory does not exist yet: {SHARED_DATA_PATH} (will be created when needed)")
 
 
 def parse_checkbox(value: Optional[str]) -> bool:
@@ -194,24 +216,39 @@ async def home(request: Request):
 async def calculate_csv(
     request: Request,
     file: UploadFile = File(...),
-    grouping_properties: str = Form("Site,Condition,Species,Genotype,Timepoint"),
-    drm_formula: str = Form("Pam_value ~ Temperature"),
-    condition: str = Form("Condition"),
-    faceting: str = Form(" ~ Species"),
-    faceting_model: str = Form("Species ~ Site ~ Condition"),
+    grouping_properties: str = Form(ED_CALCULATOR_DEFAULTS["grouping_properties"]),
+    drm_formula: str = Form(ED_CALCULATOR_DEFAULTS["drm_formula"]),
+    condition: str = Form(ED_CALCULATOR_DEFAULTS["condition"]),
+    faceting: str = Form(ED_CALCULATOR_DEFAULTS["faceting"]),
+    faceting_model: str = Form(ED_CALCULATOR_DEFAULTS["faceting_model"]),
+    size_text: float = Form(ED_CALCULATOR_DEFAULTS["size_text"]),
+    size_points: float = Form(ED_CALCULATOR_DEFAULTS["size_points"]),
+    save_to: Optional[str] = Form(None),
 ):
-    """Calculate EDs and return CSV directly (no HTML)"""
+    """Calculate EDs and return CSV directly. If save_to is provided, save plots and statistics."""
     input_file: Optional[str] = None
     output_file: Optional[str] = None
+    boxplot_file: Optional[str] = None
+    temp_curve_file: Optional[str] = None
+    model_curve_file: Optional[str] = None
 
     try:
         logger.info(f"📊 CSV calculation request for {file.filename}")
+        logger.info(f"📤 Received save_to parameter: {save_to}")
         
         # Save uploaded file
         input_file = await materialize_uploaded_file(file)
         output_file = create_temp_csv_file()
 
-        # Run R script (no plots needed for CSV endpoint)
+        # Create plot files if saving
+        if save_to:
+            boxplot_file = create_temp_png_file()
+            temp_curve_file = create_temp_png_file()
+            model_curve_file = create_temp_png_file()
+        else:
+            boxplot_file = temp_curve_file = model_curve_file = ""
+
+        # Run R script with same defaults as ED calculator form (index.html)
         success, error_message = run_r_script(
             input_file,
             output_file,
@@ -220,11 +257,11 @@ async def calculate_csv(
             condition,
             faceting,
             faceting_model,
-            12,  # default text size
-            2.5,  # default point size
-            "",  # no boxplot
-            "",  # no temp curve
-            "",  # no model curve
+            size_text,
+            size_points,
+            boxplot_file or "",
+            temp_curve_file or "",
+            model_curve_file or "",
         )
 
         if not success:
@@ -247,6 +284,64 @@ async def calculate_csv(
         # Parse individual CSV
         eds_df = pd.read_csv(StringIO(individual_csv))
         
+        # Save files to shared path if save_to provided
+        if save_to:
+            # Always prepend shared_data_path to ensure files are saved in shared volume
+            # This works for both relative paths (e.g., "attachments/dataset") and 
+            # absolute paths that should be relative to shared_data (e.g., "/shared_data/attachments/dataset")
+            save_to_clean = str(save_to).strip()
+            
+            # Remove leading /shared_data if present to avoid duplication
+            if save_to_clean.startswith('/shared_data/'):
+                save_to_clean = save_to_clean.replace('/shared_data/', '', 1)
+            elif save_to_clean.startswith('/shared_data'):
+                save_to_clean = save_to_clean.replace('/shared_data', '', 1)
+            
+            # Remove leading slash if present (to make it relative)
+            if save_to_clean.startswith('/'):
+                save_to_clean = save_to_clean[1:]
+            
+            # Build final path relative to shared_data
+            save_path = SHARED_DATA_PATH / save_to_clean
+            
+            logger.info(f"🔍 Processing save_to: '{save_to}'")
+            logger.info(f"🔍 Cleaned path: '{save_to_clean}'")
+            logger.info(f"🔍 SHARED_DATA_PATH: {SHARED_DATA_PATH}")
+            logger.info(f"🔍 Final save_path: {save_path}")
+            
+            # Ensure the directory exists
+            try:
+                save_path.mkdir(parents=True, exist_ok=True)
+                logger.info(f"✅ Directory created/exists: {save_path}")
+            except Exception as e:
+                logger.error(f"❌ Failed to create directory {save_path}: {e}")
+                raise
+            
+            logger.info(f"💾 Saving files to shared path: {save_path}")
+            
+            # Save individual ED results
+            eds_df.to_csv(save_path / "eds_results.csv", index=False)
+            logger.info(f"✅ Saved eds_results.csv to {save_path / 'eds_results.csv'}")
+            
+            # Copy aggregated statistics if exists
+            aggregated_file = output_file.replace('.csv', '_aggregated.csv')
+            if os.path.exists(aggregated_file):
+                shutil.copy(aggregated_file, save_path / "statistics.csv")
+                logger.info(f"✅ Saved statistics.csv to {save_path / 'statistics.csv'}")
+            
+            # Copy plot files if they exist
+            if boxplot_file and os.path.exists(boxplot_file):
+                shutil.copy(boxplot_file, save_path / "boxplot.png")
+                logger.info(f"✅ Saved boxplot.png to {save_path / 'boxplot.png'}")
+            if temp_curve_file and os.path.exists(temp_curve_file):
+                shutil.copy(temp_curve_file, save_path / "temp_curve.png")
+                logger.info(f"✅ Saved temp_curve.png to {save_path / 'temp_curve.png'}")
+            if model_curve_file and os.path.exists(model_curve_file):
+                shutil.copy(model_curve_file, save_path / "model_curve.png")
+                logger.info(f"✅ Saved model_curve.png to {save_path / 'model_curve.png'}")
+            
+            logger.info(f"💾 All files saved successfully to: {save_path}")
+        
         # Return only individual values for CSV endpoint
         csv_data = eds_df.to_csv(index=False)
         
@@ -268,15 +363,16 @@ async def calculate_csv(
             status_code=500
         )
     finally:
-        for tmp_path in [input_file, output_file]:
-            if tmp_path and os.path.exists(tmp_path):
+        # Clean up temp files (but not if saved)
+        for tmp_path in [input_file, output_file, boxplot_file, temp_curve_file, model_curve_file]:
+            if tmp_path and os.path.exists(tmp_path) and (not save_to or tmp_path not in [boxplot_file, temp_curve_file, model_curve_file]):
                 try:
                     os.unlink(tmp_path)
                 except OSError:
                     logger.warning(f"Failed to remove temporary file: {tmp_path}")
-        # Also clean up aggregated file if it exists
+        # Also clean up aggregated file if it exists and not saved
         aggregated_file = output_file.replace('.csv', '_aggregated.csv') if output_file else None
-        if aggregated_file and os.path.exists(aggregated_file):
+        if aggregated_file and os.path.exists(aggregated_file) and not save_to:
             try:
                 os.unlink(aggregated_file)
             except OSError:
@@ -287,13 +383,13 @@ async def calculate_csv(
 async def process_data(
     request: Request,
     file: Optional[UploadFile] = File(None),
-    grouping_properties: str = Form("Site,Condition,Species,Genotype,Timepoint"),
-    faceting_model: str = Form("Species ~ Site ~ Condition"),
-    faceting: str = Form(" ~ Species"),
-    condition: str = Form("Condition"),
-    drm_formula: str = Form("Pam_value ~ Temperature"),
-    size_text: float = Form(12),
-    size_points: float = Form(2.5)
+    grouping_properties: str = Form(ED_CALCULATOR_DEFAULTS["grouping_properties"]),
+    faceting_model: str = Form(ED_CALCULATOR_DEFAULTS["faceting_model"]),
+    faceting: str = Form(ED_CALCULATOR_DEFAULTS["faceting"]),
+    condition: str = Form(ED_CALCULATOR_DEFAULTS["condition"]),
+    drm_formula: str = Form(ED_CALCULATOR_DEFAULTS["drm_formula"]),
+    size_text: float = Form(ED_CALCULATOR_DEFAULTS["size_text"]),
+    size_points: float = Form(ED_CALCULATOR_DEFAULTS["size_points"]),
 ):
     # Force example data OFF to always require user input table
     use_example_flag = False

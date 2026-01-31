@@ -1,7 +1,7 @@
 # projects/admin.py
 from django.contrib import admin
 from projects.models import Project, Experiment, Colony, BioSample, \
-    Observation, Publication, CartGroup, CartItem, ThermalTolerance, BreakpointTemperature, ThermalLimit
+    Observation, Publication, CartGroup, CartItem, ThermalTolerance, BreakpointTemperature, ThermalLimit, Attachment
 
 
 @admin.register(Project)
@@ -153,3 +153,31 @@ class CartItemAdmin(admin.ModelAdmin):
     def colony_name(self, obj):
         return obj.colony.name
     colony_name.short_description = 'Colony Name'
+
+
+@admin.register(Attachment)
+class AttachmentAdmin(admin.ModelAdmin):
+    list_display = ('project', 'has_boxplot', 'has_temp_curve', 'has_model_curve', 'publications_count', 'created_at')
+    search_fields = ('project__name', 'description', 'publications__title', 'publications__doi')
+    list_filter = ('created_at', 'project')
+    readonly_fields = ('created_at', 'updated_at')
+    filter_horizontal = ('publications',)
+
+    def publications_count(self, obj):
+        return obj.publications.count()
+    publications_count.short_description = 'Publications'
+
+    def has_boxplot(self, obj):
+        return bool(obj.boxplot)
+    has_boxplot.boolean = True
+    has_boxplot.short_description = 'Boxplot'
+
+    def has_temp_curve(self, obj):
+        return bool(obj.temp_curve)
+    has_temp_curve.boolean = True
+    has_temp_curve.short_description = 'Temp Curve'
+
+    def has_model_curve(self, obj):
+        return bool(obj.model_curve)
+    has_model_curve.boolean = True
+    has_model_curve.short_description = 'Model Curve'

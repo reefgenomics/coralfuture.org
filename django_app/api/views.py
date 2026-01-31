@@ -23,7 +23,7 @@ from api.serializers import BioSampleSerializer, \
     ObservationSerializer, ProjectSerializer, BreakpointTemperatureSerializer, ThermalLimitSerializer
 # Apps imports
 from projects.models import BioSample, Observation, Colony, Project, \
-    ThermalTolerance, Project, CartGroup, CartItem, BreakpointTemperature, ThermalLimit
+    ThermalTolerance, Project, CartGroup, CartItem, BreakpointTemperature, ThermalLimit, Attachment
 from django.db.models import Count, Q
 from django.db import transaction
 from django.utils import timezone
@@ -265,6 +265,19 @@ class UploadCSVApiView(APIView):
             )
             
             df_with_eds = None
+            attachments_path = None  # Initialize to ensure it's in scope
+            
+            # Get dataset name for saving files (from project name or filename)
+            # This is needed regardless of whether EDs are calculated or already present
+            dataset_name = None
+            if 'Project' in df_raw.columns:
+                dataset_name = str(df_raw['Project'].iloc[0]) if len(df_raw) > 0 else None
+            elif 'Project.name' in df_raw.columns:
+                dataset_name = str(df_raw['Project.name'].iloc[0]) if len(df_raw) > 0 else None
+            
+            # Use filename if project name not found
+            if not dataset_name:
+                dataset_name = os.path.splitext(csv_file.name)[0]
             
             if has_ed_columns:
                 print("✅ ED values detected in uploaded file")
@@ -275,9 +288,36 @@ class UploadCSVApiView(APIView):
                 # ==============================================================
                 print("📊 No ED values detected - calculating EDs...")
                 
-                # Save raw data to temp file for ED calculation
+                # Create attachments folder for this dataset
+                from django.conf import settings
+                from pathlib import Path
+                # Use shared_data path that both containers can access
+                shared_data_path = Path('/shared_data')
+                attachments_path = shared_data_path / 'attachments' / dataset_name
+                attachments_path.mkdir(parents=True, exist_ok=True)
+                print(f"📁 Created attachments folder: {attachments_path}")
+                
+                # Normalize column names for R/CBASSED50 (case-sensitive: Species, Condition, Site, Timepoint, etc.)
+                canonical_columns = {
+                    'site': 'Site', 'condition': 'Condition', 'species': 'Species',
+                    'timepoint': 'Timepoint', 'temperature': 'Temperature', 'pam_value': 'Pam_value',
+                    'project': 'Project', 'date': 'Date', 'country': 'Country',
+                    'latitude': 'Latitude', 'longitude': 'Longitude', 'genotype': 'Genotype',
+                }
+                df_for_ed = df_raw.copy()
+                rename_map = {}
+                for col in df_for_ed.columns:
+                    c = col.strip()
+                    if c and c.lower() in canonical_columns:
+                        canonical = canonical_columns[c.lower()]
+                        if c != canonical:
+                            rename_map[col] = canonical
+                if rename_map:
+                    df_for_ed = df_for_ed.rename(columns=rename_map)
+                
+                # Save data to temp file for ED calculation (canonical column names)
                 with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as tmp:
-                    df_raw.to_csv(tmp.name, index=False)
+                    df_for_ed.to_csv(tmp.name, index=False)
                     temp_raw_csv = tmp.name
                 
                 # Call ED50 calculator service (CSV endpoint)
@@ -287,50 +327,25 @@ class UploadCSVApiView(APIView):
                     with open(temp_raw_csv, 'rb') as f:
                         files = {'file': (csv_file.name, f, 'text/csv')}
                         
-                        # Get grouping properties from request or use defaults
-                        # Check if Genotype column exists in raw data (case-insensitive)
-                        genotype_col = None
-                        for col in df_raw.columns:
-                            if col.lower() == 'genotype':
-                                genotype_col = col
-                                break
-                        
-                        has_genotype = genotype_col is not None
-                        if has_genotype:
-                            print(f"✅ Found Genotype column: {genotype_col}")
-                        
-                        # Base grouping without Genotype
-                        base_grouping = 'Site,Condition,Species,Timepoint'
-                        
-                        # Get user-provided grouping or use default
-                        grouping = request.data.get('grouping_properties', base_grouping)
-                        if not grouping or grouping.strip() == '':
-                            grouping = base_grouping
-                        
-                        # ALWAYS add Genotype to grouping if it exists in the data
-                        # This prevents mixing ED values from different genotypes
-                        if has_genotype:
-                            grouping_list = [g.strip() for g in grouping.split(',')]
-                            # Use the actual column name (case-sensitive for the grouping string)
-                            if genotype_col not in grouping_list:
-                                # Insert Genotype before Timepoint if not already present
-                                if 'Timepoint' in grouping_list:
-                                    timepoint_idx = grouping_list.index('Timepoint')
-                                    grouping_list.insert(timepoint_idx, genotype_col)
-                                else:
-                                    grouping_list.append(genotype_col)
-                                grouping = ','.join(grouping_list)
-                                print(f"⚠️ Genotype column found but not in grouping - adding it automatically")
-                        
+                        # Use exactly user's settings: Site,Condition,Species,Timepoint (no Genotype)
+                        # So graphs/statistics match local ED calculator 1:1
+                        grouping = 'Site,Condition,Species,Timepoint'
                         print(f"📊 Using grouping properties: {grouping}")
                         
+                        # 1:1 with user's working settings (Text size 10, Point size 1)
                         data = {
                             'grouping_properties': grouping,
                             'drm_formula': 'Pam_value ~ Temperature',
                             'condition': 'Condition',
                             'faceting': ' ~ Species',
                             'faceting_model': 'Species ~ Site ~ Condition',
+                            'size_text': 10,
+                            'size_points': 1,
                         }
+                        
+                        # Add save_to as relative path from shared_data root
+                        relative_path = f'attachments/{dataset_name}'
+                        data['save_to'] = relative_path
                         
                         # Use ed50-fastapi CSV endpoint
                         ed50_service_url = os.getenv('ED50_SERVICE_URL', 'http://ed50-fastapi:8001/calculate-csv')
@@ -405,10 +420,14 @@ class UploadCSVApiView(APIView):
                             
                             print(f"🔗 Merging EDs on columns: {merge_cols}")
                             
-                            # Select ED columns from EDs dataframe
+                            # One ED row per merge key: avoid duplicate keys (e.g. from Genotype) so merge does not multiply rows
+                            df_eds_for_merge = df_eds.drop_duplicates(subset=merge_cols, keep='first')
+                            if len(df_eds_for_merge) < len(df_eds):
+                                print(f"📌 Deduplicated EDs by merge key: {len(df_eds)} -> {len(df_eds_for_merge)} rows")
+                            
                             ed_cols = [c for c in df_eds.columns if c.upper() in ['ED5', 'ED50', 'ED95']]
                             df_with_eds = df_raw_data.merge(
-                                df_eds[merge_cols + ed_cols],
+                                df_eds_for_merge[merge_cols + ed_cols],
                                 on=merge_cols,
                                 how='left'
                             )
@@ -470,11 +489,18 @@ class UploadCSVApiView(APIView):
             # ==============================================================
             print("🔄 Starting populate_db with column mapping...")
             
-            # Track projects created during this upload for cleanup on error
+            # Get unique project names from the data to track which projects will be created/used
+            project_names = set()
+            if 'Project.name' in df_with_eds.columns:
+                project_names = set(df_with_eds['Project.name'].dropna().unique())
+            elif 'Project' in df_with_eds.columns:
+                project_names = set(df_with_eds['Project'].dropna().unique())
+            
+            # Track projects before populate_db (by name, not description, since get_or_create uses name)
             projects_before = set(Project.objects.filter(
                 owner=request.user,
-                description=upload_description
-            ).values_list('id', flat=True))
+                name__in=project_names
+            ).values_list('id', flat=True)) if project_names else set()
             
             command_args = [
                 '--csv_path', temp_combined_csv,
@@ -485,15 +511,61 @@ class UploadCSVApiView(APIView):
 
             call_command('populate_db', *command_args)
             
-            # Get projects created during this upload
+            # Get projects after populate_db (by name, not description, since get_or_create uses name)
             projects_after = set(Project.objects.filter(
                 owner=request.user,
-                description=upload_description
-            ).values_list('id', flat=True))
+                name__in=project_names
+            ).values_list('id', flat=True)) if project_names else set()
             created_project_ids = projects_after - projects_before
             
             # ==============================================================
-            # STEP 6: Assign MMM values and calculate relative metrics
+            # STEP 6: Create attachments for projects if files were saved
+            # ==============================================================
+            if 'attachments_path' in locals() and attachments_path and attachments_path.exists():
+                from pathlib import Path
+                from django.core.files import File as DjangoFile
+                
+                # If no projects were "created" (they already existed), find them by name
+                if not created_project_ids and project_names:
+                    created_project_ids = set(Project.objects.filter(
+                        owner=request.user,
+                        name__in=project_names
+                    ).values_list('id', flat=True))
+                
+                for project_id in created_project_ids:
+                    try:
+                        project = Project.objects.get(id=project_id)
+                        attachment, created = Attachment.objects.get_or_create(project=project)
+                        
+                        boxplot_path = attachments_path / "boxplot.png"
+                        temp_curve_path = attachments_path / "temp_curve.png"
+                        model_curve_path = attachments_path / "model_curve.png"
+                        stats_path = attachments_path / "statistics.csv"
+                        
+                        if boxplot_path.exists():
+                            with open(boxplot_path, 'rb') as f:
+                                attachment.boxplot.save('boxplot.png', DjangoFile(f), save=False)
+                        if temp_curve_path.exists():
+                            with open(temp_curve_path, 'rb') as f:
+                                attachment.temp_curve.save('temp_curve.png', DjangoFile(f), save=False)
+                        if model_curve_path.exists():
+                            with open(model_curve_path, 'rb') as f:
+                                attachment.model_curve.save('model_curve.png', DjangoFile(f), save=False)
+                        
+                        if stats_path.exists():
+                            stats_df = pd.read_csv(stats_path)
+                            attachment.statistics = stats_df.to_dict(orient='records')
+                        
+                        # Link attachment to the same publications as the project
+                        # (publications are created from CSV columns Publication.title, Publication.year, Publication.doi in populate_db)
+                        attachment.publications.set(project.publications.all())
+                        attachment.save()
+                        print(f"✅ Created attachments for project {project_id}")
+                    except Exception as e:
+                        print(f"❌ Error creating attachments for project {project_id}: {e}")
+            
+            # ==============================================================
+            # STEP 7: Assign MMM values and calculate relative metrics
             # ==============================================================
             print("🌡️ Assigning MMM values...")
             call_command('assign_mmm')
@@ -1109,6 +1181,59 @@ class StatisticsApiView(APIView):
         except Exception as e:
             return Response({
                 'error': f'Failed to get statistics: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class CreateAttachmentApiView(APIView):
+    """
+    Endpoint for creating/updating attachments for a project.
+    Accepts: project_id, boxplot, temp_curve, model_curve, statistics (JSON),
+            publication_ids (list), cover_photo, other_photos (list), description
+    """
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            project_id = request.data.get('project_id')
+            if not project_id:
+                return Response({'error': 'project_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+            try:
+                project = Project.objects.get(id=project_id)
+            except Project.DoesNotExist:
+                return Response({'error': 'Project not found'}, status=status.HTTP_404_NOT_FOUND)
+
+            attachment, created = Attachment.objects.get_or_create(project=project)
+
+            if 'boxplot' in request.FILES:
+                attachment.boxplot = request.FILES['boxplot']
+            if 'temp_curve' in request.FILES:
+                attachment.temp_curve = request.FILES['temp_curve']
+            if 'model_curve' in request.FILES:
+                attachment.model_curve = request.FILES['model_curve']
+            if 'cover_photo' in request.FILES:
+                attachment.cover_photo = request.FILES['cover_photo']
+            if 'statistics' in request.data:
+                attachment.statistics = request.data['statistics']
+            if 'publication_ids' in request.data:
+                attachment.publications.set(request.data['publication_ids'])
+            if 'other_photos' in request.data:
+                attachment.other_photos = request.data['other_photos']
+            if 'description' in request.data:
+                attachment.description = request.data['description']
+
+            attachment.save()
+
+            return Response({
+                'message': 'Attachment created successfully' if created else 'Attachment updated successfully',
+                'attachment_id': attachment.id,
+                'project_id': project.id
+            }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({
+                'error': f'Failed to create attachment: {str(e)}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

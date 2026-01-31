@@ -1,12 +1,19 @@
 # api/urls.py
 from django.urls import path, include
-from api.views import CheckAuthenticationApiView, UserCartApiView, UploadCSVApiView, CheckCSVForED50ApiView, CalculateED50ApiView, CartGroupManagementApiView, CartExportApiView, StatisticsApiView
+from api.views import CheckAuthenticationApiView, UserCartApiView, UploadCSVApiView, CheckCSVForED50ApiView, CalculateED50ApiView, CartGroupManagementApiView, CartExportApiView, StatisticsApiView, CreateAttachmentApiView
 from api.views import BioSamplesApiView, ObservationsApiView, \
     ColoniesApiView, ThermalToleranceApiView, ThermalToleranceMinMaxView, \
     BreakpointTemperatureApiView, BreakpointTemperatureMinMaxView, \
     ThermalLimitApiView, ThermalLimitMinMaxView, \
     ProjectsApiView, CSRFTokenView, LoginApiView, LogoutApiView
-from api.projects_api import ProjectsApiView as NewProjectsApiView, ProjectDetailApiView
+from api.projects_api import (
+    ProjectsApiView as NewProjectsApiView,
+    ProjectDetailApiView,
+    ProjectUpdateApiView,
+    AttachmentUpdateApiView,
+    ProjectPublicationAddApiView,
+    ProjectPublicationRemoveApiView,
+)
 
 urlpatterns = [
     path('auth/', include([
@@ -20,6 +27,11 @@ urlpatterns = [
         path('upload-csv/', UploadCSVApiView.as_view()),
         path('check-csv-ed50/', CheckCSVForED50ApiView.as_view()),
         path('calculate-ed50/', CalculateED50ApiView.as_view()),
+        path('attachments/', CreateAttachmentApiView.as_view()),
+        path('projects/<int:project_id>/', ProjectUpdateApiView.as_view()),
+        path('projects/<int:project_id>/attachment/', AttachmentUpdateApiView.as_view()),
+        path('projects/<int:project_id>/publications/', ProjectPublicationAddApiView.as_view()),
+        path('projects/<int:project_id>/publications/<int:publication_id>/', ProjectPublicationRemoveApiView.as_view()),
     ])),
     path('public/', include([
         path('statistics/', StatisticsApiView.as_view()),

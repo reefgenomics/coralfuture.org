@@ -44,6 +44,13 @@ const ProjectsPage = () => {
     });
   };
 
+  const getDoiUrl = (doi) => {
+    if (!doi) return null;
+    const s = String(doi).trim();
+    if (/^https?:\/\//i.test(s)) return s;
+    return `https://doi.org/${s.replace(/^https?:\/\/doi\.org\/?/i, '')}`;
+  };
+
   if (loading) {
     return (
       <div className="projects-page">
@@ -112,12 +119,11 @@ const ProjectsPage = () => {
                             <div className="publication-title">{pub.title}</div>
                             {pub.doi && (
                               <a 
-                                href={pub.doi} 
+                                href={getDoiUrl(pub.doi)} 
                                 target="_blank" 
                                 rel="noopener noreferrer"
                                 className="publication-link"
                               >
-                                
                                 View DOI
                               </a>
                             )}
