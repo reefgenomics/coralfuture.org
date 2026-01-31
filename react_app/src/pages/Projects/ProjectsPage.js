@@ -115,18 +115,23 @@ const ProjectsPage = () => {
                       </h6>
                       <div className="publications-list">
                         {project.publications.slice(0, 2).map((pub, index) => (
-                          <div key={index} className="publication-item">
+                          <div key={pub.id || index} className="publication-item">
+                            {pub.authors && <div className="text-muted small">{pub.authors}</div>}
                             <div className="publication-title">{pub.title}</div>
-                            {pub.doi && (
-                              <a 
-                                href={getDoiUrl(pub.doi)} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="publication-link"
-                              >
-                                View DOI
-                              </a>
-                            )}
+                            {pub.journal && <div className="text-muted small">{pub.journal}</div>}
+                            <div className="d-flex align-items-center gap-2 flex-wrap">
+                              {pub.year && <Badge bg="light" text="dark" className="small">{pub.year}</Badge>}
+                              {pub.doi && pub.doi !== 'No doi available' && (
+                                <a 
+                                  href={getDoiUrl(pub.doi)} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="publication-link"
+                                >
+                                  View DOI
+                                </a>
+                              )}
+                            </div>
                           </div>
                         ))}
                         {project.publications.length > 2 && (

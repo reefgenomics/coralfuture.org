@@ -6,6 +6,7 @@ __pycache__/
 database/
 django_app/staticfiles/
 django_app/static/
+django_app/attachments/
 shared_data/
 
 *.csv

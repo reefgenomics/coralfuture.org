@@ -139,6 +139,8 @@ class ProjectPublicationAddApiView(APIView):
         title = request.data.get('title')
         year = request.data.get('year')
         doi = (request.data.get('doi') or '').strip()
+        authors = (request.data.get('authors') or '').strip()
+        journal = (request.data.get('journal') or '').strip()
         if not title or not year:
             return Response({'error': 'title and year are required.'}, status=status.HTTP_400_BAD_REQUEST)
         try:
@@ -146,13 +148,20 @@ class ProjectPublicationAddApiView(APIView):
         except (TypeError, ValueError):
             return Response({'error': 'year must be an integer.'}, status=status.HTTP_400_BAD_REQUEST)
         if doi:
-            pub, created = Publication.objects.get_or_create(doi=doi, defaults={'title': title, 'year': year})
+            pub, created = Publication.objects.get_or_create(
+                doi=doi,
+                defaults={'title': title, 'year': year, 'authors': authors, 'journal': journal}
+            )
             if not created:
                 pub.title = title
                 pub.year = year
-                pub.save(update_fields=['title', 'year'])
+                pub.authors = authors
+                pub.journal = journal
+                pub.save(update_fields=['title', 'year', 'authors', 'journal'])
         else:
-            pub = Publication.objects.create(title=title, year=year, doi='No doi available')
+            pub = Publication.objects.create(
+                title=title, year=year, doi='No doi available', authors=authors, journal=journal
+            )
             created = True
         project.publications.add(pub)
         attachment = Attachment.objects.filter(project=project).first()
@@ -160,6 +169,7 @@ class ProjectPublicationAddApiView(APIView):
             attachment.publications.add(pub)
         return Response({
             'id': pub.id, 'title': pub.title, 'year': pub.year, 'doi': pub.doi,
+            'authors': pub.authors, 'journal': pub.journal,
             'created': created
         }, status=status.HTTP_201_CREATED)
 

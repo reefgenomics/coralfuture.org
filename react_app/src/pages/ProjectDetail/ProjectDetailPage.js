@@ -48,19 +48,22 @@ function normalizeDoi(doi) {
 function parseApaCitation(text) {
   let title = null;
   let year = null;
+  let authors = '';
+  let journal = '';
   const yearMatch = text.match(/\((\d{4})\)/);
-  if (yearMatch) year = parseInt(yearMatch[1], 10);
+  if (yearMatch) {
+    year = parseInt(yearMatch[1], 10);
+    const beforeYear = text.slice(0, yearMatch.index).trim();
+    authors = beforeYear.replace(/\.\s*$/, '').trim();
+  }
   const afterYear = text.match(/\)\.\s+(.+)/s);
   if (afterYear) {
-    const rest = afterYear[1];
-    const titleMatch = rest.match(/^(.+?)\s+\.\s+In\s+/);
-    if (titleMatch) title = titleMatch[1].trim().replace(/\s*\.\s*$/, '');
-    else {
-      const fallback = rest.match(/^(.+?)\s*\.\s+/);
-      if (fallback) title = fallback[1].trim().replace(/\s*\.\s*$/, '');
-    }
+    const rest = afterYear[1].trim();
+    const parts = rest.split(/\s*\.\s+/).filter((p) => p.trim() && !p.trim().toLowerCase().startsWith('http'));
+    if (parts.length >= 1) title = parts[0].trim().replace(/\s*\.\s*$/, '');
+    if (parts.length >= 2) journal = parts[1].trim().replace(/\s*\.\s*$/, '');
   }
-  return { title, year };
+  return { title, year, authors, journal };
 }
 
 async function fetchCitationByDoi(doi) {
@@ -162,7 +165,13 @@ const ProjectDetailPage = () => {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf || '' },
-        body: JSON.stringify({ title: citation.title, year: citation.year, doi: normalizeDoi(doi) || doi }),
+        body: JSON.stringify({
+          title: citation.title,
+          year: citation.year,
+          doi: normalizeDoi(doi) || doi,
+          authors: citation.authors || '',
+          journal: citation.journal || '',
+        }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -520,8 +529,10 @@ const ProjectDetailPage = () => {
                   <div className="publications-list mb-4">
                     {project.publications.map((pub) => (
                       <div key={pub.id} className="publication-item d-flex justify-content-between align-items-start flex-wrap gap-2">
-                        <div>
+                        <div className="publication-full">
+                          {pub.authors && <div className="publication-authors text-muted small">{pub.authors}</div>}
                           <h6 className="publication-title">{pub.title}</h6>
+                          {pub.journal && <div className="publication-journal text-muted small">{pub.journal}</div>}
                           <div className="publication-meta">
                             <Badge bg="light" text="dark" className="me-2">{pub.year}</Badge>
                             {pub.doi && pub.doi !== 'No doi available' && (

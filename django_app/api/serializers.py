@@ -99,7 +99,9 @@ class ProjectSerializer(serializers.ModelSerializer):
             'id': pub.id,
             'title': pub.title,
             'year': pub.year,
-            'doi': pub.doi
+            'doi': pub.doi,
+            'authors': getattr(pub, 'authors', '') or '',
+            'journal': getattr(pub, 'journal', '') or '',
         } for pub in publications]
     
     def get_owner(self, obj):
@@ -216,7 +218,9 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
             'id': pub.id,
             'title': pub.title,
             'year': pub.year,
-            'doi': pub.doi
+            'doi': pub.doi,
+            'authors': getattr(pub, 'authors', '') or '',
+            'journal': getattr(pub, 'journal', '') or '',
         } for pub in publications]
 
     def get_attachment(self, obj):

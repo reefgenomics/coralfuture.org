@@ -113,17 +113,20 @@ def create_observation(experiment, biosample, row):
 
 def create_publication(row):
     doi = row['Publication.doi']
-    title_from_api, year_from_api = fetch_title_and_year_from_doi(doi)
+    title_from_api, year_from_api, authors_from_api, journal_from_api = fetch_title_and_year_from_doi(doi)
     if title_from_api is not None and year_from_api is not None:
         title = title_from_api
         year = year_from_api
+        authors = authors_from_api or ''
+        journal = journal_from_api or ''
     else:
         title = row['Publication.title']
         try:
             year = int(row['Publication.year']) if row['Publication.year'] is not None and not pd.isna(row['Publication.year']) else datetime.now().year
         except (TypeError, ValueError):
             year = datetime.now().year
-    # Look up by doi only to avoid duplicates when API returns different title/year than CSV
+        authors = ''
+        journal = ''
     return Publication.objects.get_or_create(
         doi=doi,
-        defaults={'title': title, 'year': year})
+        defaults={'title': title, 'year': year, 'authors': authors, 'journal': journal})

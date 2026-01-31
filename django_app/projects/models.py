@@ -10,6 +10,8 @@ class Publication(models.Model):
     title = models.TextField()
     year = models.IntegerField()
     doi = models.CharField(max_length=100)
+    authors = models.TextField(blank=True, default='')
+    journal = models.CharField(max_length=500, blank=True, default='')
     biosamples = models.ManyToManyField('BioSample',
                                         related_name='publications')
 
