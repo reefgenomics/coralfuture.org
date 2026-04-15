@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Error - CBASS ED50 Calculator{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card border-danger">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-exclamation-triangle"></i> An error occurred
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-danger" role="alert">
+                    <h6 class="alert-heading">Error details:</h6>
+                    <p class="mb-0">{{ error }}</p>
+                </div>
+                
+                <div class="mt-4">
+                    <h6>Possible solutions:</h6>
+                    <ul>
+                        <li>Check the format of the uploaded file (CSV or Excel)</li>
+                        <li>Make sure the file contains required columns: Temperature, Pam_value</li>
+                        <li>Check the correctness of grouping parameters</li>
+                        <li>Try using example data</li>
+                    </ul>
+                </div>
+                
+                <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                    <a href="{{ request.scope.get('root_path', '') }}/" class="btn btn-primary">
+                        <i class="bi bi-arrow-left"></i> Go back
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

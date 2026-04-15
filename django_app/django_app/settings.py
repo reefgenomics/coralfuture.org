@@ -55,6 +55,9 @@ LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'home'
 LOGOUT_REDIRECT_URL = 'home'
 
+# Sessions: store in DB so they survive container restarts (cookie stays valid if SECRET_KEY is constant)
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+
 CORS_ALLOW_CREDENTIALS = True
 
 CSRF_TRUSTED_ORIGINS = [
@@ -64,6 +67,10 @@ CSRF_TRUSTED_ORIGINS = [
     'https://coralfuture.org',
     'https://coralfuture.org:3000',
     'https://coralfuture.org:3000/map',
+    'http://hemorrhagia.online',
+    'https://hemorrhagia.online',
+    'http://www.hemorrhagia.online',
+    'https://www.hemorrhagia.online',
 ]
 
 CORS_ORIGIN_WHITELIST = [
@@ -71,10 +78,19 @@ CORS_ORIGIN_WHITELIST = [
     'http://localhost:3000',
     'https://coralfuture.org',
     'https://coralfuture.org:3000',
+    'http://hemorrhagia.online',
+    'https://hemorrhagia.online',
+    'http://www.hemorrhagia.online',
+    'https://www.hemorrhagia.online',
 ]
+
+# https settings
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_SSL_REDIRECT = False  # nginx handles https
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -158,12 +174,24 @@ USE_TZ = True
 STATIC_URL = '/static/'
 
 # Additional directories for static files during development
-STATICFILES_DIRS = (
-    os.path.join(BASE_DIR, 'static'),
-)
+STATICFILES_DIRS = [
+    BASE_DIR / 'static',
+]
+
+REACT_STATIC_DIR = BASE_DIR.parent / 'react_app' / 'build' / 'static'
+if REACT_STATIC_DIR.exists():
+    STATICFILES_DIRS.append(REACT_STATIC_DIR)
 
 # Directory where 'collectstatic' will gather static files for production
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+# Media files (user uploads: attachment images, etc.)
+# https://docs.djangoproject.com/en/5.0/topics/files/
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+WHITENOISE_MANIFEST_STRICT = False
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field

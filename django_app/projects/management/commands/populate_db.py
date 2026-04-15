@@ -1,17 +1,27 @@
 import os
 import sys
 import pandas as pd
+import json
+import re
 
 from django.core.management.base import BaseCommand
+from django.db import transaction
 
 from users.models import CustomUser
 from projects.models import BioSample, Observation
 
 from projects.management.commands.utils._create_objects import (
     create_biosample, create_colony, create_thermaltolerance, create_experiment,
-    create_observation, create_project, create_publication)
+    create_observation, create_project, create_publication,
+    create_breakpointtemperature, create_thermallimit)
+from projects.management.commands.utils.doi_citation import fetch_title_and_year_from_doi
 
 from projects.management.commands.utils._validate_datasheet import validate_datasheet
+
+# Column mapper using programmatic rules
+from projects.management.commands.utils.column_mapper import (
+    map_and_transform_dataframe,
+)
 
 
 class Command(BaseCommand):
@@ -37,15 +47,100 @@ class Command(BaseCommand):
             return
 
         try:
-            df = pd.read_csv(csv_path)
+            df_raw = pd.read_csv(csv_path)
         except FileNotFoundError:
             sys.stdout.write(f"CSV file not found at '{csv_path}'.\n")
             return
 
-        validate_datasheet(df)
-        self.create_instances(df, owner, csv_path, use_pam)
+        # --------------------------------------------------------------
+        # 1. Map raw dataframe to standard schema columns
+        # --------------------------------------------------------------
+        try:
+            result = map_and_transform_dataframe(df_raw, return_instructions=True)
+            df_std, mapping_instructions = result
+        except Exception as e:
+            sys.stdout.write(f"❌ Column mapping failed: {e}\n")
+            return
+
+        # Temporary compatibility: validator expects 'Colony.ed50_value'
+        if 'Colony.ed50_value' not in df_std.columns and 'Colony.ed50' in df_std.columns:
+            df_std['Colony.ed50_value'] = df_std['Colony.ed50']
+
+        # --------------------------------------------------------------
+        # Normalize date fields (numeric YYYYMMDD -> YYYY-MM-DD strings)
+        # --------------------------------------------------------------
+        def _normalize_date_val(val):
+            if pd.isna(val):
+                return None
+            # If value is numeric (int/float) like 20221114.0
+            if isinstance(val, (int, float)):
+                val_str = str(int(val))  # drop decimals
+            else:
+                val_str = str(val)
+
+            val_str = val_str.strip()
+            if re.match(r"^\d{8}$", val_str):
+                return f"{val_str[0:4]}-{val_str[4:6]}-{val_str[6:8]}"
+            return val_str  # return as-is if already formatted
+
+        for date_col in ['Experiment.date', 'BioSample.collection_date']:
+            if date_col in df_std.columns:
+                df_std[date_col] = df_std[date_col].apply(_normalize_date_val)
+
+        # --------------------------------------------------------------
+        # 2. Save mapping + transformed dataset for audit
+        # --------------------------------------------------------------
+        logs_dir = os.path.join(os.path.dirname(csv_path), "import_logs")
+        os.makedirs(logs_dir, exist_ok=True)
+        base_name = os.path.splitext(os.path.basename(csv_path))[0]
+
+        mapping_path = os.path.join(logs_dir, f"{base_name}_mapping.json")
+        reformatted_path = os.path.join(logs_dir, f"{base_name}_reformatted.json")
+
+        try:
+            with open(mapping_path, "w", encoding="utf-8") as mp:
+                json.dump(mapping_instructions, mp, indent=2)
+
+            df_std.to_json(reformatted_path, orient="records", lines=True, force_ascii=False)
+            sys.stdout.write(f"📝 Saved mapping to {mapping_path}\n")
+            sys.stdout.write(f"📝 Saved reformatted data to {reformatted_path}\n")
+        except Exception as save_exc:
+            sys.stdout.write(f"⚠️ Could not save audit files: {save_exc}\n")
+
+        # --------------------------------------------------------------
+        # 3. Validate transformed dataframe & create DB instances
+        # --------------------------------------------------------------
+        validate_datasheet(df_std)
+        
+        # Use transaction to rollback on error
+        try:
+            with transaction.atomic():
+                self.create_instances(df_std, owner, csv_path, use_pam)
+        except Exception as e:
+            # Transaction will automatically rollback all database changes
+            # But if transaction fails, manually clean up created projects
+            sys.stdout.write(f"❌ Failed to create instances: {e}\n")
+            raise
 
     def create_instances(self, df, owner, csv_path, use_pam):
+        # Initialize debug logging
+        debug_info = []
+        debug_info.append("=== POPULATE_DB DEBUG INFO ===")
+        debug_info.append(f"CSV file: {csv_path}")
+        debug_info.append(f"Total rows: {len(df)}")
+        debug_info.append(f"Use PAM: {use_pam}")
+        debug_info.append("")
+        
+        # Track ThermalTolerance creation
+        thermal_tolerance_log = {}
+        
+        # Pre-fill DOI citation cache: one API request per unique DOI (not per row)
+        if 'Publication.doi' in df.columns:
+            unique_dois = df['Publication.doi'].dropna().astype(str).str.strip().unique()
+            skip = {'', 'no doi available', 'n/a', 'na', '-', 'nan'}
+            for doi in unique_dois:
+                if doi and doi.lower() not in skip:
+                    fetch_title_and_year_from_doi(doi)
         for _, row in df.iterrows():
             project, created = create_project(
                 owner, row['Project.name'],
@@ -64,11 +159,49 @@ class Command(BaseCommand):
                                              row['Colony.longitude']))
             sys.stdout.write(f"Colony: {colony}, created: {created}\n")
 
+            # Create ED50 (Thermal Tolerance)
+            ed50_value = row['Colony.ed50_value'] if not pd.isnull(row['Colony.ed50_value']) else None
+            condition = row['Observation.condition']
+            timepoint = str(row['Observation.timepoint']) if not pd.isnull(row['Observation.timepoint']) else None
+            
+            # Log ThermalTolerance creation attempts
+            tt_key = f"{colony.name}|{condition}|{timepoint}"
+            if tt_key not in thermal_tolerance_log:
+                thermal_tolerance_log[tt_key] = []
+            
+            thermal_tolerance_log[tt_key].append({
+                'row_index': len(thermal_tolerance_log[tt_key]) + 1,
+                'ed50_value': ed50_value,
+                'temperature': row.get('Observation.temperature', 'N/A'),
+                'pam_value': row.get('Observation.pam_value', 'N/A')
+            })
+            
             thermal_tolerance, created = create_thermaltolerance(
                 colony=colony,
-                ed50_value=row['Colony.ed50_value'] if not pd.isnull(
-                    row['Colony.ed50_value']) else None
+                ed50_value=ed50_value,
+                condition=condition,
+                timepoint=timepoint
             )
+            
+            # Create ED5 (Breakpoint Temperature) if available
+            if 'Colony.ed5' in row and not pd.isnull(row['Colony.ed5']):
+                breakpoint_temp, created = create_breakpointtemperature(
+                    colony=colony,
+                    ed5_value=row['Colony.ed5'],
+                    condition=row['Observation.condition'],
+                    timepoint=str(row['Observation.timepoint']) if not pd.isnull(row['Observation.timepoint']) else None
+                )
+                sys.stdout.write(f"Breakpoint Temperature (ED5): {breakpoint_temp}, created: {created}\n")
+            
+            # Create ED95 (Thermal Limit) if available
+            if 'Colony.ed95' in row and not pd.isnull(row['Colony.ed95']):
+                thermal_limit, created = create_thermallimit(
+                    colony=colony,
+                    ed95_value=row['Colony.ed95'],
+                    condition=row['Observation.condition'],
+                    timepoint=str(row['Observation.timepoint']) if not pd.isnull(row['Observation.timepoint']) else None
+                )
+                sys.stdout.write(f"Thermal Limit (ED95): {thermal_limit}, created: {created}\n")
 
             if use_pam:
                 biosample, created = create_biosample(colony, (
@@ -80,35 +213,9 @@ class Command(BaseCommand):
                                                           row)
                 sys.stdout.write(
                     f"Observation: {observation}, created: {created}\n")
-
-                publication, created = create_publication(row)
-                sys.stdout.write(
-                    f"Publication: {publication}, created: {created}\n")
-
-                publication.biosamples.add(biosample)
-                project.publications.add(publication)
-                project.biosamples.add(biosample)
-                thermal_tolerance.observations.add(observation)
-            else:
-                for temp in [30, 33, 36, 39]:
-                    biosample, created = BioSample.objects.get_or_create(
-                        name=f"{colony.name}-{temp}",
-                        collection_date=experiment.date,
-                        colony=colony
-                    )
-                    sys.stdout.write(
-                        f"Biosample: {biosample}, created: {created}\n")
-
-                    observation, created = Observation.objects.get_or_create(
-                        experiment=experiment,
-                        biosample=biosample,
-                        condition=row['Observation.condition'],
-                        temperature=temp,
-                        timepoint=row['Observation.timepoint'],
-                    )
-                    sys.stdout.write(
-                        f"Observation: {observation}, created: {created}\n")
-
+                
+                # Create publication if DOI exists
+                if 'Publication.doi' in row and not pd.isnull(row['Publication.doi']):
                     publication, created = create_publication(row)
                     sys.stdout.write(
                         f"Publication: {publication}, created: {created}\n")
@@ -116,4 +223,49 @@ class Command(BaseCommand):
                     publication.biosamples.add(biosample)
                     project.publications.add(publication)
                     project.biosamples.add(biosample)
+                
+                # Add observation to thermal metrics
+                if thermal_tolerance:
                     thermal_tolerance.observations.add(observation)
+        
+        # Save debug info to file
+        debug_info.append("=== THERMAL TOLERANCE CREATION LOG ===")
+        debug_info.append(f"Total unique colony/condition/timepoint combinations: {len(thermal_tolerance_log)}")
+        debug_info.append("")
+        
+        # Show problematic cases (multiple ED50 values for same combination)
+        problematic_cases = []
+        for tt_key, attempts in thermal_tolerance_log.items():
+            if len(attempts) > 1:
+                ed50_values = [attempt['ed50_value'] for attempt in attempts if attempt['ed50_value'] is not None]
+                unique_ed50s = list(set(ed50_values))
+                if len(unique_ed50s) > 1:
+                    problematic_cases.append((tt_key, attempts, unique_ed50s))
+        
+        debug_info.append(f"Cases with multiple different ED50 values: {len(problematic_cases)}")
+        debug_info.append("")
+        
+        for tt_key, attempts, unique_ed50s in problematic_cases[:10]:  # Show first 10
+            debug_info.append(f"Key: {tt_key}")
+            debug_info.append(f"  Unique ED50 values: {unique_ed50s}")
+            debug_info.append(f"  Total attempts: {len(attempts)}")
+            for attempt in attempts:
+                debug_info.append(f"    Row {attempt['row_index']}: ED50={attempt['ed50_value']}, Temp={attempt['temperature']}, PAM={attempt['pam_value']}")
+            debug_info.append("")
+        
+        # Save to file
+        from pathlib import Path
+        
+        # Try to save in same directory as CSV or fallback to temp
+        try:
+            csv_dir = Path(csv_path).parent
+            debug_file = csv_dir / "populate_db_debug.txt"
+        except:
+            debug_file = Path("/tmp/populate_db_debug.txt")
+        
+        try:
+            with open(debug_file, 'w') as f:
+                f.write('\n'.join(debug_info))
+            sys.stdout.write(f"🐛 Populate DB debug info saved to: {debug_file}\n")
+        except Exception as e:
+            sys.stdout.write(f"❌ Failed to save debug info: {e}\n")

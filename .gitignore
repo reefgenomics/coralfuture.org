@@ -5,11 +5,23 @@ __pycache__/
 
 database/
 django_app/staticfiles/
+django_app/static/
+django_app/attachments/
+shared_data/
+
+*.csv
 
 pg_dump.sql
 backup.pgdump
 
 .~*
 
+.DS_Store
+**/.DS_Store
+django_app/venv/
+
 django_app/user_data.json
 django_app/users/management/commands/user_data.json
+
+nginx/nginx.conf
+static/mapped*

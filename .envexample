@@ -1,0 +1,10 @@
+DEBUG=1 # Don't use 1 (True) in the production environment!
+SECRET_KEY=''
+DJANGO_ALLOWED_HOSTS='localhost 127.0.0.1 [::1]'
+DJANGO_SETTINGS_MODULE=django_app.settings
+SQL_ENGINE=django.db.backends.postgresql_psycopg2
+REACT_APP_BACKEND_URL=http://localhost # Don't forget to change this
+DB_USER=''
+DB_PASSWORD=''
+DB_NAME=''
+CONTACT_EMAIL_ADDRESS=''

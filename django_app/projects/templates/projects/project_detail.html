@@ -69,7 +69,9 @@
                     <th>Country</th>
                     <th>Latitude</th>
                     <th>Longitude</th>
-                    <th>Colony Thermal Tolerance</th>
+                    <th>Colony Breakpoint Temperature ED5</th>
+                    <th>Colony Thermal Tolerance ED50</th>
+                    <th>Colony Thermal Limit ED95</th>
                 </tr>
             </thead>
             <tbody>
@@ -81,9 +83,27 @@
                         <td>{{ colony.latitude }}</td>
                         <td>{{ colony.longitude }}</td>
                         <td>
+                            {% for breakpoint_temperature in colony.breakpoint_temperatures.all %}
+                                {% if breakpoint_temperature.abs_breakpoint_temperature and breakpoint_temperature.condition and breakpoint_temperature.timepoint %}
+                                    {{ breakpoint_temperature.condition }} (Timepoint: {{ breakpoint_temperature.timepoint }}): {{ breakpoint_temperature.abs_breakpoint_temperature }}
+                                    {% if not forloop.last %}, {% endif %}
+                                {% endif %}
+                            {% endfor %}
+                        </td>
+                        <td>
                             {% for thermal_tolerance in colony.thermal_tolerances.all %}
-                                {{ thermal_tolerance.condition }} (Timepoint: {{ thermal_tolerance.timepoint }}): {{ thermal_tolerance.abs_thermal_tolerance }}
-                                {% if not forloop.last %}, {% endif %}
+                                {% if thermal_tolerance.abs_thermal_tolerance and thermal_tolerance.condition and thermal_tolerance.timepoint %}
+                                    {{ thermal_tolerance.condition }} (Timepoint: {{ thermal_tolerance.timepoint }}): {{ thermal_tolerance.abs_thermal_tolerance }}
+                                    {% if not forloop.last %}, {% endif %}
+                                {% endif %}
+                            {% endfor %}
+                        </td>
+                        <td>
+                            {% for thermal_limit in colony.thermal_limits.all %}
+                                {% if thermal_limit.abs_thermal_limit and thermal_limit.condition and thermal_limit.timepoint %}
+                                    {{ thermal_limit.condition }} (Timepoint: {{ thermal_limit.timepoint }}): {{ thermal_limit.abs_thermal_limit }}
+                                    {% if not forloop.last %}, {% endif %}
+                                {% endif %}
                             {% endfor %}
                         </td>
                     </tr>

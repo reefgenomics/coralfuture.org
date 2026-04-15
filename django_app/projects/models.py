@@ -10,6 +10,8 @@ class Publication(models.Model):
     title = models.TextField()
     year = models.IntegerField()
     doi = models.CharField(max_length=100)
+    authors = models.TextField(blank=True, default='')
+    journal = models.CharField(max_length=500, blank=True, default='')
     biosamples = models.ManyToManyField('BioSample',
                                         related_name='publications')
 
@@ -34,6 +36,32 @@ class Project(models.Model):
         return f"Project {self.name}"
 
 
+class Attachment(models.Model):
+    """
+    Attachments for Project: graphs, statistics, photos, description.
+    """
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='attachments')
+    boxplot = models.ImageField(upload_to='attachments/', null=True, blank=True)
+    temp_curve = models.ImageField(upload_to='attachments/', null=True, blank=True)
+    model_curve = models.ImageField(upload_to='attachments/', null=True, blank=True)
+    publications = models.ManyToManyField(
+        Publication,
+        related_name='attachments',
+        blank=True,
+        help_text='Related publications (can be multiple)'
+    )
+    statistics = models.JSONField(null=True, blank=True)
+    cover_photo = models.ImageField(upload_to='attachments/', null=True, blank=True)
+    other_photos = models.JSONField(null=True, blank=True)  # List of image URLs/paths
+    additional_links = models.JSONField(default=list, blank=True)  # List of URL strings
+    description = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Attachment for {self.project.name}"
+
+
 class Experiment(models.Model):
     """
     Experiment includes Observation(s).
@@ -53,7 +81,7 @@ class Colony(models.Model):
     """
     name = models.CharField(max_length=100)
     species = models.CharField(max_length=100)
-    country = models.CharField(max_length=3)
+    country = models.CharField(max_length=10)
     latitude = models.FloatField()
     longitude = models.FloatField()
 
@@ -84,7 +112,7 @@ class Observation(models.Model):
                                   related_name='observations')
     condition = models.CharField(max_length=100)
     temperature = models.IntegerField()
-    timepoint = models.IntegerField()
+    timepoint = models.CharField(max_length=100)
     pam_value = models.FloatField(null=True, blank=True)
 
     def __str__(self):
@@ -105,32 +133,15 @@ class ThermalTolerance(models.Model):
                                related_name='thermal_tolerances')
     observations = models.ManyToManyField(Observation,
                                           related_name='thermal_tolerances')
+    condition = models.CharField(max_length=100, null=True, blank=True)
+    timepoint = models.CharField(max_length=100, null=True, blank=True)
     abs_thermal_tolerance = models.FloatField(null=True, blank=True)
     rel_thermal_tolerance = models.FloatField(null=True, blank=True)
     # Internal attribute
     _sst_clim_mmm = models.FloatField(null=True, blank=True)
 
-    @property
-    def condition(self):
-        if self.observations.exists():
-            observations_conditions = [observation.condition for observation in
-                                       self.observations.all()]
-            if all(item == observations_conditions[0] for item in
-                   observations_conditions):
-                return observations_conditions[0]
-            else:
-                return None
-
-    @property
-    def timepoint(self):
-        if self.observations.exists():
-            observations_timepoints = [observation.timepoint for observation in
-                                       self.observations.all()]
-            if all(item == observations_timepoints[0] for item in
-                   observations_timepoints):
-                return observations_timepoints[0]
-            else:
-                return None
+    class Meta:
+        unique_together = ['colony', 'condition', 'timepoint', 'abs_thermal_tolerance']
 
     def save(self, *args, **kwargs):
         # Ensure abs_thermal_tolerance is not None before rounding
@@ -145,13 +156,204 @@ class ThermalTolerance(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"Thermal Tolerance for Colony {self.colony.name} under {self.condition}, {self.timepoint}"
+        return f"Thermal Tolerance for Colony {self.colony.name} under {self.condition} at {self.timepoint}: {self.abs_thermal_tolerance}"
 
 
-class UserCart(models.Model):
-    owner = models.OneToOneField(CustomUser, on_delete=models.CASCADE,
-                                 related_name='cart')
-    items = models.ManyToManyField('Colony', related_name='carts')
+class BreakpointTemperature(models.Model):
+    """
+    Represents Breakpoint Temperature (ED5) for a Colony under specific Condition and Timepoint.
+    """
+    colony = models.ForeignKey(Colony, on_delete=models.CASCADE,
+                               related_name='breakpoint_temperatures')
+    observations = models.ManyToManyField(Observation,
+                                          related_name='breakpoint_temperatures')
+    condition = models.CharField(max_length=100, null=True, blank=True)
+    timepoint = models.CharField(max_length=100, null=True, blank=True)
+    abs_breakpoint_temperature = models.FloatField(null=True, blank=True)
+    rel_breakpoint_temperature = models.FloatField(null=True, blank=True)
+    # Internal attribute
+    _sst_clim_mmm = models.FloatField(null=True, blank=True)
+
+    class Meta:
+        unique_together = ['colony', 'condition', 'timepoint', 'abs_breakpoint_temperature']
+
+    def save(self, *args, **kwargs):
+        # Ensure abs_breakpoint_temperature is not None before rounding
+        if self.abs_breakpoint_temperature is not None:
+            self.abs_breakpoint_temperature = round(self.abs_breakpoint_temperature, 2)
+        if self._sst_clim_mmm is not None:
+            self._sst_clim_mmm = round(self._sst_clim_mmm, 2)
+        if self.abs_breakpoint_temperature is not None and self._sst_clim_mmm is not None:
+            self.rel_breakpoint_temperature = round(
+                self.abs_breakpoint_temperature - self._sst_clim_mmm,
+                2)
+        super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"UserCart of {self.owner.username}, {self.colonies.count()} colonies"
+        return f"Breakpoint Temperature for Colony {self.colony.name} under {self.condition} at {self.timepoint}: {self.abs_breakpoint_temperature}"
+
+
+class ThermalLimit(models.Model):
+    """
+    Represents Thermal Limit (ED95) for a Colony under specific Condition and Timepoint.
+    """
+    colony = models.ForeignKey(Colony, on_delete=models.CASCADE,
+                               related_name='thermal_limits')
+    observations = models.ManyToManyField(Observation,
+                                          related_name='thermal_limits')
+    condition = models.CharField(max_length=100, null=True, blank=True)
+    timepoint = models.CharField(max_length=100, null=True, blank=True)
+    abs_thermal_limit = models.FloatField(null=True, blank=True)
+    rel_thermal_limit = models.FloatField(null=True, blank=True)
+    # Internal attribute
+    _sst_clim_mmm = models.FloatField(null=True, blank=True)
+
+    class Meta:
+        unique_together = ['colony', 'condition', 'timepoint', 'abs_thermal_limit']
+
+    def save(self, *args, **kwargs):
+        # Ensure abs_thermal_limit is not None before rounding
+        if self.abs_thermal_limit is not None:
+            self.abs_thermal_limit = round(self.abs_thermal_limit, 2)
+        if self._sst_clim_mmm is not None:
+            self._sst_clim_mmm = round(self._sst_clim_mmm, 2)
+        if self.abs_thermal_limit is not None and self._sst_clim_mmm is not None:
+            self.rel_thermal_limit = round(
+                self.abs_thermal_limit - self._sst_clim_mmm,
+                2)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Thermal Limit for Colony {self.colony.name} under {self.condition} at {self.timepoint}: {self.abs_thermal_limit}"
+
+
+class CartGroup(models.Model):
+    """
+    Represents a group of colonies added to cart with specific filters.
+    """
+    owner = models.ForeignKey(CustomUser, on_delete=models.CASCADE,
+                              related_name='cart_groups')
+    name = models.CharField(max_length=200, default="Filter Group")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    # Filter parameters (JSON field to store all filter data)
+    filter_params = models.JSONField(default=dict, blank=True)
+    
+    # Colonies in this group
+    colonies = models.ManyToManyField(Colony, related_name='cart_groups')
+    
+    def __str__(self):
+        return f"Cart Group: {self.name} ({self.colonies.count()} colonies)"
+    
+    @property
+    def colony_count(self):
+        return self.colonies.count()
+
+
+class CartItem(models.Model):
+    """
+    Individual colony item within a cart group with complete data.
+    """
+    cart_group = models.ForeignKey(CartGroup, on_delete=models.CASCADE,
+                                   related_name='cart_items')
+    colony = models.ForeignKey(Colony, on_delete=models.CASCADE,
+                               related_name='cart_items')
+    
+    # Store complete colony data at time of addition
+    colony_data = models.JSONField(default=dict)
+    
+    def __str__(self):
+        return f"Cart Item: {self.colony.name} in {self.cart_group.name}"
+    
+    def save(self, *args, **kwargs):
+        # Auto-populate colony_data if not provided
+        if not self.colony_data:
+            self.colony_data = self._get_complete_colony_data()
+        super().save(*args, **kwargs)
+    
+    def _get_complete_colony_data(self):
+        """Get complete colony data including all related information."""
+        data = {
+            'colony': {
+                'id': self.colony.id,
+                'name': self.colony.name,
+                'species': self.colony.species,
+                'country': self.colony.country,
+                'latitude': self.colony.latitude,
+                'longitude': self.colony.longitude,
+            },
+            'biosamples': [],
+            'thermal_tolerances': [],
+            'breakpoint_temperatures': [],
+            'thermal_limits': [],
+        }
+        
+        # Add biosamples data
+        for biosample in self.colony.biosamples.all():
+            biosample_data = {
+                'id': biosample.id,
+                'name': biosample.name,
+                'collection_date': biosample.collection_date.isoformat() if biosample.collection_date else None,
+                'observations': []
+            }
+            
+            # Add observations for this biosample
+            for observation in biosample.observations.all():
+                obs_data = {
+                    'id': observation.id,
+                    'condition': observation.condition,
+                    'temperature': observation.temperature,
+                    'timepoint': observation.timepoint,
+                    'pam_value': observation.pam_value,
+                    'experiment': {
+                        'id': observation.experiment.id,
+                        'name': observation.experiment.name,
+                        'date': observation.experiment.date.isoformat() if observation.experiment.date else None,
+                        'project': {
+                            'id': observation.experiment.project.id,
+                            'name': observation.experiment.project.name,
+                        }
+                    }
+                }
+                biosample_data['observations'].append(obs_data)
+            
+            data['biosamples'].append(biosample_data)
+        
+        # Add thermal tolerance data
+        for tt in self.colony.thermal_tolerances.all():
+            tt_data = {
+                'id': tt.id,
+                'condition': tt.condition,
+                'timepoint': tt.timepoint,
+                'abs_thermal_tolerance': tt.abs_thermal_tolerance,
+                'rel_thermal_tolerance': tt.rel_thermal_tolerance,
+                'sst_clim_mmm': tt._sst_clim_mmm,
+            }
+            data['thermal_tolerances'].append(tt_data)
+        
+        # Add breakpoint temperature data
+        for bt in self.colony.breakpoint_temperatures.all():
+            bt_data = {
+                'id': bt.id,
+                'condition': bt.condition,
+                'timepoint': bt.timepoint,
+                'abs_breakpoint_temperature': bt.abs_breakpoint_temperature,
+                'rel_breakpoint_temperature': bt.rel_breakpoint_temperature,
+                'sst_clim_mmm': bt._sst_clim_mmm,
+            }
+            data['breakpoint_temperatures'].append(bt_data)
+        
+        # Add thermal limit data
+        for tl in self.colony.thermal_limits.all():
+            tl_data = {
+                'id': tl.id,
+                'condition': tl.condition,
+                'timepoint': tl.timepoint,
+                'abs_thermal_limit': tl.abs_thermal_limit,
+                'rel_thermal_limit': tl.rel_thermal_limit,
+                'sst_clim_mmm': tl._sst_clim_mmm,
+            }
+            data['thermal_limits'].append(tl_data)
+        
+        return data

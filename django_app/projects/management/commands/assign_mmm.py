@@ -24,8 +24,11 @@ class Command(BaseCommand):
         coordinates = set(
             [(colony.latitude, colony.longitude) for colony in colonies])
 
-        df = pd.DataFrame(coordinates, columns=["Latitude", "Longitude"])
-        df.to_csv(outfile, sep="\t", index=False, header=False)
+        # cwsample expects: latitude longitude (no headers, tab-separated)
+        with open(outfile, 'w') as f:
+            for lat, lon in coordinates:
+                f.write(f"{lat}\t{lon}\n")
+        
         self.stdout.write(
             self.style.SUCCESS(f'Coordinates saved to {outfile}'))
 
@@ -41,29 +44,76 @@ class Command(BaseCommand):
                 self.style.SUCCESS(
                     f'Command executed successfully! Output file: {outfile}'))
         else:
-            sys.stdout.write(self.style.ERROR(
+            self.stdout.write(self.style.ERROR(
                 f'Error executing command: {stderr.decode("utf-8")}'))
+            raise Exception(f'cwsample command failed: {stderr.decode("utf-8")}')
+
+
 
     def populate_db_with_mmm(self, colonies, infile):
-        df = pd.read_csv(infile, delim_whitespace=True)
-
+        try:
+            df = pd.read_csv(infile, sep='\t')
+        except:
+            # Fallback to whitespace delimiter
+            df = pd.read_csv(infile, delim_whitespace=True)
+        
+        # Debug: show columns
+        self.stdout.write(f"Columns in SST file: {list(df.columns)}")
+        self.stdout.write(f"First row: {df.iloc[0].to_dict()}")
+        
+        # cwsample returns single column with space-separated values
+        if len(df.columns) == 1 and ' ' in df.columns[0]:
+            # Split the single column into separate columns
+            col_name = df.columns[0]
+            df[['latitude', 'longitude', 'sst_clim_mmm']] = df[col_name].str.split(' ', expand=True)
+            df = df[['latitude', 'longitude', 'sst_clim_mmm']]
+        
+        # Filter out rows with NaN values
+        df = df[df['sst_clim_mmm'] != 'NaN']
+        
+        # Convert to numeric
+        df['latitude'] = pd.to_numeric(df['latitude'])
+        df['longitude'] = pd.to_numeric(df['longitude'])
+        df['sst_clim_mmm'] = pd.to_numeric(df['sst_clim_mmm'])
+        
         for index, row in df.iterrows():
             latitude = row['latitude']
             longitude = row['longitude']
             sst_clim_mmm = row['sst_clim_mmm']
 
-            colonies = Colony.objects.filter(latitude=latitude,
-                                             longitude=longitude)
-
-            # Assign MMM to each Colony object
+            # Find colonies with matching coordinates (with tolerance for floating point)
+            matching_colonies = []
             for colony in colonies:
+                if (abs(colony.latitude - latitude) < 0.001 and 
+                    abs(colony.longitude - longitude) < 0.001):
+                    matching_colonies.append(colony)
+
+            # Assign MMM to each matching Colony object
+            for colony in matching_colonies:
+                # ThermalTolerance
                 for thermal_tolerance in colony.thermal_tolerances.all():
                     thermal_tolerance._sst_clim_mmm = sst_clim_mmm
-                    if (
-                            colony.latitude == 29.500000 or colony.latitude == 29.501771) and (
-                            colony.longitude == 34.933330 or colony.longitude == 34.917925):
+                    # Special case for Red Sea coordinates
+                    if (abs(colony.latitude - 29.5) < 0.1 and 
+                        abs(colony.longitude - 34.9) < 0.1):
                         thermal_tolerance._sst_clim_mmm = 27.01
                     thermal_tolerance.save()
 
-                    self.stdout.write(
-                        f'MMM are assigned to colony: {colony.name}')
+                # BreakpointTemperature
+                for breakpoint in colony.breakpoint_temperatures.all():
+                    breakpoint._sst_clim_mmm = sst_clim_mmm
+                    if (abs(colony.latitude - 29.5) < 0.1 and 
+                        abs(colony.longitude - 34.9) < 0.1):
+                        breakpoint._sst_clim_mmm = 27.01
+                    breakpoint.save()
+
+                # ThermalLimit
+                for thermal_limit in colony.thermal_limits.all():
+                    thermal_limit._sst_clim_mmm = sst_clim_mmm
+                    if (abs(colony.latitude - 29.5) < 0.1 and 
+                        abs(colony.longitude - 34.9) < 0.1):
+                        thermal_limit._sst_clim_mmm = 27.01
+                    thermal_limit.save()
+
+                self.stdout.write(
+                    f'MMM {sst_clim_mmm} assigned to colony: {colony.name}')

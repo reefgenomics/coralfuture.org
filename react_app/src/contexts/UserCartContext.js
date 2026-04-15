@@ -1,46 +1,156 @@
 import axios from 'axios';
 import Cookie from 'js-cookie';
-import React, { useState, useEffect, createContext } from 'react';
+import React, { useState, useEffect, createContext, useCallback } from 'react';
 
 export const UserCartContext = createContext();
 
 const UserCartContextProvider = (props) => {
-  const [userCart, setUserCart] = useState([]);
+  const [cartGroups, setCartGroups] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-  const getUserCart = async (backendUrl) => {
+  const getCartGroups = useCallback(async (backendUrl) => {
     try {
+      setLoading(true);
       const response = await axios.get(`${backendUrl}/api/auth/cart/`, {
         withCredentials: true,
       });
-      // Update the state of userCart only from database
-      setUserCart(response.data)
-      console.log('Data in cart:', response.data);
+      setCartGroups(response.data);
+      console.log('Cart groups loaded:', response.data);
     } catch (error) {
-      console.log(error);
+      console.error('Error loading cart groups:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const addToCart = async (colonyIds, filterParams, groupName, backendUrl) => {
+    try {
+      const response = await axios.post(
+        `${backendUrl}/api/auth/cart/`,
+        {
+          colony_ids: colonyIds,
+          filter_params: filterParams,
+          name: groupName
+        },
+        {
+          withCredentials: true,
+          headers: {
+            'X-CSRFToken': Cookie.get('csrftoken'),
+          },
+        }
+      );
+      
+      // Refresh cart groups after adding
+      await getCartGroups(backendUrl);
+      return response;
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+      throw error;
     }
   };
 
-  const addToUserCart = async (biosampleIds, backendUrl) => {
-    const response = await axios.post(
-      `${backendUrl}/api/auth/cart/`,
-      { colony_ids: biosampleIds },
-      {
-        withCredentials: true,
-        headers: {
-          'X-CSRFToken': Cookie.get('csrftoken'),
-        },
-      }
-    );
-    return response
+  const deleteCartGroup = async (groupId, backendUrl) => {
+    try {
+      await axios.delete(
+        `${backendUrl}/api/auth/cart/`,
+        {
+          data: { group_id: groupId },
+          withCredentials: true,
+          headers: {
+            'X-CSRFToken': Cookie.get('csrftoken'),
+          },
+        }
+      );
+      
+      // Refresh cart groups after deletion
+      await getCartGroups(backendUrl);
+    } catch (error) {
+      console.error('Error deleting cart group:', error);
+      throw error;
+    }
   };
 
+  const renameCartGroup = async (groupId, newName, backendUrl) => {
+    try {
+      await axios.put(
+        `${backendUrl}/api/auth/cart/group/${groupId}/`,
+        { name: newName },
+        {
+          withCredentials: true,
+          headers: {
+            'X-CSRFToken': Cookie.get('csrftoken'),
+          },
+        }
+      );
+      
+      // Update local state
+      setCartGroups(prev => prev.map(group => 
+        group.id === groupId ? { ...group, name: newName } : group
+      ));
+    } catch (error) {
+      console.error('Error renaming cart group:', error);
+      throw error;
+    }
+  };
+
+  const exportCartGroups = async (groupIds, exportAll, backendUrl) => {
+    try {
+      const response = await axios.post(
+        `${backendUrl}/api/auth/cart/export/`,
+        {
+          group_ids: groupIds,
+          export_all: exportAll
+        },
+        {
+          withCredentials: true,
+          headers: {
+            'X-CSRFToken': Cookie.get('csrftoken'),
+          },
+          responseType: 'blob', // Important for file download
+        }
+      );
+      
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'coral_cart_export.csv');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+    } catch (error) {
+      console.error('Error exporting cart:', error);
+      throw error;
+    }
+  };
+
+  const refreshCart = useCallback(() => {
+    const backendUrl = process.env.REACT_APP_BACKEND_URL;
+    if (backendUrl) {
+      getCartGroups(backendUrl);
+    }
+  }, [getCartGroups]);
+
   useEffect(() => {
-    // Set the backend URL here (e.g., process.env.REACT_APP_BACKEND_URL)
-    getUserCart(process.env.REACT_APP_BACKEND_URL);
-  }, []);
+    // Load cart groups on initialization
+    const backendUrl = process.env.REACT_APP_BACKEND_URL;
+    if (backendUrl) {
+      getCartGroups(backendUrl);
+    }
+  }, [getCartGroups]);
 
   return (
-    <UserCartContext.Provider value={{ userCart, addToUserCart }}>
+    <UserCartContext.Provider value={{ 
+      cartGroups, 
+      loading,
+      addToCart, 
+      deleteCartGroup,
+      renameCartGroup,
+      exportCartGroups,
+      refreshCart
+    }}>
       {props.children}
     </UserCartContext.Provider>
   );

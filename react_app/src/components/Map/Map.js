@@ -24,7 +24,7 @@ const ChangeView = ({ markers }) => {
 
 const Map = () => {
   const { BaseLayer } = LayersControl;
-  const { allColonies, filters, filteredColonies, setFilteredColonies } = useContext(SidebarFilterContext);
+  const { allColonies, filters, filteredColonies, setFilteredColonies, defaultValues } = useContext(SidebarFilterContext);
   const [mapCenter, setMapCenter] = useState(null);
   
   useEffect(() => {
@@ -33,7 +33,7 @@ const Map = () => {
 
       // Only apply the filter if filters are set
       if (filters && Object.keys(filters).length > 0) {
-        dataToSet = filterColonies(filters, allColonies);
+        dataToSet = filterColonies(filters, allColonies, defaultValues);
       }
       // Recalculate map center based on selection
       const avgLat = dataToSet.reduce((sum, marker) => sum + marker.latitude, 0) / dataToSet.length;
@@ -47,19 +47,22 @@ const Map = () => {
 
   return (
     mapCenter ? (
-      <MapContainer center={mapCenter} zoom={3} style={{ height: '100%', minHeight: '100%', width: '100%' }}>
+      <MapContainer
+        center={mapCenter}
+        zoom={3}
+        style={{ height: '100%', width: '100%' }}
+        attributionControl={false}
+      >
         <ChangeView markers={filteredColonies} />
         <LayersControl position="topright">
-        <BaseLayer checked name="OpenStreetMap">
+        <BaseLayer name="OpenStreetMap">
             <TileLayer
               url='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
-              attribution='© OpenStreetMap contributors'
             />
           </BaseLayer>
-          <BaseLayer name="World Imagery">
+          <BaseLayer checked name="World Imagery">
             <TileLayer
               url='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
-              attribution='Tiles © Esri — Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
             />
           </BaseLayer>
         </LayersControl>
@@ -69,11 +72,44 @@ const Map = () => {
             .leaflet-control-layers-base label {
               text-align: left;
             }
+            
+            .leaflet-popup-content {
+              margin: 10px 10px;
+            }
+            
+            .leaflet-popup-content::-webkit-scrollbar {
+              width: 6px;
+            }
+            
+            .leaflet-popup-content::-webkit-scrollbar-track {
+              background: #f1f1f1;
+              border-radius: 3px;
+            }
+            
+            .leaflet-popup-content::-webkit-scrollbar-thumb {
+              background: #888;
+              border-radius: 3px;
+            }
+            
+            .leaflet-popup-content::-webkit-scrollbar-thumb:hover {
+              background: #555;
+            }
           `}
         </style>
       </MapContainer>
     ) : (
-        <Spinner />
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100%', 
+        width: '100%',
+        backgroundColor: '#f8f9fa'
+      }}>
+        <Spinner animation="border" role="status">
+          <span className="visually-hidden">Loading...</span>
+        </Spinner>
+      </div>
     )
   );  
 };

@@ -1,0 +1,256 @@
+.temperature-filters-modal .modal-content {
+  border: none;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+}
+
+.temperature-filters-modal .modal-header {
+  border-bottom: none;
+  padding: 1.5rem 2rem;
+  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+}
+
+.temperature-filters-modal .modal-body {
+  padding: 0;
+}
+
+.temperature-filters-modal .modal-footer {
+  border-top: none;
+  padding: 1.5rem 2rem;
+  background: #f8f9fa;
+}
+
+.temperature-filters-modal .card {
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+  overflow: hidden;
+}
+
+.temperature-filters-modal .card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+}
+
+.temperature-filters-modal .card.border-primary {
+  border-color: #007bff !important;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.2), 0 4px 15px rgba(0, 123, 255, 0.1);
+}
+
+.temperature-filters-modal .card-body {
+  padding: 1.5rem;
+}
+
+.temperature-filters-modal .btn {
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  padding: 0.75rem 1.5rem;
+}
+
+.temperature-filters-modal .btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.temperature-filters-modal .btn-outline-secondary {
+  border-color: #6c757d;
+  color: #6c757d;
+}
+
+.temperature-filters-modal .btn-outline-secondary:hover {
+  background-color: #6c757d;
+  border-color: #6c757d;
+  color: white;
+}
+
+.temperature-filters-modal .btn-success {
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  border: none;
+  box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+}
+
+.temperature-filters-modal .btn-success:hover {
+  background: linear-gradient(135deg, #218838 0%, #1ea085 100%);
+  box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+}
+
+.temperature-filters-modal .badge {
+  font-size: 0.75rem;
+  padding: 0.5em 1em;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.temperature-filters-modal .text-primary {
+  color: #007bff !important;
+}
+
+.temperature-filters-modal .text-success {
+  color: #28a745 !important;
+}
+
+.temperature-filters-modal .text-warning {
+  color: #ffc107 !important;
+}
+
+.temperature-filters-modal .text-muted {
+  color: #6c757d !important;
+}
+
+.temperature-filters-modal .fw-semibold {
+  font-weight: 600 !important;
+}
+
+.temperature-filters-modal .fw-bold {
+  font-weight: 700 !important;
+}
+
+.temperature-filters-modal .fs-6 {
+  font-size: 0.875rem !important;
+}
+
+/* Section headers with colored backgrounds */
+.temperature-filters-modal .bg-primary.bg-opacity-10 {
+  background-color: rgba(0, 123, 255, 0.1) !important;
+}
+
+.temperature-filters-modal .bg-success.bg-opacity-10 {
+  background-color: rgba(40, 167, 69, 0.1) !important;
+}
+
+.temperature-filters-modal .bg-warning.bg-opacity-10 {
+  background-color: rgba(255, 193, 7, 0.1) !important;
+}
+
+/* Enhanced slider styling */
+.temperature-filters-modal .MuiSlider-root {
+  color: #007bff;
+}
+
+.temperature-filters-modal .MuiSlider-thumb {
+  transition: all 0.2s ease;
+}
+
+.temperature-filters-modal .MuiSlider-thumb:hover {
+  transform: scale(1.2);
+  box-shadow: 0 0 0 8px rgba(0, 123, 255, 0.2) !important;
+}
+
+.temperature-filters-modal .MuiSlider-track {
+  transition: all 0.2s ease;
+}
+
+.temperature-filters-modal .MuiSlider-rail {
+  transition: all 0.2s ease;
+}
+
+/* Min/Max value boxes */
+.temperature-filters-modal .bg-light {
+  background-color: #f8f9fa !important;
+  border: 1px solid #e9ecef;
+  transition: all 0.2s ease;
+}
+
+.temperature-filters-modal .bg-light:hover {
+  background-color: #e9ecef !important;
+  border-color: #dee2e6;
+}
+
+/* Divider styling */
+.temperature-filters-modal .MuiDivider-root {
+  background-color: #e9ecef;
+  height: 2px;
+  border-radius: 1px;
+}
+
+/* Custom scrollbar for modal body */
+.temperature-filters-modal .modal-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.temperature-filters-modal .modal-body::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.temperature-filters-modal .modal-body::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.temperature-filters-modal .modal-body::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .temperature-filters-modal .modal-header {
+    padding: 1rem 1.5rem;
+  }
+  
+  .temperature-filters-modal .modal-footer {
+    padding: 1rem 1.5rem;
+  }
+  
+  .temperature-filters-modal .card-body {
+    padding: 1rem;
+  }
+  
+  .temperature-filters-modal .btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+  }
+}
+
+/* Animation for modal appearance */
+.temperature-filters-modal .modal.fade .modal-dialog {
+  transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+  transform: translate(0, -30px) scale(0.95);
+  opacity: 0;
+}
+
+.temperature-filters-modal .modal.show .modal-dialog {
+  transform: translate(0, 0) scale(1);
+  opacity: 1;
+}
+
+/* Hover effects for interactive elements */
+.temperature-filters-modal .btn-sm:hover {
+  transform: scale(1.05);
+}
+
+.temperature-filters-modal .card:hover .btn-sm {
+  opacity: 1;
+}
+
+.temperature-filters-modal .card .btn-sm {
+  opacity: 0.8;
+  transition: opacity 0.2s ease;
+}
+
+/* Enhanced focus states */
+.temperature-filters-modal .btn:focus {
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+}
+
+.temperature-filters-modal .card:focus-within {
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+}
+
+/* Smooth transitions for all interactive elements */
+.temperature-filters-modal * {
+  transition: all 0.2s ease;
+}
+
+/* Enhanced badge animations */
+.temperature-filters-modal .badge {
+  animation: badgePulse 2s infinite;
+}
+
+@keyframes badgePulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}

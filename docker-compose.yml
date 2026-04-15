@@ -1,21 +1,22 @@
-version: '3'
-
 services:
 
   database:
     image: postgres:15.3
-    restart: unless-stopped
+    restart: always
     ports:
-      - "5432:5432"
+      - "5430:5432"
     environment:
       - POSTGRES_USER=${DB_USER}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
       - POSTGRES_DB=${DB_NAME}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
 
   django-app:
     build:
       context: ./django_app
-    restart: unless-stopped
+    platform: linux/amd64
+    restart: always
     ports:
       - "8000:8000"
     environment:
@@ -30,25 +31,39 @@ services:
       - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE}
     volumes:
       - ./django_app:/usr/src/app
+      - ./shared_data:/shared_data
     depends_on:
       - database
 
-  react-app:
-    build:
-      context: ./react_app
-    restart: unless-stopped
-    ports:
-      - "3000:3000"
-    environment:
-      - REACT_APP_BACKEND_URL=${REACT_APP_BACKEND_URL}
+  # react-app:
+  #   build:
+  #     context: ./react_app
+  #   restart: unless-stopped
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     - REACT_APP_BACKEND_URL=${REACT_APP_BACKEND_URL}
 
-  nginx:
-    image: nginx:latest
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
-      - ./django_app/staticfiles:/var/www/static
+  ed50-fastapi:
+    build:
+      context: ./ed50-fastapi
+      dockerfile: Dockerfile
+      # use cache for faster builds
+      cache_from:
+        - python:3.11-slim
+        - continuumio/miniconda3:4.12.0
+    platform: linux/amd64
+    restart: always
     ports:
-      - "80:80"
-      - "443:443"
+      - "8001:8001"
+    environment:
+      - SHARED_DATA_PATH=/shared_data
+    volumes:
+      - ./ed50-fastapi:/app
+      - ./ed50-calculator/examples:/app/data/examples:ro
+      - ./shared_data:/shared_data
     depends_on:
-      - django-app
+      - database
+
+volumes:
+  postgres_data:

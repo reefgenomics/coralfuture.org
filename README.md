@@ -2,98 +2,85 @@
 
 The website is available at [coralfuture.org](https://coralfuture.org/), run by [Voolstra lab](https://biologie.uni-konstanz.de/voolstra). The motivation is to build a global database of standardized thermal tolerance ED50 values as determined by CBASS to enable meta-analyses and -comparisons. 
 
-## Get Started
-
-### Generate Django secrete jey
-
-```python
-from django.core.management.utils import get_random_secret_key
-
-get_random_secret_key()
-```
-
-### Create `.env` file:
-
-Here below an example `.env` file for development purposes:
-
-```commandline
-DEBUG=1 # Don't use 1 (True) in the production environment!
-SECRET_KEY=''
-DJANGO_ALLOWED_HOSTS='localhost 127.0.0.1 [::1]'
-DJANGO_SETTINGS_MODULE=django_app.settings
-SQL_ENGINE=django.db.backends.postgresql_psycopg2
-REACT_APP_BACKEND_URL=http://localhost # Don't forget to change this
-DB_USER=''
-DB_PASSWORD=''
-DB_NAME=''
-CONTACT_EMAIL_ADDRESS=''
-```
 
 ### Deploy
 
-#### Up the project from scratch
+1. `docker compose up -d`
+2. Frontend:
+   ```
+   cd react_app
+   npm install
+   npm run build
+   rsync -a build/ /var/www/hemorrhagia.online/
+   ```
+3. Django superuser (when needed):
+   ```
+   docker compose exec django-app python manage.py createsuperuser
+   ```
+4. Optional seed users: edit `django_app/user_data.example.json`, then save it as `user_data.json` in the same folder before `docker compose up -d`—startup scripts will create those accounts automatically.
+5. After code updates:
+   ```
+   docker compose exec django-app python manage.py migrate
+   docker compose exec django-app python manage.py collectstatic --noinput
+   sudo nginx -t && sudo systemctl reload nginx
+   ```
 
-```commandline
-docker compose up -d
+## API endpoints
 
-```
+- `GET /` – FastAPI ED calculator home page with upload form.
+- `POST /process` – handles file upload/example data, invokes the R workflow, returns table + plots.
+- `GET /download-csv` – downloads the latest ED table (used by the web UI button).
 
-#### Create superuser
+## FastAPI ED calculator
 
-```commandline
-docker compose exec django-app python manage.py createsuperuser
-```
+1. UI posts CSV/XLSX or toggled example data to `/process`.
+2. FastAPI writes the dataset to a temp CSV and calls `calculate_eds.R`.
+3. The R script loads CBASSED50, preprocesses, fits DRMs with `is_curveid = TRUE`, and writes ED5/50/95 plus PNG plots.
+4. FastAPI reads the output CSV and PNGs, embeds the table + base64 images into the results template with download buttons.
 
-You can also prepare your `user_data.json` and populate your database automatically:
+## Django backend endpoints
 
-```commandline
-[
-    {"username": "user1", "password": "password123", "first_name": "John", "last_name": "Doe", "email": "John_Doe@domain.com"},
-    {"username": "user2", "password": "password456", "first_name": "Jane", "last_name": "Smith", "email: "Jane_Smith@domain.com"},
-    {"username": "admin", "password": "adminpassword", "first_name": "Admin", "last_name": "User", "email": "Admin_User@domain.com"}
-]
+- `/` — legacy Django home, keeps basic landing view, redirects to React when needed.
+- `/admin/` — standard Django admin.
+- `/projects/` — SSR views for project listings (see `projects.urls`).
+- `/user/` — auth/profile views (see `users.urls`).
+- `/api/auth/...` — authenticated REST endpoints: cart (`/cart/`, `/cart/group/<id>/`, `/cart/export/`), session helpers (`/status/`, `/csrf/`, `/login/`, `/logout/`), CSV upload/check/ED50 calculation (`/upload-csv/`, `/check-csv-ed50/`, `/calculate-ed50/`).
+- `/api/public/...` — read-only data feeds: `statistics/`, `biosamples/`, `colonies/`, `observations/`, `projects/`, `projects/<id>/`, and thermal layers (`thermal-tolerances/`, `thermal-tolerances/max-min/`, `breakpoint-temperatures/`, `breakpoint-temperatures/max-min/`, `thermal-limits/`, `thermal-limits/max-min/`).
 
-```
-And then run custom django-admin command:
+## Ports and services
 
-```commandline
-docker compose exec django-app python manage.py create_users path/to/user_data.json
-```
-Don't forget to replace the path to your `user_data.json` file.
+| Service            | Port | Notes                                              |
+|--------------------|------|----------------------------------------------------|
+| Django backend     | 8000 | API + admin, proxied by nginx `/api`, `/admin`.    |
+| FastAPI ED50 app   | 8001 | `/shiny` + `/process`, runs the R workflow.        |
+| React build (nginx)| 443  | Deployed to `/var/www/hemorrhagia.online`.         |
 
-#### Populate the database 
+## Deployment cheatsheet
 
-Let's say my owner is `user1`.
+1. **Build frontend**
+   ```bash
+   cd react_app
+   npm install
+   npm run build
+   sudo cp -r build/* /var/www/coralfuture.org/
+   ```
+2. **Rebuild backend containers**
+   ```bash
+   docker compose build
+   docker compose up -d
+   ```
+3. **Static files / migrations (when needed)**
+   ```bash
+   docker compose exec django-app python manage.py migrate
+   docker compose exec django-app python manage.py collectstatic --noinput
+   ```
+4. **Reload nginx**
+   ```bash
+   sudo nginx -t && sudo systemctl reload nginx
+   ```
 
-For complete datasets:
+## Django data model quick-notes
 
-```commandline
-docker compose exec django-app python manage.py \
-  populate_db \
-    --owner user1
-    --csv_path static/datasheets/cbass_84.csv
-```
-
-For incomplete datasets, use `--no-pam` argument:
-
-```commandline
-docker compose exec django-app python manage.py \
-  populate_db \
-    --owner user1 \
-    --csv_path static/datasheets/redsea_gradient_study.csv \
-    --no-pam
-```
-
-## Database Backups
-
-Create a database backup:
-
-```commandline
-sudo docker compose exec database pg_dump -U $DB_USER --format=custom > backup.pgdump
-```
-
-Restore a database backup:
-
-```commandline
-pg_restore --clean --dbname $DB_NAME -U $DB_USER backup.pgdump
-```
+- `users` app: wraps Django auth, adds profile info, and exposes `/api/auth/...` endpoints for login/logout, cart management, CSV uploads, and ED50 calculations. Superusers manage accounts via `/admin/`.
+- `projects` app: handles studies (projects) and associated colonies/observations. React pulls these via `/api/public/projects` and details via `/api/public/projects/<id>/`.
+- “Studies”/“cart” flow: authenticated users build a cart of colonies (`UserCart`, `CartGroup`) through the API, then export ED tables via `/api/auth/cart/export/`. Upload endpoints (`upload-csv`, `check-csv-ed50`, `calculate-ed50`) persist uploads for review.

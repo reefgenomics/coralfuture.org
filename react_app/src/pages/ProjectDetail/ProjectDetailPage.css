@@ -1,0 +1,470 @@
+/* ProjectDetailPage.css - Modern Project Detail Design */
+
+.project-detail-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  padding-top: 80px; /* Add space for fixed navbar */
+}
+
+/* Project Header */
+.project-header {
+  background: linear-gradient(135deg, #0ea5e9 0%, #0891b2 50%, #0d9488 100%);
+  color: white;
+  padding: 3rem 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.project-header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: url('../../assets/landpic.jpg');
+  background-size: cover;
+  background-position: center;
+  opacity: 0.1;
+  z-index: 1;
+}
+
+.project-header-has-cover::before {
+  opacity: 0;
+  background-image: none;
+}
+
+.project-header-has-cover::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 1;
+}
+
+/* Светлый текст поверх кастомного фона */
+.project-header-has-cover .project-title,
+.project-header-has-cover .project-meta,
+.project-header-has-cover .meta-item,
+.project-header-has-cover .project-title-input,
+.project-header-has-cover .text-white,
+.project-header-has-cover p {
+  color: #fff !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.project-header-has-cover .project-title {
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+
+.project-header .container {
+  position: relative;
+  z-index: 2;
+}
+
+.cover-photo-preview {
+  max-width: 100%;
+  max-height: 200px;
+  object-fit: contain;
+  border: 1px solid #e2e8f0;
+}
+
+.project-title {
+  font-size: 2.1rem;
+  font-weight: 800;
+  margin-bottom: 1rem;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.project-title-input {
+  font-size: 1.35rem;
+  font-weight: 600;
+}
+
+.project-meta {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.meta-item {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.95rem;
+  line-height: 1;
+  opacity: 0.9;
+}
+
+.meta-item:nth-child(2) {
+  margin-bottom: 0.5rem;
+}
+
+.meta-item svg {
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+.project-description {
+  font-size: 1.1rem;
+  line-height: 1.6;
+  opacity: 0.95;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.section-card .card-body .project-description {
+  margin: 0;
+  padding: 0;
+}
+
+/* Section Cards */
+.section-card {
+  border: none;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.section-card .card-body {
+  border-radius: 0 0 16px 16px;
+}
+
+
+
+/* Override Bootstrap .card-header radius so all corners are rounded */
+.section-card .card-header.section-header {
+  background: linear-gradient(135deg, #0ea5e9, #0891b2);
+  color: white;
+  border: none;
+  border-radius: 16px;
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+  border-bottom-left-radius: 16px;
+  border-bottom-right-radius: 16px;
+  font-weight: 600;
+  font-size: 1.1rem;
+  padding: 1rem 1.5rem;
+  display: flex;
+  align-items: center;
+}
+
+/* Graphs carousel */
+.graphs-card-body,
+.graph-carousel {
+  padding: 0;
+}
+
+.graph-carousel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1rem 1.5rem;
+}
+
+.graph-carousel-image-wrap {
+  width: 100%;
+  max-width: 800px;
+  text-align: center;
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.graph-carousel-image {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
+
+.graph-carousel-caption {
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 1rem;
+}
+
+.graph-carousel-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.graph-carousel-dots {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.graph-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid #0ea5e9;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.2s ease;
+}
+
+.graph-dot:hover {
+  background: rgba(14, 165, 233, 0.3);
+}
+
+.graph-dot.active {
+  background: #0ea5e9;
+}
+
+/* Statistics table: scrollable box */
+.section-card.statistics-card {
+  overflow: visible;
+}
+
+.statistics-card-body {
+  overflow: visible;
+  padding-bottom: 0;
+}
+
+.statistics-table-wrap {
+  height: 400px;
+  width: 100%;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  position: relative;
+}
+
+.statistics-table {
+  width: max-content;
+  min-width: 100%;
+  margin-bottom: 0;
+}
+
+.statistics-table thead th {
+  background: #f1f5f9;
+  color: #475569;
+  font-weight: 600;
+  text-transform: capitalize;
+  white-space: nowrap;
+  padding: 0.75rem;
+}
+
+.statistics-table tbody td {
+  vertical-align: middle;
+  white-space: nowrap;
+  padding: 0.75rem;
+}
+
+/* Publications: block grows with content, no scroll */
+.publications-card {
+  overflow: visible;
+}
+
+.publications-card .publications-card-body {
+  overflow: visible;
+  max-height: none;
+}
+
+.publications-list {
+  display: grid;
+  gap: 1rem;
+  max-height: none;
+  overflow: visible;
+}
+
+.publication-item {
+  padding: 1rem;
+  background: #f8fafc;
+  border-radius: 12px;
+  border-left: 4px solid #0ea5e9;
+  transition: all 0.3s ease;
+}
+
+
+
+.publication-title {
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 0.5rem;
+  line-height: 1.4;
+}
+
+.publication-meta {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.publication-link {
+  color: #0ea5e9;
+  text-decoration: none;
+  font-size: 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  transition: color 0.2s ease;
+}
+
+.publication-link:hover {
+  color: #0891b2;
+  text-decoration: none;
+}
+
+/* Tables */
+.table {
+  margin-bottom: 0;
+}
+
+.table thead th {
+  background: #f8fafc;
+  border-bottom: 2px solid #e2e8f0;
+  font-weight: 600;
+  color: #475569;
+  font-size: 0.9rem;
+  padding: 1rem 0.75rem;
+}
+
+.table tbody td {
+  padding: 0.75rem;
+  vertical-align: middle;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 0.9rem;
+}
+
+.table tbody tr:hover {
+  background-color: #f8fafc;
+}
+
+/* Responsive Tables */
+.table-responsive {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* Thermal Data Formatting */
+.table tbody td small {
+  line-height: 1.4;
+  color: #64748b;
+}
+
+/* Empty State */
+.text-center.py-5 {
+  padding: 4rem 0;
+}
+
+.text-center.py-5 h5 {
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.text-center.py-5 p {
+  margin-bottom: 0;
+}
+
+/* Loading State */
+.spinner-border {
+  width: 3rem;
+  height: 3rem;
+}
+
+/* Error State */
+.text-danger {
+  color: #dc2626 !important;
+}
+
+/* Back Button */
+.btn-outline-light {
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.btn-outline-light:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.5);
+  color: white;
+  transform: translateY(-2px);
+}
+
+/* Badges */
+.badge {
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+}
+
+/* List Styling */
+.list-unstyled li {
+  padding: 0.25rem 0;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .project-title {
+    font-size: 1.75rem;
+  }
+  
+  .project-meta {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .meta-item {
+    font-size: 0.9rem;
+  }
+  
+  .project-description {
+    font-size: 1rem;
+  }
+  
+  .section-header {
+    font-size: 1rem;
+    padding: 0.75rem 1rem;
+  }
+  
+  .table thead th,
+  .table tbody td {
+    padding: 0.5rem 0.25rem;
+    font-size: 0.8rem;
+  }
+  
+  .publication-meta {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+}
+
+@media (max-width: 576px) {
+  .project-header {
+    padding: 2rem 0;
+  }
+  
+  .project-title {
+    font-size: 1.5rem;
+  }
+  
+  .table-responsive {
+    font-size: 0.75rem;
+  }
+  
+  .table thead th,
+  .table tbody td {
+    padding: 0.25rem;
+  }
+}
