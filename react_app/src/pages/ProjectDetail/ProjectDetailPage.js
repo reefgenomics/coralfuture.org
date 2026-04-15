@@ -306,7 +306,29 @@ const ProjectDetailPage = () => {
 
   const formatThermalData = (data, type) => {
     if (!data || data.length === 0) return 'No data available';
-    return data.map((item) => `${item.condition} (Timepoint: ${item.timepoint}): ${item[type]}`).join(', ');
+    
+    // Group by condition and timepoint to avoid duplicates
+    const grouped = {};
+    data.forEach((item) => {
+      const key = `${item.condition} (Timepoint: ${item.timepoint})`;
+      if (!grouped[key]) {
+        grouped[key] = [];
+      }
+      if (item[type] != null) {
+        grouped[key].push(item[type]);
+      }
+    });
+    
+    // Format each group
+    return Object.entries(grouped)
+      .map(([key, values]) => {
+        if (values.length === 0) return `${key}: N/A`;
+        if (values.length === 1) return `${key}: ${values[0]}`;
+        // Multiple values: show all unique values
+        const uniqueValues = [...new Set(values)];
+        return `${key}: ${uniqueValues.join(', ')}`;
+      })
+      .join('; ');
   };
 
   const getColonyConditionsAndTimepoints = (colony) => {

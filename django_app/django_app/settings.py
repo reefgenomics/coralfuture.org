@@ -55,6 +55,9 @@ LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'home'
 LOGOUT_REDIRECT_URL = 'home'
 
+# Sessions: store in DB so they survive container restarts (cookie stays valid if SECRET_KEY is constant)
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+
 CORS_ALLOW_CREDENTIALS = True
 
 CSRF_TRUSTED_ORIGINS = [
@@ -181,6 +184,11 @@ if REACT_STATIC_DIR.exists():
 
 # Directory where 'collectstatic' will gather static files for production
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+# Media files (user uploads: attachment images, etc.)
+# https://docs.djangoproject.com/en/5.0/topics/files/
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 WHITENOISE_MANIFEST_STRICT = False

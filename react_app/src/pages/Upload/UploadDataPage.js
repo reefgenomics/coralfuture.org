@@ -90,6 +90,7 @@ const UploadDataPage = () => {
 
       const response = await axios.post(`${backendUrl}/api/auth/upload-csv/`, formData, {
         withCredentials: true,
+        timeout: 600000, // 10 minutes for large file upload + server processing
         headers: {
           'Content-Type': 'multipart/form-data',
           'X-CSRFToken': csrfResponse.data.csrfToken,

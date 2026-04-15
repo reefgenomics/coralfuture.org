@@ -133,12 +133,22 @@
   transition: all 0.3s ease;
 }
 
+.section-card .card-body {
+  border-radius: 0 0 16px 16px;
+}
 
 
-.section-header {
+
+/* Override Bootstrap .card-header radius so all corners are rounded */
+.section-card .card-header.section-header {
   background: linear-gradient(135deg, #0ea5e9, #0891b2);
   color: white;
   border: none;
+  border-radius: 16px;
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+  border-bottom-left-radius: 16px;
+  border-bottom-right-radius: 16px;
   font-weight: 600;
   font-size: 1.1rem;
   padding: 1rem 1.5rem;

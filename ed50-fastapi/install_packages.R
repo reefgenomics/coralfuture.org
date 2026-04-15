@@ -1,14 +1,13 @@
-# Ensure required libraries are installed
-# Install missing dependencies for devtools
+# Ensure required libraries are installed.
+# Install only (do not load in loop) to avoid locking old htmltools/lifecycle
+# before devtools install, which requires newer versions.
 
-required_packages <- c("shiny", "bslib", "dplyr", "tidyr", "ggplot2", "readxl", "rstudioapi", "RColorBrewer", "shinycssloaders", "shinyjs", "devtools", "bslib", "DT", "drc", "colourpicker", "readr")
+required_packages <- unique(c("shiny", "bslib", "dplyr", "tidyr", "ggplot2", "readxl", "rstudioapi", "RColorBrewer", "shinycssloaders", "shinyjs", "devtools", "DT", "drc", "colourpicker", "readr"))
 
 for (pkg in required_packages) {
-    if (!require(pkg, character.only = TRUE)) {
+    if (!require(pkg, character.only = TRUE, quietly = TRUE)) {
         cat(paste0("Installing package: ", pkg, "\n"))
-        install.packages(pkg, dependencies = TRUE, repos='https://cloud.r-project.org', quiet = TRUE)
-        library(pkg, character.only = TRUE)
-        cat(paste0("Package ", pkg, " installed and loaded\n"))
+        install.packages(pkg, dependencies = TRUE, repos = "https://cloud.r-project.org", quiet = TRUE)
     }
 }
 

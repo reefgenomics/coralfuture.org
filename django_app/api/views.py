@@ -327,10 +327,10 @@ class UploadCSVApiView(APIView):
                     with open(temp_raw_csv, 'rb') as f:
                         files = {'file': (csv_file.name, f, 'text/csv')}
                         
-                        # Use exactly user's settings: Site,Condition,Species,Timepoint (no Genotype)
-                        # So graphs/statistics match local ED calculator 1:1
+                        # R uses Site,Condition,Species,Timepoint and always appends Genotype to GroupingProperty internally.
+                        # So we pass grouping without Genotype for R; merge will use GroupingProperty (includes Genotype).
                         grouping = 'Site,Condition,Species,Timepoint'
-                        print(f"📊 Using grouping properties: {grouping}")
+                        print(f"📊 Using grouping properties for R: {grouping}")
                         
                         # 1:1 with user's working settings (Text size 10, Point size 1)
                         data = {
@@ -371,66 +371,123 @@ class UploadCSVApiView(APIView):
                             df_raw_data = pd.read_csv(temp_raw_csv)
                             df_eds = pd.read_csv(temp_ed_csv)
                             
-                            # Merge EDs into raw data
-                            # Merge on ALL grouping columns used for ED calculation (including Genotype if present)
-                            merge_cols = []
-                            # Parse grouping properties to get all columns
-                            grouping_list = [g.strip() for g in grouping.split(',')]
-                            
-                            # Check which grouping columns exist in both dataframes
-                            for col in grouping_list:
-                                # Try exact match first
-                                if col in df_raw_data.columns and col in df_eds.columns:
-                                    merge_cols.append(col)
-                                    # Ensure string type for merge
-                                    df_raw_data[col] = df_raw_data[col].astype(str)
-                                    df_eds[col] = df_eds[col].astype(str)
-                                    print(f"✅ Found merge column: {col}")
-                                else:
-                                    # Try case-insensitive match (for Genotype or other columns)
-                                    found_in_raw = None
-                                    found_in_eds = None
-                                    
-                                    for c in df_raw_data.columns:
-                                        if c.lower() == col.lower():
-                                            found_in_raw = c
-                                            break
-                                    
-                                    for c in df_eds.columns:
-                                        if c.lower() == col.lower():
-                                            found_in_eds = c
-                                            break
-                                    
-                                    if found_in_raw and found_in_eds:
-                                        # Map EDs column to match raw data column name
-                                        if found_in_raw != found_in_eds:
-                                            df_eds = df_eds.rename(columns={found_in_eds: found_in_raw})
-                                        merge_cols.append(found_in_raw)
-                                        df_raw_data[found_in_raw] = df_raw_data[found_in_raw].astype(str)
-                                        df_eds[found_in_raw] = df_eds[found_in_raw].astype(str)
-                                        print(f"✅ Found merge column (case-insensitive): {found_in_raw}")
-                                    else:
-                                        print(f"⚠️ WARNING: {col} not found in both dataframes for merge")
-                            
-                            if not merge_cols:
-                                print("❌ No common merge columns found")
-                                return Response({
-                                    'error': 'Cannot merge ED values - no common grouping columns found'
-                                }, status=status.HTTP_400_BAD_REQUEST)
-                            
-                            print(f"🔗 Merging EDs on columns: {merge_cols}")
-                            
-                            # One ED row per merge key: avoid duplicate keys (e.g. from Genotype) so merge does not multiply rows
-                            df_eds_for_merge = df_eds.drop_duplicates(subset=merge_cols, keep='first')
-                            if len(df_eds_for_merge) < len(df_eds):
-                                print(f"📌 Deduplicated EDs by merge key: {len(df_eds)} -> {len(df_eds_for_merge)} rows")
-                            
+                            # Merge EDs into raw data. R groups by Site,Condition,Species,Timepoint only → GroupingProperty
+                            # in R = {Site}_{Condition}_{Species}_{Timepoint} (no Genotype). Raw key for merge =
+                            # {Site}_{Condition}_{Species}_{Timepoint}_{Genotype}. We expand R rows by genotype at merge.
+                            def _col_raw(name):
+                                for c in df_raw_data.columns:
+                                    if c == name or c.lower() == name.lower():
+                                        return c
+                                return None
                             ed_cols = [c for c in df_eds.columns if c.upper() in ['ED5', 'ED50', 'ED95']]
-                            df_with_eds = df_raw_data.merge(
-                                df_eds_for_merge[merge_cols + ed_cols],
-                                on=merge_cols,
-                                how='left'
-                            )
+                            grouping_list = [g.strip() for g in grouping.split(',')]
+                            if 'GroupingProperty' in df_eds.columns:
+                                group_cols = [_col_raw(g) for g in grouping_list]
+                                geno_col = _col_raw('Genotype')
+                                if all(group_cols) and geno_col and all(c in df_raw_data.columns for c in group_cols):
+                                    # Raw: GroupingProperty = {Site}_{Condition}_{Species}_{Timepoint}_{Genotype}
+                                    base_parts = [df_raw_data[c].astype(str) for c in group_cols]
+                                    df_raw_data['_gp_base'] = base_parts[0]
+                                    for p in base_parts[1:]:
+                                        df_raw_data['_gp_base'] = df_raw_data['_gp_base'] + '_' + p
+                                    df_raw_data['GroupingProperty'] = df_raw_data['_gp_base'] + '_' + df_raw_data[geno_col].astype(str)
+                                    df_eds['GroupingProperty'] = df_eds['GroupingProperty'].astype(str)
+
+                                    raw_keys = set(df_raw_data['GroupingProperty'])
+                                    eds_keys = set(df_eds['GroupingProperty'])
+                                    matches = raw_keys & eds_keys
+                                    # If R returned base keys only (no genotype), expand EDs: one row per raw GroupingProperty for that base
+                                    if len(matches) < len(raw_keys):
+                                        expanded = []
+                                        for _, row in df_eds.iterrows():
+                                            base = row['GroupingProperty']
+                                            full_keys = df_raw_data.loc[df_raw_data['_gp_base'] == base, 'GroupingProperty'].unique()
+                                            for fk in full_keys:
+                                                r = {k: v for k, v in row.items() if k in ['GroupingProperty'] + ed_cols}
+                                                r['GroupingProperty'] = fk
+                                                expanded.append(r)
+                                        df_eds = pd.DataFrame(expanded)
+
+                                    # DEBUG: Save merge debug info
+                                    debug_info = []
+                                    debug_info.append("=== MERGE DEBUG INFO ===")
+                                    debug_info.append(f"Raw data rows: {len(df_raw_data)}")
+                                    debug_info.append(f"EDs data rows (after expand): {len(df_eds)}")
+                                    debug_info.append(f"Group columns: {group_cols}")
+                                    debug_info.append(f"Genotype column: {geno_col}")
+                                    debug_info.append("")
+                                    debug_info.append("Sample GroupingProperty from raw data:")
+                                    for i, gp in enumerate(df_raw_data['GroupingProperty'].head(10)):
+                                        debug_info.append(f"  {i+1}: {gp}")
+                                    debug_info.append("")
+                                    debug_info.append("Sample GroupingProperty from EDs data:")
+                                    for i, gp in enumerate(df_eds['GroupingProperty'].head(10)):
+                                        debug_info.append(f"  {i+1}: {gp}")
+                                    debug_info.append("")
+                                    raw_keys = set(df_raw_data['GroupingProperty'])
+                                    eds_keys = set(df_eds['GroupingProperty'])
+                                    matches = raw_keys & eds_keys
+                                    debug_info.append(f"Matching keys: {len(matches)}")
+                                    debug_info.append(f"After merge rows with ED50: (filled below)")
+                                    if 'attachments_path' in locals() and attachments_path:
+                                        with open(attachments_path / "merge_debug.txt", 'w') as f:
+                                            f.write('\n'.join(debug_info))
+                                        print(f"🐛 Merge debug info saved to: {attachments_path / 'merge_debug.txt'}")
+
+                                    # Perform merge on GroupingProperty
+                                    df_with_eds = df_raw_data.merge(
+                                        df_eds[['GroupingProperty'] + ed_cols],
+                                        on='GroupingProperty',
+                                        how='left'
+                                    )
+                                    debug_info.append(str(df_with_eds['ED50'].notna().sum()))
+                                    if 'attachments_path' in locals() and attachments_path:
+                                        with open(attachments_path / "merge_debug.txt", 'w') as f:
+                                            f.write('\n'.join(debug_info))
+
+                                    df_with_eds = df_with_eds.drop(columns=['GroupingProperty', '_gp_base'], errors='ignore')
+                                    print("🔗 Merged EDs on GroupingProperty (Site_Condition_Species_Timepoint_Genotype)")
+                                else:
+                                    merge_cols = []
+                                    for col in grouping_list:
+                                        mc = _col_raw(col)
+                                        if mc and (mc in df_eds.columns or col in df_eds.columns):
+                                            merge_cols.append(mc)
+                                            df_raw_data[mc] = df_raw_data[mc].astype(str)
+                                            if mc not in df_eds.columns and col in df_eds.columns:
+                                                df_eds = df_eds.rename(columns={col: mc})
+                                            df_eds[mc] = df_eds[mc].astype(str)
+                                    if merge_cols:
+                                        df_eds_for_merge = df_eds.drop_duplicates(subset=merge_cols, keep='first')
+                                        df_with_eds = df_raw_data.merge(df_eds_for_merge[merge_cols + ed_cols], on=merge_cols, how='left')
+                                        print(f"🔗 Merged EDs on columns: {merge_cols}")
+                                    else:
+                                        return Response({'error': 'Cannot merge ED values - no common grouping columns found'}, status=status.HTTP_400_BAD_REQUEST)
+                            else:
+                                merge_cols = []
+                                for col in grouping_list:
+                                    if col in df_raw_data.columns and col in df_eds.columns:
+                                        merge_cols.append(col)
+                                        df_raw_data[col] = df_raw_data[col].astype(str)
+                                        df_eds[col] = df_eds[col].astype(str)
+                                    else:
+                                        found_raw = _col_raw(col)
+                                        found_eds = None
+                                        for c in df_eds.columns:
+                                            if c.lower() == col.lower():
+                                                found_eds = c
+                                                break
+                                        if found_raw and found_eds:
+                                            if found_raw != found_eds:
+                                                df_eds = df_eds.rename(columns={found_eds: found_raw})
+                                            merge_cols.append(found_raw)
+                                            df_raw_data[found_raw] = df_raw_data[found_raw].astype(str)
+                                            df_eds[found_raw] = df_eds[found_raw].astype(str)
+                                if not merge_cols:
+                                    return Response({'error': 'Cannot merge ED values - no common grouping columns found'}, status=status.HTTP_400_BAD_REQUEST)
+                                df_eds_for_merge = df_eds.drop_duplicates(subset=merge_cols, keep='first')
+                                df_with_eds = df_raw_data.merge(df_eds_for_merge[merge_cols + ed_cols], on=merge_cols, how='left')
+                                print(f"🔗 Merged EDs on columns: {merge_cols}")
                             
                             
                         else:
@@ -1042,74 +1099,87 @@ class CartExportApiView(APIView):
             ]
             writer.writerow(header)
             
-            # Write data rows
+            # Prefetch to use live DB data per colony (avoids stale/wrong colony_data)
+            cart_groups = cart_groups.prefetch_related(
+                'cart_items__colony__thermal_tolerances',
+                'cart_items__colony__breakpoint_temperatures',
+                'cart_items__colony__thermal_limits',
+                'cart_items__colony__biosamples__observations__experiment__project',
+            )
+
+            # Write data rows: one row per colony per unique (condition, timepoint)
             for group in cart_groups:
                 for cart_item in group.cart_items.all():
-                    colony_data = cart_item.colony_data
-                    
-                    # Get basic colony info
-                    colony = colony_data['colony']
-                    
-                    # Process biosamples and observations
-                    for biosample in colony_data.get('biosamples', []):
-                        for observation in biosample.get('observations', []):
-                            # Initialize row with proper order
-                            row = [
-                                group.name,  # 0: Group Name
-                                observation.get('experiment', {}).get('project', {}).get('name', ''),  # 1: Project Name
-                                observation.get('experiment', {}).get('name', ''),  # 2: Experiment Name
-                                colony['id'],  # 3: Colony ID
-                                colony['name'],  # 4: Colony Name
-                                colony['species'],  # 5: Species
-                                colony['country'],  # 6: Country
-                                colony['latitude'],  # 7: Latitude
-                                colony['longitude'],  # 8: Longitude
-                                '',  # 9: SST Clim MMM (will be filled from thermal data)
-                                biosample.get('collection_date', ''),  # 10: Collection Date
-                                observation.get('experiment', {}).get('name', ''),  # 11: Site
-                                observation.get('condition', ''),  # 12: Condition
-                                observation.get('temperature', ''),  # 13: Temperature
-                                observation.get('timepoint', ''),  # 14: Timepoint
-                                '',  # 15: abs. ED50 (will be filled from thermal data)
-                                '',  # 16: rel. ED50 (ED50-MMM)
-                                '',  # 17: abs. ED5 (will be filled from breakpoint data)
-                                '',  # 18: rel. ED5 (ED5-MMM)
-                                '',  # 19: abs. ED95 (will be filled from thermal limit data)
-                                ''   # 20: rel. ED95 (ED95-MMM)
-                            ]
-                            
-                            # Add thermal tolerance data if available
-                            for tt in colony_data.get('thermal_tolerances', []):
-                                if (tt.get('condition') == observation.get('condition') and 
-                                    tt.get('timepoint') == observation.get('timepoint')):
-                                    row[9] = tt.get('sst_clim_mmm', '')  # SST Clim MMM
-                                    row[15] = tt.get('abs_thermal_tolerance', '')  # abs. ED50
-                                    row[16] = tt.get('rel_thermal_tolerance', '')  # rel. ED50 (ED50-MMM)
+                    colony = cart_item.colony
+                    # Unique (condition, timepoint) from this colony's thermal data
+                    keys_tt = {(tt.condition or '', tt.timepoint or '') for tt in colony.thermal_tolerances.all()}
+                    keys_bt = {(bt.condition or '', bt.timepoint or '') for bt in colony.breakpoint_temperatures.all()}
+                    keys_tl = {(tl.condition or '', tl.timepoint or '') for tl in colony.thermal_limits.all()}
+                    condition_timepoints = keys_tt | keys_bt | keys_tl
+                    if not condition_timepoints:
+                        # Colony with no thermal data: one row with colony info only
+                        condition_timepoints = {(None, None)}
+
+                    for (cond, tpoint) in condition_timepoints:
+                        # Project/experiment from first observation for this colony (or first with this condition/timepoint)
+                        proj_name, exp_name = '', ''
+                        coll_date, site, temp = '', '', ''
+                        for bs in colony.biosamples.all():
+                            for obs in bs.observations.select_related('experiment__project').all():
+                                if (cond is None and tpoint is None) or (
+                                    (obs.condition or '') == (cond or '') and (obs.timepoint or '') == (tpoint or '')
+                                ):
+                                    exp = obs.experiment
+                                    proj_name = exp.project.name if exp and exp.project else ''
+                                    exp_name = exp.name if exp else ''
+                                    coll_date = bs.collection_date.isoformat() if bs.collection_date else ''
+                                    site = exp_name
+                                    temp = obs.temperature if obs.temperature is not None else ''
                                     break
-                            
-                            # Add breakpoint temperature data if available
-                            for bt in colony_data.get('breakpoint_temperatures', []):
-                                if (bt.get('condition') == observation.get('condition') and 
-                                    bt.get('timepoint') == observation.get('timepoint')):
-                                    # Use SST from breakpoint if not already set
-                                    if not row[9]:
-                                        row[9] = bt.get('sst_clim_mmm', '')
-                                    row[17] = bt.get('abs_breakpoint_temperature', '')  # abs. ED5
-                                    row[18] = bt.get('rel_breakpoint_temperature', '')  # rel. ED5 (ED5-MMM)
-                                    break
-                            
-                            # Add thermal limit data if available
-                            for tl in colony_data.get('thermal_limits', []):
-                                if (tl.get('condition') == observation.get('condition') and 
-                                    tl.get('timepoint') == observation.get('timepoint')):
-                                    # Use SST from thermal limit if not already set
-                                    if not row[9]:
-                                        row[9] = tl.get('sst_clim_mmm', '')
-                                    row[19] = tl.get('abs_thermal_limit', '')  # abs. ED95
-                                    row[20] = tl.get('rel_thermal_limit', '')  # rel. ED95 (ED95-MMM)
-                                    break
-                            
-                            writer.writerow(row)
+                            if proj_name or exp_name:
+                                break
+
+                        row = [
+                            group.name,
+                            proj_name,
+                            exp_name,
+                            colony.id,
+                            colony.name,
+                            colony.species or '',
+                            colony.country or '',
+                            colony.latitude,
+                            colony.longitude,
+                            '',  # SST Clim MMM
+                            coll_date,
+                            site,
+                            cond or '',
+                            temp,
+                            tpoint or '',
+                            '', '', '', '', '', '',  # ED50, ED5, ED95 abs/rel
+                        ]
+
+                        for tt in colony.thermal_tolerances.all():
+                            if (tt.condition or '') == (cond or '') and (tt.timepoint or '') == (tpoint or ''):
+                                row[9] = tt._sst_clim_mmm if tt._sst_clim_mmm is not None else ''
+                                row[15] = tt.abs_thermal_tolerance if tt.abs_thermal_tolerance is not None else ''
+                                row[16] = tt.rel_thermal_tolerance if tt.rel_thermal_tolerance is not None else ''
+                                break
+                        for bt in colony.breakpoint_temperatures.all():
+                            if (bt.condition or '') == (cond or '') and (bt.timepoint or '') == (tpoint or ''):
+                                if not row[9] and bt._sst_clim_mmm is not None:
+                                    row[9] = bt._sst_clim_mmm
+                                row[17] = bt.abs_breakpoint_temperature if bt.abs_breakpoint_temperature is not None else ''
+                                row[18] = bt.rel_breakpoint_temperature if bt.rel_breakpoint_temperature is not None else ''
+                                break
+                        for tl in colony.thermal_limits.all():
+                            if (tl.condition or '') == (cond or '') and (tl.timepoint or '') == (tpoint or ''):
+                                if not row[9] and tl._sst_clim_mmm is not None:
+                                    row[9] = tl._sst_clim_mmm
+                                row[19] = tl.abs_thermal_limit if tl.abs_thermal_limit is not None else ''
+                                row[20] = tl.rel_thermal_limit if tl.rel_thermal_limit is not None else ''
+                                break
+
+                        writer.writerow(row)
             
             # Prepare response
             output.seek(0)

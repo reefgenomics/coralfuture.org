@@ -53,7 +53,7 @@ class ProjectAdmin(admin.ModelAdmin):
             if pub.projects.count() == 0:
                 pub.delete()
         
-        # Delete project (cascades to experiments/observations)
+        # Delete project (cascades to experiments/observations, attachments)
         obj.delete()
     
     def delete_queryset(self, request, queryset):
