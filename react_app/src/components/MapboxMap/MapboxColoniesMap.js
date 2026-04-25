@@ -313,7 +313,7 @@ const MapboxColoniesMap = ({ focusBenthicRegion = false }) => {
         }
 
         const html = renderToString(<ColonyPopupContent colony={colony} />);
-        popupRef.current = new mapboxgl.Popup({ maxWidth: '320px' })
+        popupRef.current = new mapboxgl.Popup({ maxWidth: '480px' })
           .setLngLat(coordinates)
           .setHTML(html)
           .addTo(map);

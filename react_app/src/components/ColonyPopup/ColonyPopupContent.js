@@ -11,9 +11,10 @@ const ColonyPopupContent = ({ colony }) => {
   const filteredThermalTolerances = filterValidData(colony.thermal_tolerances);
   const filteredBreakpointTemperatures = filterValidData(colony.breakpoint_temperatures);
   const filteredThermalLimits = filterValidData(colony.thermal_limits);
+  const projectLinks = Array.isArray(colony.project_links) ? colony.project_links : [];
 
   return (
-    <div style={{ maxWidth: '280px', maxHeight: '300px', overflow: 'auto' }}>
+    <div style={{ width: '420px', maxWidth: '100%', maxHeight: '380px', overflow: 'auto' }}>
       <h5
         style={{
           marginBottom: '8px',
@@ -36,6 +37,57 @@ const ColonyPopupContent = ({ colony }) => {
         <p style={{ margin: '2px 0' }}>
           <strong>Coordinates:</strong> {colony.latitude}, {colony.longitude}
         </p>
+
+        {projectLinks.length > 0 && (
+          <div
+            style={{
+              marginTop: '12px',
+              marginBottom: '10px',
+              padding: '10px',
+              borderRadius: '12px',
+              background: 'linear-gradient(135deg, rgba(14, 165, 233, 0.1), rgba(13, 148, 136, 0.08))',
+              border: '1px solid rgba(14, 165, 233, 0.18)',
+            }}
+          >
+            <div
+              style={{
+                fontSize: '0.72rem',
+                fontWeight: 800,
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                color: '#0f766e',
+                marginBottom: '7px',
+              }}
+            >
+              Related project{projectLinks.length > 1 ? 's' : ''}
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '7px' }}>
+              {projectLinks.map((project) => (
+                <a
+                  key={project.id}
+                  href={`/project/${project.id}`}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    padding: '7px 10px',
+                    borderRadius: '999px',
+                    background: '#0ea5e9',
+                    color: '#fff',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    lineHeight: 1,
+                    textDecoration: 'none',
+                    boxShadow: '0 6px 14px rgba(14, 165, 233, 0.22)',
+                  }}
+                >
+                  Project page
+                  {projectLinks.length > 1 ? ` · ${project.name}` : ''}
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
 
         {filteredThermalTolerances.length > 0 && (
           <div style={{ marginTop: '8px' }}>

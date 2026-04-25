@@ -1,6 +1,7 @@
 import React, { useState, useRef, useContext } from 'react';
 import { Container, Row, Col, Card, Form, Button, Alert, Table, ProgressBar } from 'react-bootstrap';
 import axios from 'axios';
+import * as XLSX from 'xlsx';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { AuthContext } from 'contexts/AuthContext';
 
@@ -14,7 +15,10 @@ const UploadDataPage = () => {
   const [validationErrors, setValidationErrors] = useState([]);
   const [uploadStatus, setUploadStatus] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isParsingFile, setIsParsingFile] = useState(false);
   const [uploadComplete, setUploadComplete] = useState(false);
+  const [sourceFileName, setSourceFileName] = useState('');
+  const [convertedSheetName, setConvertedSheetName] = useState('');
   const fileInputRef = useRef(null);
 
   // Front-end no longer hard-validates required columns; backend handles mapping/validation.
@@ -48,28 +52,65 @@ const UploadDataPage = () => {
     return { headers, data: lines.slice(1), rawLines: lines };
   };
 
-  const handleFileSelect = (event) => {
+  const createCsvFileName = (fileName) => {
+    return fileName.replace(/\.(xlsx|xls)$/i, '.csv');
+  };
+
+  const convertExcelFileToCsv = async (selectedFile) => {
+    const workbook = XLSX.read(await selectedFile.arrayBuffer(), { type: 'array' });
+    const firstSheetName = workbook.SheetNames[0];
+    if (!firstSheetName) {
+      throw new Error('Excel file does not contain any sheets');
+    }
+
+    const worksheet = workbook.Sheets[firstSheetName];
+    const csvText = XLSX.utils.sheet_to_csv(worksheet, { blankrows: false });
+    if (!csvText.trim()) {
+      throw new Error('The first sheet is empty');
+    }
+
+    const csvFile = new File([csvText], createCsvFileName(selectedFile.name), { type: 'text/csv' });
+    return { csvFile, csvText, sheetName: firstSheetName };
+  };
+
+  const handleFileSelect = async (event) => {
     const selectedFile = event.target.files[0];
     if (!selectedFile) return;
 
-    if (!selectedFile.name.toLowerCase().endsWith('.csv')) {
-      setValidationErrors(['Please select a CSV file for the main data']);
+    const isCsv = selectedFile.name.toLowerCase().endsWith('.csv');
+    const isExcel = /\.(xlsx|xls)$/i.test(selectedFile.name);
+    if (!isCsv && !isExcel) {
+      setValidationErrors(['Please select a CSV or Excel file for the main data']);
       return;
     }
 
-    setFile(selectedFile);
+    setFile(null);
     setValidationErrors([]);
     setUploadStatus(null);
+    setSourceFileName('');
+    setConvertedSheetName('');
+    setIsParsingFile(true);
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const csvText = e.target.result;
+    try {
+      const { csvFile, csvText, sheetName } = isExcel
+        ? await convertExcelFileToCsv(selectedFile)
+        : { csvFile: selectedFile, csvText: await selectedFile.text(), sheetName: '' };
+
       const { headers, data } = parseCSV(csvText);
-      
+
+      setFile(csvFile);
+      setSourceFileName(isExcel ? selectedFile.name : '');
+      setConvertedSheetName(sheetName);
       setHeaders(headers);
       setCsvData({ data });
-    };
-    reader.readAsText(selectedFile);
+    } catch (error) {
+      setValidationErrors([error.message || 'Failed to read the selected file']);
+      setFile(null);
+      setHeaders([]);
+      setCsvData({ data: [] });
+    } finally {
+      setIsParsingFile(false);
+    }
   };
 
   const handleUpload = async () => {
@@ -121,6 +162,8 @@ const UploadDataPage = () => {
     setValidationErrors([]);
     setUploadStatus(null);
     setUploadComplete(false);
+    setSourceFileName('');
+    setConvertedSheetName('');
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -158,7 +201,7 @@ const UploadDataPage = () => {
                 <div className="flex-grow-1">
                   <h6 className="fw-semibold text-dark mb-2">Prepare Your Data</h6>
                   <p className="text-muted small lh-base">
-                    CSV file with coral stress experiment data including Site, Condition, Species, Timepoint, Temperature, and PAM values.
+                    CSV or Excel file with coral stress experiment data including Site, Condition, Species, Timepoint, Temperature, and PAM values.
                   </p>
                 </div>
               </div>
@@ -262,7 +305,7 @@ const UploadDataPage = () => {
                   <Row>
                     <Col md={12}>
                       <Form.Group className="mb-4">
-                        <Form.Label className="fw-medium text-dark mb-3">Select Your CSV Data File</Form.Label>
+                        <Form.Label className="fw-medium text-dark mb-3">Select Your CSV or Excel Data File</Form.Label>
                         <div 
                           className="upload-zone position-relative text-center d-flex flex-column justify-content-center"
                           style={{
@@ -281,20 +324,26 @@ const UploadDataPage = () => {
                                 {file ? (
                                     <>
                                         <p className="mb-0 fw-medium text-dark" style={{ wordBreak: 'break-all' }}>{file.name}</p>
+                                        {sourceFileName && (
+                                          <p className="mb-0 text-muted small">
+                                            Converted from {sourceFileName}
+                                            {convertedSheetName ? ` · sheet: ${convertedSheetName}` : ''}
+                                          </p>
+                                        )}
                                         <p className="mb-0 text-muted">{(file.size / 1024).toFixed(1)} KB</p>
                                         <p className="mb-0 text-success mt-2 small">ED values will be auto-calculated if not present</p>
                                     </>
                                 ) : (
                                     <>
-                                        <p className="mb-1 text-dark fw-medium">Drop your CSV file here or click to browse</p>
-                                        <p className="mb-0 text-muted small">System will auto-calculate EDs and map columns automatically</p>
+                                        <p className="mb-1 text-dark fw-medium">Drop your CSV or Excel file here or click to browse</p>
+                                        <p className="mb-0 text-muted small">Excel files are converted to CSV from the first sheet before upload</p>
                                     </>
                                 )}
                             </div>
 
                             <Form.Control 
                                 type="file" 
-                                accept=".csv"
+                                accept=".csv,.xlsx,.xls"
                                 onChange={handleFileSelect}
                                 ref={fileInputRef}
                                 className="position-absolute top-0 start-0 w-100 h-100 opacity-0"
@@ -317,6 +366,23 @@ const UploadDataPage = () => {
                     </Alert>
                   )}
 
+                  {isParsingFile && (
+                    <div className="mb-4">
+                      <div className="d-flex align-items-center mb-3">
+                        <div className="spinner-border spinner-border-sm text-primary me-2" role="status" />
+                        <span className="fw-medium text-dark">
+                          Reading and converting file...
+                        </span>
+                      </div>
+                      <ProgressBar
+                        animated
+                        now={100}
+                        variant="info"
+                        style={{ height: '8px', borderRadius: '4px' }}
+                      />
+                    </div>
+                  )}
+
                   {isUploading && (
                     <div className="mb-4">
                       <div className="d-flex align-items-center mb-3">
@@ -335,7 +401,7 @@ const UploadDataPage = () => {
                   )}
 
                   {(() => {
-                    const canUpload = file && authData.authenticated && !isUploading;
+                    const canUpload = file && authData.authenticated && !isUploading && !isParsingFile;
                     if (!authData.authenticated) return null;
                     
                     return (

@@ -16,7 +16,7 @@ const Markers = ({ colonies }) => {
           Array.isArray(colonies) &&
           colonies.map((colony) => (
             <Marker key={colony.id} position={[colony.latitude, colony.longitude]}>
-              <Popup maxWidth="300">
+              <Popup maxWidth="480" minWidth="420">
                 <ColonyPopupContent colony={colony} />
               </Popup>
             </Marker>

@@ -28,6 +28,50 @@ from django.db.models import Count, Q
 from django.db import transaction
 from django.utils import timezone
 from datetime import timedelta
+import re
+
+
+def _find_column_case_insensitive(df, name):
+    for col in df.columns:
+        if str(col).strip().lower() == name.lower():
+            return col
+    return None
+
+
+def _is_precalculated_wide_ed_format(df):
+    has_ed50 = _find_column_case_insensitive(df, 'ED50') is not None
+    has_temperature_series = any(
+        re.match(r'^temperature\s*\d+$', str(col).strip(), flags=re.IGNORECASE)
+        for col in df.columns
+    )
+    return has_ed50 and has_temperature_series
+
+
+def _expand_precalculated_ed_rows(df):
+    """Convert wide ED-only uploads (Temperature 1..N) into observation-like long rows."""
+    temperature_columns = [
+        col for col in df.columns
+        if re.match(r'^temperature\s*\d+$', str(col).strip(), flags=re.IGNORECASE)
+    ]
+    temperature_columns.sort(key=lambda col: int(re.search(r'\d+', str(col)).group(0)))
+
+    if not temperature_columns:
+        return df
+
+    expanded_rows = []
+    for _, row in df.iterrows():
+        for temperature_col in temperature_columns:
+            temperature_value = row.get(temperature_col)
+            if pd.isna(temperature_value):
+                continue
+
+            expanded = row.drop(labels=temperature_columns).to_dict()
+            expanded['Temperature'] = temperature_value
+            if _find_column_case_insensitive(pd.DataFrame([expanded]), 'Pam_value') is None:
+                expanded['Pam_value'] = pd.NA
+            expanded_rows.append(expanded)
+
+    return pd.DataFrame(expanded_rows)
 
 
 class CheckAuthenticationApiView(APIView):
@@ -256,6 +300,13 @@ class UploadCSVApiView(APIView):
             # STEP 1: Load raw data and check for ED values
             # ==============================================================
             df_raw = pd.read_csv(csv_file)
+            source_has_pam = _find_column_case_insensitive(df_raw, 'Pam_value') is not None
+
+            if _is_precalculated_wide_ed_format(df_raw):
+                original_rows = len(df_raw)
+                df_raw = _expand_precalculated_ed_rows(df_raw)
+                no_pam = no_pam or not source_has_pam
+                print(f"↔️ Expanded pre-calculated ED wide format: {original_rows} rows → {len(df_raw)} rows")
             
             # Check if ED values already exist
             ed_patterns = ['ed50', 'ed5', 'ed95', 'ED50', 'ED5', 'ED95']
@@ -563,7 +614,7 @@ class UploadCSVApiView(APIView):
                 '--csv_path', temp_combined_csv,
                 '--owner', request.user.username,
             ]
-            if no_pam:
+            if no_pam or not source_has_pam:
                 command_args.append('--no-pam')
 
             call_command('populate_db', *command_args)

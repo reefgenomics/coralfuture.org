@@ -75,6 +75,7 @@ const Map = () => {
             
             .leaflet-popup-content {
               margin: 10px 10px;
+              min-width: 420px;
             }
             
             .leaflet-popup-content::-webkit-scrollbar {
