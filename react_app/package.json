@@ -17,6 +17,7 @@
     "leaflet": "^1.9.4",
     "leaflet-defaulticon-compatibility": "^0.1.2",
     "leaflet-sidebar-v2": "^3.2.3",
+    "mapbox-gl": "^3.22.0",
     "npm": "^10.4.0",
     "react": "^18.2.0",
     "react-bootstrap": "^2.10.0",

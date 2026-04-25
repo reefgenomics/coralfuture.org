@@ -51,6 +51,14 @@ const ProjectsPage = () => {
     return `https://doi.org/${s.replace(/^https?:\/\/doi\.org\/?/i, '')}`;
   };
 
+  const getProjectCoverPhoto = (project) => {
+    return project?.attachment?.cover_photo
+      || project?.cover_photo
+      || project?.cover_photo_url
+      || project?.image
+      || null;
+  };
+
   if (loading) {
     return (
       <div className="projects-page">
@@ -78,9 +86,14 @@ const ProjectsPage = () => {
           </p>
         </div>
         <Row className="g-4">
-          {projects.map((project) => (
+          {projects.map((project) => {
+            const coverPhoto = getProjectCoverPhoto(project);
+            return (
             <Col key={project.id} lg={6} xl={4}>
-              <Card className="project-card h-100">
+              <Card
+                className={`project-card h-100${coverPhoto ? ' project-card-with-cover' : ''}`}
+                style={coverPhoto ? { '--project-cover-image': `url(${coverPhoto})` } : undefined}
+              >
                 <Card.Body className="p-4 d-flex flex-column">
                   <div className="d-flex align-items-start justify-content-between mb-3">
                     <div className="project-icon">
@@ -170,7 +183,8 @@ const ProjectsPage = () => {
                 </Card.Body>
               </Card>
             </Col>
-          ))}
+            );
+          })}
         </Row>
         
         {projects.length === 0 && (

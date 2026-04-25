@@ -92,6 +92,7 @@ class ObservationSerializer(serializers.ModelSerializer):
 class ProjectSerializer(serializers.ModelSerializer):
     publications = serializers.SerializerMethodField()
     owner = serializers.SerializerMethodField()
+    cover_photo = serializers.SerializerMethodField()
     
     def get_publications(self, obj):
         publications = obj.publications.all()
@@ -110,16 +111,43 @@ class ProjectSerializer(serializers.ModelSerializer):
             'username': obj.owner.username,
             'email': obj.owner.email
         }
+
+    def get_cover_photo(self, obj):
+        attachment = obj.attachments.first()
+        if not attachment or not attachment.cover_photo:
+            return None
+
+        request = self.context.get('request')
+        if request:
+            return request.build_absolute_uri(attachment.cover_photo.url)
+        return attachment.cover_photo.url
     
     class Meta:
         model = Project
-        fields = ['id', 'name', 'registration_date', 'description', 'owner', 'publications']
+        fields = ['id', 'name', 'registration_date', 'description', 'owner', 'publications', 'cover_photo']
 
 
 class ExperimentSerializer(serializers.ModelSerializer):
+    species = serializers.SerializerMethodField()
+
+    def get_species(self, obj):
+        observations = self.context.get('observations')
+        if observations is None:
+            observations = obj.observations.select_related('biosample__colony').all()
+
+        species = {
+            observation.biosample.colony.species
+            for observation in observations
+            if observation.experiment_id == obj.id
+            and observation.biosample
+            and observation.biosample.colony
+            and observation.biosample.colony.species
+        }
+        return ', '.join(sorted(species)) if species else None
+
     class Meta:
         model = Experiment
-        fields = ['id', 'name', 'date']
+        fields = ['id', 'name', 'date', 'species']
 
 
 class ColonyDetailSerializer(serializers.ModelSerializer):
@@ -251,7 +279,9 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
 
     def get_experiments(self, obj):
         experiments = self.context.get('experiments', [])
-        return ExperimentSerializer(experiments, many=True).data
+        return ExperimentSerializer(experiments, many=True, context={
+            'observations': self.context.get('observations', [])
+        }).data
 
     def get_colonies(self, obj):
         colonies = self.context.get('colonies', [])

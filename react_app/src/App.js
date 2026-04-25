@@ -15,6 +15,7 @@ import LoginPage from 'pages/Login/LoginPage';
 import ProjectsPage from 'pages/Projects/ProjectsPage';
 import ProjectDetailPage from 'pages/ProjectDetail/ProjectDetailPage';
 import ED50CalculatorPage from 'pages/ED50Calculator/ED50CalculatorPage';
+import MapboxMapPage from 'pages/MapboxMap/MapboxMapPage';
 // Components
 import NavigationBar from 'components/Navbar/Navbar';
 
@@ -30,6 +31,7 @@ const App = () => {
             <Routes>
               <Route path='/' element={<HomePage />} />
               <Route path='/map' element={<CustomerMap />} />
+              <Route path='/map-mapbox' element={<MapboxMapPage />} />
               <Route path="/cart" element={<CustomerCart />} />
               <Route path="/upload" element={<UploadDataPage />} />
               <Route path="/login" element={<LoginPage />} />
@@ -52,6 +54,11 @@ const App = () => {
               }
               
               .leaflet-container {
+                height: 100%;
+                width: 100%;
+              }
+
+              .mapboxgl-map {
                 height: 100%;
                 width: 100%;
               }

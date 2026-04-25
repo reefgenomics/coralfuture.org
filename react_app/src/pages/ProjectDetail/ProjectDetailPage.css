@@ -124,6 +124,20 @@
   padding: 0;
 }
 
+.project-cart-button {
+  border: none;
+  border-radius: 999px;
+  padding: 0.75rem 1.35rem;
+  color: #0f766e;
+  font-weight: 700;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.16);
+}
+
+.project-cart-button:hover {
+  color: #0369a1;
+  transform: translateY(-1px);
+}
+
 /* Section Cards */
 .section-card {
   border: none;
@@ -225,14 +239,76 @@
   background: #0ea5e9;
 }
 
+.cart-colony-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+}
+
+.cart-colony-list {
+  display: grid;
+  gap: 0.65rem;
+  max-height: 430px;
+  overflow: auto;
+  padding-right: 0.25rem;
+}
+
+.cart-colony-option {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.85rem;
+  align-items: flex-start;
+  padding: 0.9rem 1rem;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.cart-colony-option:hover {
+  border-color: rgba(14, 165, 233, 0.45);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
+}
+
+.cart-colony-option .form-check {
+  margin: 0.1rem 0 0;
+  min-height: auto;
+}
+
+.cart-colony-name {
+  color: #0f172a;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.cart-colony-meta {
+  color: #64748b;
+  font-size: 0.9rem;
+  margin-top: 0.15rem;
+}
+
 /* Statistics table: scrollable box */
 .section-card.statistics-card {
-  overflow: visible;
+  border-radius: 16px;
+  overflow: hidden;
 }
 
 .statistics-card-body {
   overflow: visible;
-  padding-bottom: 0;
+  padding-bottom: 1.25rem;
+}
+
+.statistics-card .card-header.section-header {
+  margin: 0;
+  border-radius: 16px;
 }
 
 .statistics-table-wrap {
@@ -241,7 +317,7 @@
   overflow: auto;
   -webkit-overflow-scrolling: touch;
   border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  border-radius: 12px;
   position: relative;
 }
 

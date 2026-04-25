@@ -140,6 +140,25 @@ const HomePage = () => {
               View Map
             </a>
           </div>
+
+          <div className="hero-citation" aria-label="CoralFuture citation">
+            <div className="citation-icon">
+              <JournalText size={20} />
+            </div>
+            <div className="citation-content">
+              <span className="citation-label">If you use this resource, please cite us</span>
+              <p>
+                Betyaev I, Iakovleva Y, Colin L, Voolstra CR.{' '}
+                <a href="https://coralfuture.org" target="_blank" rel="noopener noreferrer">
+                  coralfuture.org
+                </a>
+                , Version 1.0. Zenodo; 2026. doi:{' '}
+                <a href="https://doi.org/10.5281/ZENODO.19597144" target="_blank" rel="noopener noreferrer">
+                  10.5281/ZENODO.19597144
+                </a>
+              </p>
+            </div>
+          </div>
         </div>
       </section>
 

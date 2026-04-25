@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext, useCallback } from 'react';
-import { Container, Row, Col, Card, Badge, Table, Button, Spinner, Form } from 'react-bootstrap';
+import { Container, Row, Col, Card, Badge, Table, Button, Spinner, Form, Modal, Alert } from 'react-bootstrap';
 import {
   ArrowLeft,
   Calendar,
@@ -18,6 +18,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './ProjectDetailPage.css';
 import { AuthContext } from '../../contexts/AuthContext';
+import { UserCartContext } from '../../contexts/UserCartContext';
 
 const getDoiUrl = (doi) => {
   if (!doi) return null;
@@ -32,6 +33,39 @@ const getCsrfToken = () => {
 };
 
 const CITATION_API = 'https://citation.doi.org/format';
+
+const STATISTICS_COLUMN_ORDER = [
+  'site',
+  'species',
+  'condition',
+  'timepoint',
+  'ed5',
+  'ed50',
+  'ed95',
+  'meaned5',
+  'meaned50',
+  'meaned95',
+  'sd',
+  'sded5',
+  'sded50',
+  'sded95',
+];
+
+const normalizeStatisticsKey = (key) => String(key).toLowerCase().replace(/[^a-z0-9]/g, '');
+const TEXT_STATISTICS_KEYS = new Set(['site', 'species', 'condition', 'timepoint']);
+
+const formatStatisticsValue = (value, key) => {
+  if (value == null || value === '') return '—';
+
+  const normalizedKey = normalizeStatisticsKey(key);
+  if (TEXT_STATISTICS_KEYS.has(normalizedKey)) return String(value);
+
+  const numericValue = typeof value === 'number'
+    ? value
+    : (typeof value === 'string' && value.trim() !== '' ? Number(value) : NaN);
+
+  return Number.isFinite(numericValue) ? numericValue.toFixed(2) : String(value);
+};
 
 function normalizeDoi(doi) {
   if (!doi || typeof doi !== 'string') return null;
@@ -81,6 +115,7 @@ const ProjectDetailPage = () => {
   const { projectId } = useParams();
   const navigate = useNavigate();
   const { authData, loading: authLoading } = useContext(AuthContext);
+  const { addToCart } = useContext(UserCartContext);
   const [project, setProject] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -96,6 +131,11 @@ const ProjectDetailPage = () => {
   const [savingCover, setSavingCover] = useState(false);
   const [newAdditionalLink, setNewAdditionalLink] = useState('');
   const [savingAdditionalLinks, setSavingAdditionalLinks] = useState(false);
+  const [showCartModal, setShowCartModal] = useState(false);
+  const [selectedCartColonies, setSelectedCartColonies] = useState(new Set());
+  const [cartGroupName, setCartGroupName] = useState('');
+  const [addingToCart, setAddingToCart] = useState(false);
+  const [cartMessage, setCartMessage] = useState(null);
 
   const backendUrl = '';
 
@@ -130,6 +170,16 @@ const ProjectDetailPage = () => {
     setError(null);
     if (projectId) fetchProject();
   }, [projectId, authData.authenticated, authLoading, fetchProject]);
+
+  useEffect(() => {
+    if (!project) return;
+
+    const colonyIds = Array.isArray(project.colonies)
+      ? project.colonies.map((colony) => colony.id)
+      : [];
+    setSelectedCartColonies(new Set(colonyIds));
+    setCartGroupName(project.name ? `${project.name} colonies` : 'Project colonies');
+  }, [project]);
 
   const isOwner = project && project.owner && authData.username && project.owner.username === authData.username;
 
@@ -347,6 +397,68 @@ const ProjectDetailPage = () => {
     };
   };
 
+  const openCartModal = () => {
+    const colonyIds = Array.isArray(project?.colonies)
+      ? project.colonies.map((colony) => colony.id)
+      : [];
+    setSelectedCartColonies(new Set(colonyIds));
+    setCartGroupName(project?.name ? `${project.name} colonies` : 'Project colonies');
+    setCartMessage(null);
+    setShowCartModal(true);
+  };
+
+  const toggleCartColony = (colonyId) => {
+    setSelectedCartColonies((previous) => {
+      const next = new Set(previous);
+      if (next.has(colonyId)) {
+        next.delete(colonyId);
+      } else {
+        next.add(colonyId);
+      }
+      return next;
+    });
+  };
+
+  const setAllCartColonies = (checked) => {
+    const colonyIds = checked && Array.isArray(project?.colonies)
+      ? project.colonies.map((colony) => colony.id)
+      : [];
+    setSelectedCartColonies(new Set(colonyIds));
+  };
+
+  const handleProjectAddToCart = async () => {
+    const colonyIds = Array.from(selectedCartColonies);
+    if (!cartGroupName.trim()) {
+      setCartMessage({ type: 'danger', text: 'Please enter a cart group name.' });
+      return;
+    }
+    if (colonyIds.length === 0) {
+      setCartMessage({ type: 'danger', text: 'Select at least one colony.' });
+      return;
+    }
+
+    setAddingToCart(true);
+    setCartMessage(null);
+    try {
+      await addToCart(
+        colonyIds,
+        { project: project?.name || '', source: 'project_detail', project_id: project?.id },
+        cartGroupName.trim(),
+        backendUrl
+      );
+      setCartMessage({ type: 'success', text: `${colonyIds.length} colonies added to cart.` });
+      setTimeout(() => {
+        setShowCartModal(false);
+        setCartMessage(null);
+      }, 900);
+    } catch (err) {
+      console.error('Error adding project colonies to cart:', err);
+      setCartMessage({ type: 'danger', text: 'Could not add selected colonies to cart.' });
+    } finally {
+      setAddingToCart(false);
+    }
+  };
+
   if (authLoading || loading) {
     return (
       <div className="project-detail-page">
@@ -409,8 +521,19 @@ const ProjectDetailPage = () => {
     ? (Array.isArray(att.statistics) ? att.statistics : [att.statistics])
     : [];
   const statisticsKeys = statisticsRows.length > 0 && typeof statisticsRows[0] === 'object' && statisticsRows[0] !== null
-    ? [...new Set(statisticsRows.flatMap((row) => Object.keys(row)))]
+    ? [...new Set(statisticsRows.flatMap((row) => Object.keys(row)))].sort((a, b) => {
+        const aOrder = STATISTICS_COLUMN_ORDER.indexOf(normalizeStatisticsKey(a));
+        const bOrder = STATISTICS_COLUMN_ORDER.indexOf(normalizeStatisticsKey(b));
+        if (aOrder !== -1 || bOrder !== -1) {
+          if (aOrder === -1) return 1;
+          if (bOrder === -1) return -1;
+          return aOrder - bOrder;
+        }
+        return a.localeCompare(b);
+      })
     : [];
+  const projectColonies = Array.isArray(project.colonies) ? project.colonies : [];
+  const allCartColoniesSelected = projectColonies.length > 0 && selectedCartColonies.size === projectColonies.length;
 
   return (
     <div className="project-detail-page">
@@ -455,6 +578,12 @@ const ProjectDetailPage = () => {
                 Owner: {project.owner?.username || 'Unknown'}
               </span>
             </div>
+            {project.colonies && project.colonies.length > 0 && (
+              <Button variant="light" className="project-cart-button" onClick={openCartModal}>
+                <i className="bi bi-cart4 me-2"></i>
+                Add colonies to cart
+              </Button>
+            )}
             {saveMessage && <p className="text-white mb-0 mt-2 small">{saveMessage}</p>}
           </div>
         </Container>
@@ -727,7 +856,7 @@ const ProjectDetailPage = () => {
                         {statisticsRows.map((row, idx) => (
                           <tr key={idx}>
                             {statisticsKeys.map((key) => (
-                              <td key={key}>{row[key] != null ? String(row[key]) : '—'}</td>
+                              <td key={key}>{formatStatisticsValue(row[key], key)}</td>
                             ))}
                           </tr>
                         ))}
@@ -756,6 +885,7 @@ const ProjectDetailPage = () => {
                     <thead>
                       <tr>
                         <th>Experiment Name</th>
+                        <th>Species</th>
                         <th>Experiment Date</th>
                       </tr>
                     </thead>
@@ -763,6 +893,7 @@ const ProjectDetailPage = () => {
                       {project.experiments.map((experiment) => (
                         <tr key={experiment.id}>
                           <td>{experiment.name}</td>
+                          <td>{experiment.species || '—'}</td>
                           <td>{formatDate(experiment.date)}</td>
                         </tr>
                       ))}
@@ -897,6 +1028,69 @@ const ProjectDetailPage = () => {
           </Row>
         )}
       </Container>
+
+      <Modal show={showCartModal} onHide={() => setShowCartModal(false)} size="lg" centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Add Project Colonies to Cart</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {cartMessage && (
+            <Alert variant={cartMessage.type} className="mb-3">
+              {cartMessage.text}
+            </Alert>
+          )}
+
+          <Form.Group className="mb-3">
+            <Form.Label>Cart Group Name</Form.Label>
+            <Form.Control
+              type="text"
+              value={cartGroupName}
+              onChange={(event) => setCartGroupName(event.target.value)}
+              placeholder="Enter a name for this cart group"
+            />
+          </Form.Group>
+
+          <div className="cart-colony-toolbar">
+            <Form.Check
+              type="checkbox"
+              id="select-all-project-colonies"
+              label={`Select all colonies (${projectColonies.length})`}
+              checked={allCartColoniesSelected}
+              onChange={(event) => setAllCartColonies(event.target.checked)}
+            />
+            <span className="text-muted small">
+              Selected: {selectedCartColonies.size}
+            </span>
+          </div>
+
+          <div className="cart-colony-list">
+            {projectColonies.map((colony) => (
+              <label key={colony.id} className="cart-colony-option">
+                <Form.Check
+                  type="checkbox"
+                  checked={selectedCartColonies.has(colony.id)}
+                  onChange={() => toggleCartColony(colony.id)}
+                  aria-label={`Select ${colony.name}`}
+                />
+                <div className="cart-colony-option-main">
+                  <div className="cart-colony-name">{colony.name}</div>
+                  <div className="cart-colony-meta">
+                    {colony.species || 'Unknown species'} · {colony.country || 'Unknown location'}
+                  </div>
+                </div>
+              </label>
+            ))}
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowCartModal(false)} disabled={addingToCart}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={handleProjectAddToCart} disabled={addingToCart || selectedCartColonies.size === 0}>
+            {addingToCart ? 'Adding...' : `Add ${selectedCartColonies.size} to Cart`}
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 };
