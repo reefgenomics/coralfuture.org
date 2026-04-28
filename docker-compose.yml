@@ -32,6 +32,7 @@ services:
     volumes:
       - ./django_app:/usr/src/app
       - ./shared_data:/shared_data
+      - /home/coralfuture-server/MapData/benthic:/benthic:ro
     depends_on:
       - database
 

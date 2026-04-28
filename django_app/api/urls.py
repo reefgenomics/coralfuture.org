@@ -5,7 +5,8 @@ from api.views import BioSamplesApiView, ObservationsApiView, \
     ColoniesApiView, ThermalToleranceApiView, ThermalToleranceMinMaxView, \
     BreakpointTemperatureApiView, BreakpointTemperatureMinMaxView, \
     ThermalLimitApiView, ThermalLimitMinMaxView, \
-    ProjectsApiView, CSRFTokenView, LoginApiView, LogoutApiView
+    ProjectsApiView, CSRFTokenView, LoginApiView, LogoutApiView, \
+    BenthicVectorTileApiView
 from api.projects_api import (
     ProjectsApiView as NewProjectsApiView,
     ProjectDetailApiView,
@@ -38,6 +39,8 @@ urlpatterns = [
         path('biosamples/', BioSamplesApiView.as_view()),
         path('colonies/', ColoniesApiView.as_view()),
         path('observations/', ObservationsApiView.as_view()),
+        path('benthic-tiles/<int:z>/<int:x>/<int:y>.pbf', BenthicVectorTileApiView.as_view()),
+        path('benthic-tiles/<slug:region>/<int:z>/<int:x>/<int:y>.pbf', BenthicVectorTileApiView.as_view()),
         path('projects/', NewProjectsApiView.as_view()),
         path('projects/<int:project_id>/', ProjectDetailApiView.as_view()),
         path('thermal-tolerances/', include([

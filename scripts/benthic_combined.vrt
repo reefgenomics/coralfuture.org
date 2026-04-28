@@ -1,0 +1,20 @@
+<OGRVRTDataSource>
+  <OGRVRTUnionLayer name="benthic">
+    <OGRVRTLayer name="Central Indian Ocean">
+      <SrcDataSource>/home/coralfuture-server/MapData/benthic/benthic.gpkg</SrcDataSource>
+      <SrcLayer>Central Indian Ocean</SrcLayer>
+    </OGRVRTLayer>
+    <OGRVRTLayer name="Northern Caribbean, Florida &amp; Bahamas">
+      <SrcDataSource>/vsizip//home/coralfuture-server/MapData/Downloaded_data/Northern-Caribbean--Florida---Bahamas-20230310014129.zip/Benthic-Map/benthic.gpkg</SrcDataSource>
+      <SrcLayer>Northern Caribbean, Florida &amp; Bahamas</SrcLayer>
+    </OGRVRTLayer>
+    <OGRVRTLayer name="Northwestern Arabian Sea">
+      <SrcDataSource>/vsizip//home/coralfuture-server/MapData/Downloaded_data/Northwestern-Arabian-Sea-20230310014334.zip/Benthic-Map/benthic.gpkg</SrcDataSource>
+      <SrcLayer>Northwestern Arabian Sea</SrcLayer>
+    </OGRVRTLayer>
+    <OGRVRTLayer name="Red Sea &amp; Gulf of Aden">
+      <SrcDataSource>/vsizip//home/coralfuture-server/MapData/Downloaded_data/Red-Sea---Gulf-of-Aden-20230310014131.zip/Benthic-Map/benthic.gpkg</SrcDataSource>
+      <SrcLayer>Red Sea &amp; Gulf of Aden</SrcLayer>
+    </OGRVRTLayer>
+  </OGRVRTUnionLayer>
+</OGRVRTDataSource>

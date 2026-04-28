@@ -1,12 +1,14 @@
 // External imports
 import React, { useEffect, useState, useContext } from 'react';
 import L from 'leaflet';
-import { MapContainer, TileLayer, LayersControl, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import { Spinner } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 // Internal imports
 import { SidebarFilterContext } from 'contexts/SidebarFilterContext'
 import Markers from 'components/Markers/Markers';
+import { BenthicTilesetsInViewport } from 'components/Tiles/BenthicTileLayer';
+import { BASEMAPS } from 'components/Tiles/basemaps';
 import filterColonies from 'utils/filterColonies';
 
 
@@ -22,10 +24,10 @@ const ChangeView = ({ markers }) => {
   return null;
 }
 
-const Map = () => {
-  const { BaseLayer } = LayersControl;
+const Map = ({ basemap = 'imagery', benthicVisible = true, benthicClasses = {} }) => {
   const { allColonies, filters, filteredColonies, setFilteredColonies, defaultValues } = useContext(SidebarFilterContext);
   const [mapCenter, setMapCenter] = useState(null);
+  const basemapConfig = BASEMAPS[basemap] || BASEMAPS.imagery;
   
   useEffect(() => {
     if (allColonies && allColonies.length > 0) {
@@ -54,18 +56,15 @@ const Map = () => {
         attributionControl={false}
       >
         <ChangeView markers={filteredColonies} />
-        <LayersControl position="topright">
-        <BaseLayer name="OpenStreetMap">
-            <TileLayer
-              url='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
-            />
-          </BaseLayer>
-          <BaseLayer checked name="World Imagery">
-            <TileLayer
-              url='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
-            />
-          </BaseLayer>
-        </LayersControl>
+        <TileLayer
+          key={basemap}
+          url={basemapConfig.url}
+          attribution={basemapConfig.attribution}
+          maxNativeZoom={basemapConfig.maxNativeZoom}
+        />
+        {benthicVisible && (
+          <BenthicTilesetsInViewport benthicClasses={benthicClasses} />
+        )}
         <Markers colonies={filteredColonies} />
         <style>
           {`
@@ -94,6 +93,48 @@ const Map = () => {
             
             .leaflet-popup-content::-webkit-scrollbar-thumb:hover {
               background: #555;
+            }
+
+            .tile-legend {
+              position: absolute;
+              right: 10px;
+              bottom: 24px;
+              z-index: 500;
+              padding: 12px 14px;
+              min-width: 180px;
+              background: rgba(255, 255, 255, 0.94);
+              border-radius: 14px;
+              box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18);
+              border: 1px solid rgba(148, 163, 184, 0.28);
+              color: #0f172a;
+              font-size: 0.82rem;
+              backdrop-filter: blur(10px);
+            }
+
+            .tile-legend-title {
+              margin-bottom: 8px;
+              color: #0f766e;
+              font-weight: 800;
+              letter-spacing: 0.06em;
+              text-transform: uppercase;
+              font-size: 0.72rem;
+            }
+
+            .tile-legend-item {
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              margin: 5px 0;
+              white-space: nowrap;
+            }
+
+            .tile-legend-swatch {
+              width: 14px;
+              height: 14px;
+              flex: 0 0 14px;
+              border-radius: 4px;
+              border: 1px solid rgba(15, 23, 42, 0.18);
+              box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.38);
             }
           `}
         </style>

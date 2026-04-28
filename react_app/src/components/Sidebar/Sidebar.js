@@ -13,9 +13,18 @@ import './Sidebar.css';
 import { SidebarFilterContext } from 'contexts/SidebarFilterContext';
 // Components
 import AddToCartButton from 'components/Button/AddToCart';
+import { DEFAULT_BENTHIC_CLASS_COLORS } from 'components/Tiles/BenthicTileLayer';
+import { BASEMAPS } from 'components/Tiles/basemaps';
 import TemperatureFiltersModal from './TemperatureFiltersModal';
 
-const InputSidebar = () => {
+const InputSidebar = ({
+  basemap = 'imagery',
+  onBasemapChange,
+  benthicVisible = true,
+  onBenthicVisibleChange,
+  benthicClasses = {},
+  onBenthicClassesChange,
+}) => {
 
   const [selectedSpecies, setSelectedSpecies] = useState('');
   const [selectedProject, setSelectedProject] = useState('');
@@ -23,6 +32,7 @@ const InputSidebar = () => {
   
   // State for temperature filters modal
   const [showTemperatureModal, setShowTemperatureModal] = useState(false);
+  const [activeTab, setActiveTab] = useState('filters');
   
   
   // Get all Colonies and Projects from Context and define list of species
@@ -162,6 +172,28 @@ const InputSidebar = () => {
     setShowTemperatureModal(false);
   };
 
+  const updateBenthicClass = (className, patch) => {
+    onBenthicClassesChange?.((previous) => ({
+      ...previous,
+      [className]: {
+        visible: previous[className]?.visible ?? true,
+        color: previous[className]?.color || DEFAULT_BENTHIC_CLASS_COLORS[className],
+        ...patch,
+      },
+    }));
+  };
+
+  const resetBenthicColors = () => {
+    onBenthicClassesChange?.(
+      Object.fromEntries(
+        Object.entries(DEFAULT_BENTHIC_CLASS_COLORS).map(([className, color]) => [
+          className,
+          { visible: true, color },
+        ])
+      )
+    );
+  };
+
   // Render compact slider for sidebar
   const renderCompactSlider = (parameter, label, unit = '°C') => {
     const defaultValue = defaultValues[parameter] || { min: 20, max: 40 };
@@ -254,24 +286,38 @@ const InputSidebar = () => {
   return (
     <>
       <div className="sidebar">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-          <div className="d-flex align-items-center">
-            <h4 style={{ margin: 0 }}>Filters</h4>
-            {activeFiltersCount > 0 && (
-              <span className="badge bg-primary ms-2 filter-count-badge">
-                {activeFiltersCount}
-              </span>
-            )}
-          </div>
+        <div className="map-sidebar-header">
+          <div className="map-sidebar-title">Map</div>
           <Button 
             variant="outline-secondary" 
             size="sm" 
             onClick={toggleSidebar}
-            style={{ width: '30px', height: '30px', padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            className="map-sidebar-collapse-btn"
           >
-            <i className="bi bi-chevron-left"></i>
+            <i className="bi bi-chevron-right"></i>
           </Button>
         </div>
+
+        <div className="map-sidebar-tabs">
+          <button
+            type="button"
+            className={`map-sidebar-tab ${activeTab === 'filters' ? 'active' : ''}`}
+            onClick={() => setActiveTab('filters')}
+          >
+            Filters
+            {activeFiltersCount > 0 && <span className="filter-count-badge">{activeFiltersCount}</span>}
+          </button>
+          <button
+            type="button"
+            className={`map-sidebar-tab ${activeTab === 'layers' ? 'active' : ''}`}
+            onClick={() => setActiveTab('layers')}
+          >
+            Layers
+          </button>
+        </div>
+
+        {activeTab === 'filters' && (
+        <div className="sidebar-section">
         
         <Form>
           <Row className="mb-3">
@@ -366,6 +412,70 @@ const InputSidebar = () => {
             </Col>
           </Row>
         </Form>
+        </div>
+        )}
+
+        {activeTab === 'layers' && (
+        <div className="sidebar-section layers-section">
+          <div className="layer-card">
+            <div className="layer-card-title">Map settings</div>
+            {Object.entries(BASEMAPS).map(([key, config]) => (
+              <Form.Check
+                key={key}
+                type="radio"
+                id={`basemap-${key}`}
+                name="basemap"
+                label={config.label}
+                checked={basemap === key}
+                onChange={() => onBasemapChange?.(key)}
+                className="layer-radio"
+              />
+            ))}
+          </div>
+
+          <div className="layer-card">
+            <div className="layer-toggle-row">
+              <Form.Check
+                type="checkbox"
+                id="benthic-layer-toggle"
+                label="Benthic Habitat"
+                checked={benthicVisible}
+                onChange={(event) => onBenthicVisibleChange?.(event.target.checked)}
+                className="fw-semibold"
+              />
+              <Button variant="link" size="sm" onClick={resetBenthicColors} className="layer-reset-btn">
+                Reset
+              </Button>
+            </div>
+
+            {benthicVisible && (
+              <div className="benthic-class-list">
+                {Object.entries(DEFAULT_BENTHIC_CLASS_COLORS).map(([className, defaultColor]) => {
+                  const classSettings = benthicClasses[className] || { visible: true, color: defaultColor };
+                  return (
+                    <div key={className} className={`benthic-class-row ${classSettings.visible ? '' : 'disabled'}`}>
+                      <Form.Check
+                        type="checkbox"
+                        id={`benthic-class-${className}`}
+                        checked={classSettings.visible}
+                        onChange={(event) => updateBenthicClass(className, { visible: event.target.checked })}
+                      />
+                      <input
+                        type="color"
+                        value={classSettings.color || defaultColor}
+                        onChange={(event) => updateBenthicClass(className, { color: event.target.value })}
+                        className="benthic-color-input"
+                        aria-label={`${className} color`}
+                      />
+                      <span className="benthic-class-label">{className}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+        )}
       </div>
 
       {/* Temperature Filters Modal */}

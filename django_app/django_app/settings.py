@@ -190,6 +190,15 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
+BENTHIC_MBTILES_PATHS = {
+    'cio': os.getenv('BENTHIC_CIO_MBTILES_PATH', '/benthic/benthic_cio.mbtiles'),
+    'caribbean': os.getenv('BENTHIC_CARIBBEAN_MBTILES_PATH', '/benthic/benthic_caribbean.mbtiles'),
+    'arabian': os.getenv('BENTHIC_ARABIAN_MBTILES_PATH', '/benthic/benthic_arabian.mbtiles'),
+    'redsea': os.getenv('BENTHIC_REDSEA_MBTILES_PATH', '/benthic/benthic_redsea.mbtiles'),
+}
+
+BENTHIC_MBTILES_PATH = os.getenv('BENTHIC_MBTILES_PATH', BENTHIC_MBTILES_PATHS['cio'])
+
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 WHITENOISE_MANIFEST_STRICT = False
 

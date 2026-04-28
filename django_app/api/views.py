@@ -4,10 +4,11 @@ import tempfile
 import pandas as pd
 import csv
 import json
+import sqlite3
 from django.db.models import Max, Min
 from django.core.management import call_command
 from django.contrib.auth import authenticate, login, logout
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse, HttpResponseNotFound
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.utils.decorators import method_decorator
 from django.views import View
@@ -29,6 +30,7 @@ from django.db import transaction
 from django.utils import timezone
 from datetime import timedelta
 import re
+from django.conf import settings
 
 
 def _find_column_case_insensitive(df, name):
@@ -83,6 +85,50 @@ class CheckAuthenticationApiView(APIView):
         return Response({
             'authenticated': request.user.is_authenticated,
             'username': request.user.username})
+
+
+class BenthicVectorTileApiView(APIView):
+    """
+    Serve pre-generated benthic habitat vector tiles from an MBTiles archive.
+    MBTiles uses TMS tile rows, so incoming XYZ y values are flipped.
+    """
+
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request, z, x, y, region=None):
+        mbtiles_paths = getattr(settings, 'BENTHIC_MBTILES_PATHS', {})
+        mbtiles_path = mbtiles_paths.get(region) if region else settings.BENTHIC_MBTILES_PATH
+        if not mbtiles_path or not os.path.exists(mbtiles_path):
+            return HttpResponse(status=204)
+
+        tms_y = (1 << z) - 1 - y
+        try:
+            with sqlite3.connect(mbtiles_path) as conn:
+                cursor = conn.execute(
+                    """
+                    SELECT tile_data
+                    FROM tiles
+                    WHERE zoom_level = ? AND tile_column = ? AND tile_row = ?
+                    """,
+                    (z, x, tms_y)
+                )
+                row = cursor.fetchone()
+        except sqlite3.Error as exc:
+            return Response(
+                {'error': f'Could not read benthic tiles: {exc}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+        if not row:
+            return HttpResponse(status=204)
+
+        tile_data = row[0]
+        response = HttpResponse(tile_data, content_type='application/x-protobuf')
+        if tile_data[:2] == b'\x1f\x8b':
+            response['Content-Encoding'] = 'gzip'
+        response['Cache-Control'] = 'public, max-age=31536000, immutable'
+        return response
 
 
 @method_decorator(ensure_csrf_cookie, name='dispatch')
