@@ -4,7 +4,6 @@ import {
   JournalText, 
   Calendar, 
   Person, 
-  BoxArrowUpRight,
   FileText,
   Globe
 } from 'react-bootstrap-icons';

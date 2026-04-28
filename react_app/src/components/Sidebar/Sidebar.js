@@ -1,6 +1,5 @@
 // External imports
-import axios from 'axios';
-import React, { useState, useEffect, useContext, useCallback } from 'react';
+import React, { useEffect, useState, useContext } from 'react';
 import { Button, Form, FormGroup, Row, Col, Card } from 'react-bootstrap';
 import { Box, Slider } from '@mui/material';
 import { ThermometerHalf } from 'react-bootstrap-icons';
@@ -20,6 +19,8 @@ import TemperatureFiltersModal from './TemperatureFiltersModal';
 const InputSidebar = ({
   basemap = 'imagery',
   onBasemapChange,
+  captionsVisible = true,
+  onCaptionsVisibleChange,
   benthicVisible = true,
   onBenthicVisibleChange,
   benthicClasses = {},
@@ -36,9 +37,15 @@ const InputSidebar = ({
   
   
   // Get all Colonies and Projects from Context and define list of species
-  const { allColonies, allBioSamples, allProjects, filters, setFilters, defaultValues } = useContext(SidebarFilterContext);
+  const { allColonies, allProjects, filters, setFilters, defaultValues } = useContext(SidebarFilterContext);
   const speciesList = [...new Set(allColonies.map(allColonies => allColonies.species))].sort();
   const projectList = [...new Set(allProjects.map(allProjects => allProjects.name))].sort();
+
+  useEffect(() => {
+    setSelectedSpecies(filters.species || '');
+    setSelectedProject(filters.project || '');
+    setSelectedDates(Array.isArray(filters.years) ? filters.years : []);
+  }, [filters.species, filters.project, filters.years]);
 
   // Extract temperature filters from global filters
   const temperatureFilters = {
@@ -431,6 +438,15 @@ const InputSidebar = ({
                 className="layer-radio"
               />
             ))}
+            <div className="layer-divider" />
+            <Form.Check
+              type="checkbox"
+              id="captions-layer-toggle"
+              label="Captions"
+              checked={captionsVisible}
+              onChange={(event) => onCaptionsVisibleChange?.(event.target.checked)}
+              className="fw-semibold"
+            />
           </div>
 
           <div className="layer-card">

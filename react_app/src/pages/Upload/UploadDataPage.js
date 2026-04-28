@@ -167,19 +167,6 @@ const UploadDataPage = () => {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const shinyUrl = (() => {
-    const envUrl = process.env.REACT_APP_SHINY_URL;
-    if (envUrl) return envUrl;
-    try {
-      const urlObj = new URL(window.location.origin);
-      // Use /shiny/ path instead of port 3838
-      urlObj.pathname = '/shiny/';
-      return urlObj.toString();
-    } catch {
-      return 'http://localhost:8000/shiny/';
-    }
-  })();
-
   const InputSidebar = () => (
     <Card className="h-100 border-0 shadow-sm" style={{ backgroundColor: '#f8fafc' }}>
       <Card.Header className="border-0" style={{ backgroundColor: '#3b82f6', borderRadius: '0.5rem 0.5rem 0 0' }}>

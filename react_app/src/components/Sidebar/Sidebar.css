@@ -10,6 +10,7 @@
   overflow-y: auto;
   transition: all 0.3s ease;
   backdrop-filter: blur(10px);
+  pointer-events: auto;
 }
 
 .map-sidebar-header {
@@ -97,6 +98,12 @@
 
 .layer-radio {
   margin-bottom: 0.45rem;
+}
+
+.layer-divider {
+  height: 1px;
+  margin: 10px 0;
+  background: #e9ecef;
 }
 
 .layer-toggle-row {
@@ -308,22 +315,37 @@
 
 /* Collapsed Sidebar */
 .sidebar-collapsed {
-  padding: 10px;
-  background-color: rgba(255, 255, 255, 0.9);
-  border-radius: 8px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  display: inline-flex;
+  width: fit-content;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  pointer-events: auto;
 }
 
 .sidebar-toggle-btn {
-  width: 40px;
-  height: 40px;
+  width: 46px;
+  height: 46px;
   padding: 0;
-  border-radius: 8px;
-  transition: all 0.3s ease;
+  border: 1px solid rgba(13, 110, 253, 0.22);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #0d6efd;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.18);
+  backdrop-filter: blur(10px);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 
 .sidebar-toggle-btn:hover {
-  transform: scale(1.05);
+  background: #ffffff;
+  color: #0b5ed7;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.22);
+  transform: translateY(-1px);
+}
+
+.sidebar-toggle-btn i {
+  font-size: 1.15rem;
 }
 
 /* Form Controls */

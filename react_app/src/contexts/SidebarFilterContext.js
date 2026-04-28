@@ -3,13 +3,32 @@ import React, { useState, useEffect, createContext } from 'react';
 
 export const SidebarFilterContext = createContext();
 
+const FILTERS_CACHE_KEY = 'customerMapFilters';
+
+const getInitialFilters = () => {
+  try {
+    const cached = JSON.parse(window.localStorage.getItem(FILTERS_CACHE_KEY));
+    return cached && typeof cached === 'object' ? cached : {};
+  } catch (_) {
+    return {};
+  }
+};
+
 const SidebarFilterProvider = (props) => {
   const [allColonies, setAllColonies] = useState([]);
   const [allBioSamples, setAllBioSamples] = useState([]);
   const [allProjects, setAllProjects] = useState([]);
-  const [filters, setFilters] = useState({});
+  const [filters, setFilters] = useState(getInitialFilters);
   const [filteredColonies, setFilteredColonies] = useState([]);
   const [defaultValues, setDefaultValues] = useState({});
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(FILTERS_CACHE_KEY, JSON.stringify(filters));
+    } catch (_) {
+      // Ignore localStorage quota/private mode issues.
+    }
+  }, [filters]);
 
   useEffect(() => {
     const fetchColonies = async (backendUrl) => {

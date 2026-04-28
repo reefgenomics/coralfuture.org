@@ -11,10 +11,14 @@ const BENTHIC_VECTOR_LAYER = process.env.REACT_APP_BENTHIC_VECTOR_LAYER || 'bent
 
 // Geographic envelopes [[south, west], [north, east]] — only mount a tileset when the (padded) view intersects.
 // CIO matches legacy Mapbox benthic extent; other boxes are loose data bounds.
-// Caribbean layer disabled: 3+ GB tileset was causing severe map lag. Re-add when optimized.
-// { id: 'caribbean', label: '...', url: '.../caribbean/...', bounds: [[8, -98], [32, -60]] },
 export const BENTHIC_TILESETS = [
   { id: 'cio', label: 'Central Indian Ocean', url: BENTHIC_TILE_URL, bounds: [[-7.5, 71.0], [12.5, 74.0]] },
+  {
+    id: 'caribbean',
+    label: 'Caribbean Sea',
+    url: '/api/public/benthic-tiles/caribbean/{z}/{x}/{y}.pbf',
+    bounds: [[8, -98], [32, -60]],
+  },
   {
     id: 'arabian',
     label: 'Northwestern Arabian Sea',
