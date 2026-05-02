@@ -110,6 +110,52 @@
   vertical-align: middle;
 }
 
+.project-owner-meta {
+  gap: 0.5rem;
+  line-height: 1.2;
+}
+
+.project-owner-icon {
+  flex: 0 0 auto;
+}
+
+.project-owner-label {
+  opacity: 0.9;
+}
+
+.project-owner-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.project-owner-link:hover {
+  color: #fff;
+  text-decoration: underline;
+}
+
+.project-owner-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex: 0 0 auto;
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.2);
+}
+
+.project-owner-avatar-placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #0f766e;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
 .project-description {
   font-size: 1.1rem;
   line-height: 1.6;
@@ -168,6 +214,55 @@
   padding: 1rem 1.5rem;
   display: flex;
   align-items: center;
+}
+
+.section-card .card-header.collapsible-section-header {
+  padding: 0;
+}
+
+.section-toggle {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 1rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+}
+
+.section-toggle span {
+  display: inline-flex;
+  align-items: center;
+}
+
+.section-toggle:hover,
+.section-toggle:focus {
+  background: rgba(255, 255, 255, 0.12);
+  outline: none;
+}
+
+.colony-timepoint-row {
+  background: transparent;
+}
+
+.colony-timepoint-row td {
+  border-top-color: rgba(148, 163, 184, 0.35);
+}
+
+.colony-timepoint-row-first td {
+  border-top: 2px solid rgba(71, 85, 105, 0.45);
+}
+
+.colony-timepoint-row-last td {
+  border-bottom: 2px solid rgba(71, 85, 105, 0.45);
+}
+
+.colony-timepoint-row:hover {
+  background: rgba(15, 23, 42, 0.025);
 }
 
 /* Graphs carousel */

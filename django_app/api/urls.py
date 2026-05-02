@@ -15,6 +15,9 @@ from api.projects_api import (
     ProjectPublicationAddApiView,
     ProjectPublicationRemoveApiView,
 )
+from api.chat.views import ChatApiView
+from profiles.urls import auth_urlpatterns as profile_auth_urlpatterns
+from profiles.urls import public_urlpatterns as profile_public_urlpatterns
 
 urlpatterns = [
     path('auth/', include([
@@ -22,6 +25,7 @@ urlpatterns = [
         path('cart/group/<int:group_id>/', CartGroupManagementApiView.as_view()),
         path('cart/export/', CartExportApiView.as_view()),
         path('status/', CheckAuthenticationApiView.as_view()),
+        path('', include(profile_auth_urlpatterns)),
         path('csrf/', CSRFTokenView.as_view()),
         path('login/', LoginApiView.as_view()),
         path('logout/', LogoutApiView.as_view()),
@@ -43,6 +47,8 @@ urlpatterns = [
         path('benthic-tiles/<slug:region>/<int:z>/<int:x>/<int:y>.pbf', BenthicVectorTileApiView.as_view()),
         path('projects/', NewProjectsApiView.as_view()),
         path('projects/<int:project_id>/', ProjectDetailApiView.as_view()),
+        path('', include(profile_public_urlpatterns)),
+        path('chat/', ChatApiView.as_view()),
         path('thermal-tolerances/', include([
             path('', ThermalToleranceApiView.as_view()),
             # Main API view for thermal tolerances

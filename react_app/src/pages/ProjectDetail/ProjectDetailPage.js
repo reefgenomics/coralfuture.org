@@ -12,9 +12,11 @@ import {
   PencilSquare,
   Trash2,
   Image,
-  Link45deg
+  Link45deg,
+  ChevronDown,
+  ChevronRight
 } from 'react-bootstrap-icons';
-import { useParams, useNavigate } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './ProjectDetailPage.css';
 import { AuthContext } from '../../contexts/AuthContext';
@@ -136,6 +138,8 @@ const ProjectDetailPage = () => {
   const [cartGroupName, setCartGroupName] = useState('');
   const [addingToCart, setAddingToCart] = useState(false);
   const [cartMessage, setCartMessage] = useState(null);
+  const [showColonies, setShowColonies] = useState(false);
+  const [showObservations, setShowObservations] = useState(false);
 
   const backendUrl = '';
 
@@ -182,6 +186,10 @@ const ProjectDetailPage = () => {
   }, [project]);
 
   const isOwner = project && project.owner && authData.username && project.owner.username === authData.username;
+  const ownerName = project?.owner
+    ? [project.owner.first_name, project.owner.last_name].filter(Boolean).join(' ') || project.owner.username
+    : 'Unknown';
+  const ownerInitial = ownerName.charAt(0).toUpperCase() || '?';
 
   const patchProject = async (payload) => {
     const csrf = getCsrfToken();
@@ -354,47 +362,57 @@ const ProjectDetailPage = () => {
     return new Date(dateString).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
   };
 
-  const formatThermalData = (data, type) => {
-    if (!data || data.length === 0) return 'No data available';
-    
-    // Group by condition and timepoint to avoid duplicates
-    const grouped = {};
-    data.forEach((item) => {
-      const key = `${item.condition} (Timepoint: ${item.timepoint})`;
-      if (!grouped[key]) {
-        grouped[key] = [];
-      }
-      if (item[type] != null) {
-        grouped[key].push(item[type]);
-      }
-    });
-    
-    // Format each group
-    return Object.entries(grouped)
-      .map(([key, values]) => {
-        if (values.length === 0) return `${key}: N/A`;
-        if (values.length === 1) return `${key}: ${values[0]}`;
-        // Multiple values: show all unique values
-        const uniqueValues = [...new Set(values)];
-        return `${key}: ${uniqueValues.join(', ')}`;
-      })
-      .join('; ');
-  };
+  const sortTimepoints = (timepoints) => [...timepoints].sort((a, b) => {
+    const aNumber = Number(a);
+    const bNumber = Number(b);
+    if (Number.isFinite(aNumber) && Number.isFinite(bNumber)) return aNumber - bNumber;
+    return String(a).localeCompare(String(b));
+  });
 
-  const getColonyConditionsAndTimepoints = (colony) => {
-    const conditions = new Set();
+  const getColonyTimepointRows = (colony) => {
     const timepoints = new Set();
     for (const arr of [colony?.breakpoint_temperatures, colony?.thermal_tolerances, colony?.thermal_limits]) {
       if (!Array.isArray(arr)) continue;
       for (const item of arr) {
-        if (item?.condition != null && item.condition !== '') conditions.add(String(item.condition));
         if (item?.timepoint != null && item.timepoint !== '') timepoints.add(String(item.timepoint));
       }
     }
-    return {
-      conditions: [...conditions].sort(),
-      timepoints: [...timepoints].sort(),
-    };
+    const sortedTimepoints = sortTimepoints(timepoints);
+    return sortedTimepoints.length > 0 ? sortedTimepoints : ['—'];
+  };
+
+  const getConditionsForTimepoint = (colony, timepoint) => {
+    const conditions = new Set();
+    for (const arr of [colony?.breakpoint_temperatures, colony?.thermal_tolerances, colony?.thermal_limits]) {
+      if (!Array.isArray(arr)) continue;
+      for (const item of arr) {
+        if (String(item?.timepoint) !== String(timepoint)) continue;
+        if (item?.condition != null && item.condition !== '') conditions.add(String(item.condition));
+      }
+    }
+    return [...conditions].sort();
+  };
+
+  const formatThermalDataForTimepoint = (data, type, timepoint) => {
+    if (!Array.isArray(data)) return '—';
+
+    const grouped = {};
+    data
+      .filter((item) => String(item?.timepoint) === String(timepoint))
+      .forEach((item) => {
+        const condition = item.condition || 'Condition';
+        if (!grouped[condition]) grouped[condition] = [];
+        if (item[type] != null) grouped[condition].push(item[type]);
+      });
+
+    const formattedGroups = Object.entries(grouped).map(([condition, values]) => {
+      const uniqueValues = [...new Set(values)];
+      if (uniqueValues.length === 0) return `${condition}: N/A`;
+      if (Object.keys(grouped).length === 1) return uniqueValues.join(', ');
+      return `${condition}: ${uniqueValues.join(', ')}`;
+    });
+
+    return formattedGroups.length > 0 ? formattedGroups.join('; ') : '—';
   };
 
   const openCartModal = () => {
@@ -573,9 +591,19 @@ const ProjectDetailPage = () => {
                 <Calendar className="me-2" size={16} />
                 Created: {formatDate(project.registration_date)}
               </span>
-              <span className="meta-item">
-                <Person className="me-2" size={16} />
-                Owner: {project.owner?.username || 'Unknown'}
+              <span className="meta-item project-owner-meta">
+                <Person className="project-owner-icon" size={16} />
+                <span className="project-owner-label">Owner:</span>
+                {project.owner?.username ? (
+                  <Link to={`/users/${project.owner.username}`} className="project-owner-link">
+                    {project.owner.profile_photo_url ? (
+                      <img src={project.owner.profile_photo_url} alt="" className="project-owner-avatar" />
+                    ) : (
+                      <span className="project-owner-avatar project-owner-avatar-placeholder">{ownerInitial}</span>
+                    )}
+                    <span>{ownerName}</span>
+                  </Link>
+                ) : <span>Unknown</span>}
               </span>
             </div>
             {project.colonies && project.colonies.length > 0 && (
@@ -910,47 +938,74 @@ const ProjectDetailPage = () => {
           <Row className="mb-5">
             <Col>
               <Card className="section-card">
-                <Card.Header className="section-header">
-                  <Globe className="me-2" size={20} />
-                  Colonies ({project.colonies.length})
+                <Card.Header className="section-header collapsible-section-header">
+                  <button
+                    type="button"
+                    className="section-toggle"
+                    onClick={() => setShowColonies((current) => !current)}
+                    aria-expanded={showColonies}
+                    aria-controls="project-colonies-section"
+                  >
+                    <span>
+                      <Globe className="me-2" size={20} />
+                      Colonies ({project.colonies.length})
+                    </span>
+                    {showColonies ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+                  </button>
                 </Card.Header>
-                <Card.Body>
-                  <div className="table-responsive">
-                    <Table responsive striped hover>
-                      <thead>
-                        <tr>
-                          <th>Colony Name</th>
-                          <th>Species</th>
-                          <th>Country</th>
-                          <th>Coordinates</th>
-                          <th>Condition</th>
-                          <th>Timepoint</th>
-                          <th>Breakpoint Temperature ED5</th>
-                          <th>Thermal Tolerance ED50</th>
-                          <th>Thermal Limit ED95</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {project.colonies.map((colony) => {
-                          const { conditions, timepoints } = getColonyConditionsAndTimepoints(colony);
-                          return (
-                            <tr key={colony.id}>
-                              <td>{colony.name}</td>
-                              <td>{colony.species}</td>
-                              <td>{colony.country}</td>
-                              <td><small className="text-muted">{colony.latitude}, {colony.longitude}</small></td>
-                              <td><small>{conditions.length ? conditions.join(', ') : '—'}</small></td>
-                              <td><small>{timepoints.length ? timepoints.join(', ') : '—'}</small></td>
-                              <td><small>{formatThermalData(colony.breakpoint_temperatures, 'abs_breakpoint_temperature')}</small></td>
-                              <td><small>{formatThermalData(colony.thermal_tolerances, 'abs_thermal_tolerance')}</small></td>
-                              <td><small>{formatThermalData(colony.thermal_limits, 'abs_thermal_limit')}</small></td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </Table>
-                  </div>
-                </Card.Body>
+                {showColonies && (
+                  <Card.Body id="project-colonies-section">
+                    <div className="table-responsive">
+                      <Table responsive striped hover>
+                        <thead>
+                          <tr>
+                            <th>Colony Name</th>
+                            <th>Species</th>
+                            <th>Country</th>
+                            <th>Coordinates</th>
+                            <th>Condition</th>
+                            <th>Timepoint</th>
+                            <th>Breakpoint Temperature ED5</th>
+                            <th>Thermal Tolerance ED50</th>
+                            <th>Thermal Limit ED95</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {project.colonies.flatMap((colony) => (
+                            getColonyTimepointRows(colony).map((timepoint) => {
+                              const conditions = getConditionsForTimepoint(colony, timepoint);
+                              const colonyTimepoints = getColonyTimepointRows(colony);
+                              const isFirstTimepoint = colonyTimepoints[0] === timepoint;
+                              const isLastTimepoint = colonyTimepoints[colonyTimepoints.length - 1] === timepoint;
+                              return (
+                                <tr
+                                  key={`${colony.id}-${timepoint}`}
+                                  className={`colony-timepoint-row${isFirstTimepoint ? ' colony-timepoint-row-first' : ''}${isLastTimepoint ? ' colony-timepoint-row-last' : ''}`}
+                                >
+                                  {isFirstTimepoint && (
+                                    <>
+                                      <td rowSpan={colonyTimepoints.length} className="align-middle">{colony.name}</td>
+                                      <td rowSpan={colonyTimepoints.length} className="align-middle">{colony.species}</td>
+                                      <td rowSpan={colonyTimepoints.length} className="align-middle">{colony.country}</td>
+                                      <td rowSpan={colonyTimepoints.length} className="align-middle">
+                                        <small className="text-muted">{colony.latitude}, {colony.longitude}</small>
+                                      </td>
+                                    </>
+                                  )}
+                                  <td><small>{conditions.length ? conditions.join(', ') : '—'}</small></td>
+                                  <td><small>{timepoint}</small></td>
+                                  <td><small>{formatThermalDataForTimepoint(colony.breakpoint_temperatures, 'abs_breakpoint_temperature', timepoint)}</small></td>
+                                  <td><small>{formatThermalDataForTimepoint(colony.thermal_tolerances, 'abs_thermal_tolerance', timepoint)}</small></td>
+                                  <td><small>{formatThermalDataForTimepoint(colony.thermal_limits, 'abs_thermal_limit', timepoint)}</small></td>
+                                </tr>
+                              );
+                            })
+                          ))}
+                        </tbody>
+                      </Table>
+                    </div>
+                  </Card.Body>
+                )}
               </Card>
             </Col>
           </Row>
@@ -961,52 +1016,65 @@ const ProjectDetailPage = () => {
           <Row className="mb-5">
             <Col>
               <Card className="section-card">
-                <Card.Header className="section-header">
-                  <ThermometerHalf className="me-2" size={20} />
-                  Observations ({project.observations.length})
+                <Card.Header className="section-header collapsible-section-header">
+                  <button
+                    type="button"
+                    className="section-toggle"
+                    onClick={() => setShowObservations((current) => !current)}
+                    aria-expanded={showObservations}
+                    aria-controls="project-observations-section"
+                  >
+                    <span>
+                      <ThermometerHalf className="me-2" size={20} />
+                      Observations ({project.observations.length})
+                    </span>
+                    {showObservations ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+                  </button>
                 </Card.Header>
-                <Card.Body>
-                  <div className="table-responsive">
-                    <Table responsive striped hover>
-                      <thead>
-                        <tr>
-                          <th>Exp. Measurement</th>
-                          <th>Collection Date</th>
-                          <th>Experiment</th>
-                          <th>Condition</th>
-                          <th>Temperature</th>
-                          <th>Timepoint</th>
-                          <th>PAM Value</th>
-                          <th>Related Projects</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {project.observations.map((observation) => (
-                          <tr key={observation.id}>
-                            <td>{observation.biosample?.name}</td>
-                            <td>{observation.biosample?.collection_date ? formatDate(observation.biosample.collection_date) : 'N/A'}</td>
-                            <td>{observation.experiment?.name}</td>
-                            <td>{observation.condition}</td>
-                            <td>{observation.temperature}°C</td>
-                            <td>{observation.timepoint}</td>
-                            <td>{observation.pam_value ?? 'N/A'}</td>
-                            <td>
-                              {observation.related_projects?.length > 0 ? (
-                                <ul className="list-unstyled mb-0">
-                                  {observation.related_projects.map((proj, idx) => (
-                                    <li key={idx} className="small">{proj.name}</li>
-                                  ))}
-                                </ul>
-                              ) : (
-                                <span className="text-muted small">None</span>
-                              )}
-                            </td>
+                {showObservations && (
+                  <Card.Body id="project-observations-section">
+                    <div className="table-responsive">
+                      <Table responsive striped hover>
+                        <thead>
+                          <tr>
+                            <th>Exp. Measurement</th>
+                            <th>Collection Date</th>
+                            <th>Experiment</th>
+                            <th>Condition</th>
+                            <th>Temperature</th>
+                            <th>Timepoint</th>
+                            <th>PAM Value</th>
+                            <th>Related Projects</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </Table>
-                  </div>
-                </Card.Body>
+                        </thead>
+                        <tbody>
+                          {project.observations.map((observation) => (
+                            <tr key={observation.id}>
+                              <td>{observation.biosample?.name}</td>
+                              <td>{observation.biosample?.collection_date ? formatDate(observation.biosample.collection_date) : 'N/A'}</td>
+                              <td>{observation.experiment?.name}</td>
+                              <td>{observation.condition}</td>
+                              <td>{observation.temperature}°C</td>
+                              <td>{observation.timepoint}</td>
+                              <td>{observation.pam_value ?? 'N/A'}</td>
+                              <td>
+                                {observation.related_projects?.length > 0 ? (
+                                  <ul className="list-unstyled mb-0">
+                                    {observation.related_projects.map((proj, idx) => (
+                                      <li key={idx} className="small">{proj.name}</li>
+                                    ))}
+                                  </ul>
+                                ) : (
+                                  <span className="text-muted small">None</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </Table>
+                    </div>
+                  </Card.Body>
+                )}
               </Card>
             </Col>
           </Row>

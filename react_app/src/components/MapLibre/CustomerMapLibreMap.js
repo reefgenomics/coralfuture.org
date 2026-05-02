@@ -117,6 +117,7 @@ export default function CustomerMapLibreMap({
   benthicVisible = true,
   benthicClasses = {},
   colonies = [],
+  focusTarget = null,
 }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
@@ -124,6 +125,7 @@ export default function CustomerMapLibreMap({
   const clusterControllerRef = useRef(null);
   const basemapRef = useRef(basemap);
   const captionsVisibleRef = useRef(captionsVisible);
+  const focusHandledKeyRef = useRef(null);
 
   const style = useMemo(() => {
     const bm = BASEMAPS[basemap] || BASEMAPS.imagery;
@@ -423,6 +425,36 @@ export default function CustomerMapLibreMap({
       { padding: 50, maxZoom: 14, duration: 500 },
     );
   }, [colonies]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !focusTarget || focusHandledKeyRef.current === focusTarget.key) return;
+
+    const focus = () => {
+      focusHandledKeyRef.current = focusTarget.key;
+      clusterControllerRef.current?.clearSpider();
+      map.flyTo({
+        center: focusTarget.coordinates,
+        zoom: focusTarget.zoom || 12,
+        duration: 700,
+        essential: true,
+      });
+      if (focusTarget.colony) {
+        openColonyPopup(map, focusTarget.colony, focusTarget.coordinates);
+      }
+    };
+
+    if (map.isStyleLoaded()) {
+      focus();
+      return;
+    }
+
+    map.once('load', focus);
+    return () => {
+      try { map.off('load', focus); } catch (_) { /* ignore */ }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusTarget]);
 
   return <div ref={containerRef} style={{ height: '100%', width: '100%' }} />;
 }

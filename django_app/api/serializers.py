@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from profiles.serializers import get_profile_photo_url
 from projects.models import BioSample, Colony, ThermalTolerance, \
     Observation, Project, BreakpointTemperature, ThermalLimit, Experiment
 
@@ -113,10 +114,14 @@ class ProjectSerializer(serializers.ModelSerializer):
         } for pub in publications]
     
     def get_owner(self, obj):
+        profile = getattr(obj.owner, 'researcher_profile', None)
         return {
             'id': obj.owner.id,
             'username': obj.owner.username,
-            'email': obj.owner.email
+            'first_name': obj.owner.first_name,
+            'last_name': obj.owner.last_name,
+            'profile_photo_url': get_profile_photo_url(profile, self.context.get('request')),
+            'affiliation': profile.affiliation if profile else '',
         }
 
     def get_cover_photo(self, obj):
@@ -241,10 +246,14 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
     observations = serializers.SerializerMethodField()
 
     def get_owner(self, obj):
+        profile = getattr(obj.owner, 'researcher_profile', None)
         return {
             'id': obj.owner.id,
             'username': obj.owner.username,
-            'email': obj.owner.email
+            'first_name': obj.owner.first_name,
+            'last_name': obj.owner.last_name,
+            'profile_photo_url': get_profile_photo_url(profile, self.context.get('request')),
+            'affiliation': profile.affiliation if profile else '',
         }
 
     def get_publications(self, obj):

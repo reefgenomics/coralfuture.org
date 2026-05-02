@@ -31,6 +31,8 @@ from django.utils import timezone
 from datetime import timedelta
 import re
 from django.conf import settings
+from profiles.models import ResearcherProfile
+from profiles.serializers import get_profile_photo_url
 
 
 def _find_column_case_insensitive(df, name):
@@ -82,9 +84,18 @@ class CheckAuthenticationApiView(APIView):
     """
 
     def get(self, request):
+        if not request.user.is_authenticated:
+            return Response({'authenticated': False, 'username': ''})
+
+        profile, _ = ResearcherProfile.objects.get_or_create(user=request.user)
         return Response({
-            'authenticated': request.user.is_authenticated,
-            'username': request.user.username})
+            'authenticated': True,
+            'username': request.user.username,
+            'first_name': request.user.first_name,
+            'last_name': request.user.last_name,
+            'profile_photo_url': get_profile_photo_url(profile, request),
+            'has_profile': True,
+        })
 
 
 class BenthicVectorTileApiView(APIView):

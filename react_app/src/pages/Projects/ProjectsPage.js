@@ -7,7 +7,7 @@ import {
   FileText,
   Globe
 } from 'react-bootstrap-icons';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './ProjectsPage.css';
 import { AuthContext } from '../../contexts/AuthContext';
@@ -57,6 +57,20 @@ const ProjectsPage = () => {
       || project?.image
       || null;
   };
+
+  const getOwnerName = (owner) => (
+    [owner?.first_name, owner?.last_name].filter(Boolean).join(' ') || owner?.username || 'Unknown'
+  );
+
+  const renderOwnerAvatar = (owner) => (
+    owner?.profile_photo_url ? (
+      <img src={owner.profile_photo_url} alt="" className="owner-avatar" />
+    ) : (
+      <span className="owner-avatar owner-avatar-placeholder">
+        {(getOwnerName(owner) || '?').charAt(0).toUpperCase()}
+      </span>
+    )
+  );
 
   if (loading) {
     return (
@@ -113,9 +127,20 @@ const ProjectsPage = () => {
                       <Calendar size={16} className="text-muted me-2" />
                       <span className="text-muted">Created: {formatDate(project.registration_date)}</span>
                     </div>
-                    <div className="meta-item">
-                      <Person size={16} className="text-muted me-2" />
-                      <span className="text-muted">Owner: {project.owner?.username || 'Unknown'}</span>
+                    <div className="meta-item owner-meta">
+                      <Person size={16} className="text-muted owner-meta-icon" />
+                      <div className="owner-meta-content">
+                        <span className="owner-meta-label">Owner:</span>
+                        {project.owner?.username ? (
+                          <Link to={`/users/${project.owner.username}`} className="owner-inline owner-profile-link">
+                            {renderOwnerAvatar(project.owner)}
+                            <span>{getOwnerName(project.owner)}</span>
+                          </Link>
+                        ) : <span className="text-muted">Unknown</span>}
+                        {project.owner?.affiliation && (
+                          <span className="owner-affiliation">{project.owner.affiliation}</span>
+                        )}
+                      </div>
                     </div>
                   </div>
                   

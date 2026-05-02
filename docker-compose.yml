@@ -29,6 +29,9 @@ services:
       - DB_NAME=${DB_NAME}
       - CONTACT_EMAIL_ADDRESS=${CONTACT_EMAIL_ADDRESS}
       - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - DEEPSEEK_API_URL=${DEEPSEEK_API_URL:-https://api.deepseek.com/chat/completions}
+      - DEEPSEEK_MODEL=${DEEPSEEK_MODEL:-deepseek-chat}
     volumes:
       - ./django_app:/usr/src/app
       - ./shared_data:/shared_data

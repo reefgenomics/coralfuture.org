@@ -139,6 +139,72 @@
   margin-bottom: 0;
 }
 
+.owner-profile-link {
+  color: #0f766e;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.owner-profile-link:hover {
+  color: #115e59;
+  text-decoration: underline;
+}
+
+.owner-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+.owner-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex: 0 0 auto;
+  background: #e2e8f0;
+}
+
+.owner-avatar-placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #475569;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.owner-meta {
+  align-items: flex-start;
+  gap: 0.5rem;
+  line-height: 1.25;
+}
+
+.owner-meta-icon {
+  flex: 0 0 auto;
+  margin-top: 0.25rem;
+}
+
+.owner-meta-content {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+  min-width: 0;
+}
+
+.owner-meta-label {
+  color: #64748b;
+}
+
+.owner-affiliation {
+  grid-column: 2;
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
 /* Publications Section */
 .publications-section {
   border-top: 1px solid #e2e8f0;

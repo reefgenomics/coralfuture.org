@@ -1,4 +1,5 @@
 import React, { useContext, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import CustomerMapLibreMap from 'components/MapLibre/CustomerMapLibreMap';
 import { SidebarFilterContext } from 'contexts/SidebarFilterContext';
 import filterColonies from 'utils/filterColonies';
@@ -11,9 +12,10 @@ const Map = ({
   benthicVisible = true,
   benthicClasses = {},
 }) => {
-  const { allColonies, filters, filteredColonies, setFilteredColonies, defaultValues } =
+  const { allColonies, filters, setFilteredColonies, defaultValues } =
     useContext(SidebarFilterContext);
   const [ready, setReady] = useState(false);
+  const [searchParams] = useSearchParams();
 
   const computedColonies = useMemo(() => {
     if (!allColonies || allColonies.length === 0) return [];
@@ -22,6 +24,32 @@ const Map = ({
     }
     return allColonies;
   }, [allColonies, filters, defaultValues]);
+
+  const focusTarget = useMemo(() => {
+    const colonyParam = searchParams.get('colony');
+    const lngParam = searchParams.get('lng');
+    const latParam = searchParams.get('lat');
+    const zoomParam = searchParams.get('zoom');
+    const colonyId = colonyParam ? Number(colonyParam) : NaN;
+    const lng = lngParam ? Number(lngParam) : NaN;
+    const lat = latParam ? Number(latParam) : NaN;
+    const zoom = zoomParam ? Number(zoomParam) : 12;
+    const colonies = Array.isArray(allColonies) ? allColonies : [];
+    const colony = Number.isFinite(colonyId)
+      ? colonies.find((item) => item.id === colonyId)
+      : null;
+
+    const targetLng = Number.isFinite(lng) ? lng : colony?.longitude;
+    const targetLat = Number.isFinite(lat) ? lat : colony?.latitude;
+    if (!Number.isFinite(targetLng) || !Number.isFinite(targetLat)) return null;
+
+    return {
+      key: `${colonyId || 'point'}-${targetLng}-${targetLat}-${zoom}`,
+      colony,
+      coordinates: [targetLng, targetLat],
+      zoom: Number.isFinite(zoom) ? zoom : 12,
+    };
+  }, [allColonies, searchParams]);
 
   useEffect(() => {
     if (!allColonies || allColonies.length === 0) {
@@ -58,6 +86,7 @@ const Map = ({
       benthicVisible={benthicVisible}
       benthicClasses={benthicClasses}
       colonies={computedColonies}
+      focusTarget={focusTarget}
     />
   );
 };

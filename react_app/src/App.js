@@ -1,10 +1,10 @@
 // External imports
-import React from 'react';
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import React, { useContext } from 'react';
+import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 // Internal imports
 // Contexts
-import AuthContextProvider from 'contexts/AuthContext'
+import AuthContextProvider, { AuthContext } from 'contexts/AuthContext'
 import UserCartContextProvider from 'contexts/UserCartContext';
 // Pages
 import HomePage from 'pages/Home/HomePage';
@@ -15,8 +15,18 @@ import LoginPage from 'pages/Login/LoginPage';
 import ProjectsPage from 'pages/Projects/ProjectsPage';
 import ProjectDetailPage from 'pages/ProjectDetail/ProjectDetailPage';
 import ED50CalculatorPage from 'pages/ED50Calculator/ED50CalculatorPage';
+import ChatPage from 'pages/Chat/ChatPage';
+import EditProfilePage from 'pages/Profile/EditProfilePage';
+import PublicProfilePage from 'pages/Profile/PublicProfilePage';
 // Components
 import NavigationBar from 'components/Navbar/Navbar';
+
+const ProfileRedirect = () => {
+  const { authData, loading } = useContext(AuthContext);
+  if (loading) return null;
+  if (!authData.authenticated) return <Navigate to="/login" replace />;
+  return <Navigate to={`/users/${authData.username}`} replace />;
+};
 
 
 const App = () => {
@@ -35,7 +45,11 @@ const App = () => {
               <Route path="/login" element={<LoginPage />} />
               <Route path="/projects" element={<ProjectsPage />} />
               <Route path="/project/:projectId" element={<ProjectDetailPage />} />
+              <Route path="/profile" element={<ProfileRedirect />} />
+              <Route path="/users/:username" element={<PublicProfilePage />} />
+              <Route path="/users/:username/edit" element={<EditProfilePage />} />
               <Route path="/ed-calculator" element={<ED50CalculatorPage />} />
+              <Route path="/chat" element={<ChatPage />} />
             </Routes>
           </div>
           

@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'api',
     'main',
     'users',
+    'profiles.apps.ProfilesConfig',
     'projects'
 ]
 
@@ -198,6 +199,10 @@ BENTHIC_MBTILES_PATHS = {
 }
 
 BENTHIC_MBTILES_PATH = os.getenv('BENTHIC_MBTILES_PATH', BENTHIC_MBTILES_PATHS['cio'])
+
+DEEPSEEK_API_KEY = os.getenv('DEEPSEEK_API_KEY', '')
+DEEPSEEK_API_URL = os.getenv('DEEPSEEK_API_URL', 'https://api.deepseek.com/chat/completions')
+DEEPSEEK_MODEL = os.getenv('DEEPSEEK_MODEL', 'deepseek-chat')
 
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 WHITENOISE_MANIFEST_STRICT = False
