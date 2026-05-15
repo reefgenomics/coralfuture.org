@@ -188,7 +188,8 @@ const UploadDataPage = () => {
                 <div className="flex-grow-1">
                   <h6 className="fw-semibold text-dark mb-2">Prepare Your Data</h6>
                   <p className="text-muted small lh-base">
-                    CSV or Excel file with coral stress experiment data including Site, Condition, Species, Timepoint, Temperature, and PAM values.
+                    CSV or Excel with Site, Condition, Species, Timepoint, and Temperature.
+                    Temperature must list at least two assay values in one column, separated by slashes (e.g. 28/32/36/40).
                   </p>
                 </div>
               </div>

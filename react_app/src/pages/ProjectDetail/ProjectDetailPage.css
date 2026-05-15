@@ -45,7 +45,7 @@
   z-index: 1;
 }
 
-/* Светлый текст поверх кастомного фона */
+/* Light text overlay on custom cover background */
 .project-header-has-cover .project-title,
 .project-header-has-cover .project-meta,
 .project-header-has-cover .meta-item,
@@ -121,6 +121,10 @@
 
 .project-owner-label {
   opacity: 0.9;
+}
+
+.project-views-meta strong {
+  font-weight: 700;
 }
 
 .project-owner-link {

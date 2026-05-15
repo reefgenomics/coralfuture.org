@@ -6,7 +6,8 @@ from projects.models import Project, Experiment, Colony, BioSample, \
 
 @admin.register(Project)
 class ProjectAdmin(admin.ModelAdmin):
-    list_display = ('name', 'registration_date', 'owner')
+    list_display = ('name', 'registration_date', 'owner', 'view_count')
+    readonly_fields = ('view_count',)
     search_fields = ('name', 'owner__username')
     def _delete_thermal_data(self, colony):
         """Delete all thermal data for a colony."""

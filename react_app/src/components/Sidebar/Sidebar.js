@@ -13,6 +13,7 @@ import { SidebarFilterContext } from 'contexts/SidebarFilterContext';
 // Components
 import AddToCartButton from 'components/Button/AddToCart';
 import { DEFAULT_BENTHIC_CLASS_COLORS } from 'components/Tiles/BenthicTileLayer';
+import { DEFAULT_REEF_EXTENT_CLASS_COLORS } from 'components/Tiles/ReefExtentTileLayer';
 import { BASEMAPS } from 'components/Tiles/basemaps';
 import TemperatureFiltersModal from './TemperatureFiltersModal';
 
@@ -25,6 +26,10 @@ const InputSidebar = ({
   onBenthicVisibleChange,
   benthicClasses = {},
   onBenthicClassesChange,
+  reefExtentVisible = false,
+  onReefExtentVisibleChange,
+  reefExtentClasses = {},
+  onReefExtentClassesChange,
 }) => {
 
   const [selectedSpecies, setSelectedSpecies] = useState('');
@@ -199,6 +204,28 @@ const InputSidebar = ({
         ])
       )
     );
+  };
+
+  const resetReefExtentColors = () => {
+    onReefExtentClassesChange?.(
+      Object.fromEntries(
+        Object.entries(DEFAULT_REEF_EXTENT_CLASS_COLORS).map(([className, color]) => [
+          className,
+          { visible: true, color },
+        ])
+      )
+    );
+  };
+
+  const updateReefExtentClass = (className, patch) => {
+    onReefExtentClassesChange?.((previous) => ({
+      ...previous,
+      [className]: {
+        visible: previous[className]?.visible ?? true,
+        color: previous[className]?.color || DEFAULT_REEF_EXTENT_CLASS_COLORS[className],
+        ...patch,
+      },
+    }));
   };
 
   // Render compact slider for sidebar
@@ -480,6 +507,48 @@ const InputSidebar = ({
                         type="color"
                         value={classSettings.color || defaultColor}
                         onChange={(event) => updateBenthicClass(className, { color: event.target.value })}
+                        className="benthic-color-input"
+                        aria-label={`${className} color`}
+                      />
+                      <span className="benthic-class-label">{className}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="layer-card">
+            <div className="layer-toggle-row">
+              <Form.Check
+                type="checkbox"
+                id="reef-extent-layer-toggle"
+                label="Reef extent"
+                checked={reefExtentVisible}
+                onChange={(event) => onReefExtentVisibleChange?.(event.target.checked)}
+                className="fw-semibold"
+              />
+              <Button variant="link" size="sm" onClick={resetReefExtentColors} className="layer-reset-btn">
+                Reset
+              </Button>
+            </div>
+
+            {reefExtentVisible && (
+              <div className="benthic-class-list">
+                {Object.entries(DEFAULT_REEF_EXTENT_CLASS_COLORS).map(([className, defaultColor]) => {
+                  const classSettings = reefExtentClasses[className] || { visible: true, color: defaultColor };
+                  return (
+                    <div key={className} className={`benthic-class-row ${classSettings.visible ? '' : 'disabled'}`}>
+                      <Form.Check
+                        type="checkbox"
+                        id={`reef-extent-class-${className}`}
+                        checked={classSettings.visible}
+                        onChange={(event) => updateReefExtentClass(className, { visible: event.target.checked })}
+                      />
+                      <input
+                        type="color"
+                        value={classSettings.color || defaultColor}
+                        onChange={(event) => updateReefExtentClass(className, { color: event.target.value })}
                         className="benthic-color-input"
                         aria-label={`${className} color`}
                       />

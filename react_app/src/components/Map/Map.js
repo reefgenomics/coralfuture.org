@@ -11,6 +11,8 @@ const Map = ({
   captionsVisible = true,
   benthicVisible = true,
   benthicClasses = {},
+  reefExtentVisible = false,
+  reefExtentClasses = {},
 }) => {
   const { allColonies, filters, setFilteredColonies, defaultValues } =
     useContext(SidebarFilterContext);
@@ -85,6 +87,8 @@ const Map = ({
       captionsVisible={captionsVisible}
       benthicVisible={benthicVisible}
       benthicClasses={benthicClasses}
+      reefExtentVisible={reefExtentVisible}
+      reefExtentClasses={reefExtentClasses}
       colonies={computedColonies}
       focusTarget={focusTarget}
     />

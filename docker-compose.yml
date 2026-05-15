@@ -36,6 +36,7 @@ services:
       - ./django_app:/usr/src/app
       - ./shared_data:/shared_data
       - /home/coralfuture-server/MapData/benthic:/benthic:ro
+      - /home/coralfuture-server/MapData/reef_extent:/reef_extent:ro
     depends_on:
       - database
 

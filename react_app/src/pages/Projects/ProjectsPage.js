@@ -1,22 +1,63 @@
-import React, { useState, useEffect, useContext } from 'react';
-import { Container, Row, Col, Card, Badge, Button } from 'react-bootstrap';
+import React, { useState, useEffect, useContext, useMemo } from 'react';
+import { Container, Row, Col, Card, Badge, Button, Form } from 'react-bootstrap';
 import { 
   JournalText, 
   Calendar, 
   Person, 
   FileText,
-  Globe
+  Globe,
+  Eye,
 } from 'react-bootstrap-icons';
 import { Link, useNavigate } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './ProjectsPage.css';
 import { AuthContext } from '../../contexts/AuthContext';
+import { formatViewCount } from '../../utils/formatViewCount';
+
+const DEFAULT_SORT = 'date-desc';
 
 const ProjectsPage = () => {
   const navigate = useNavigate();
   const { authData } = useContext(AuthContext);
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [sortKey, setSortKey] = useState(DEFAULT_SORT);
+
+  const sortedProjects = useMemo(() => {
+    const list = Array.isArray(projects) ? [...projects] : [];
+    const dateDescTie = (a, b) => {
+      const ta = new Date(a.registration_date || 0).getTime();
+      const tb = new Date(b.registration_date || 0).getTime();
+      return tb - ta;
+    };
+    const cmpDate = (a, b) => {
+      const ta = new Date(a.registration_date || 0).getTime();
+      const tb = new Date(b.registration_date || 0).getTime();
+      return ta - tb;
+    };
+    const cmpViews = (a, b) => {
+      const va = Number(a.view_count) || 0;
+      const vb = Number(b.view_count) || 0;
+      return va - vb;
+    };
+    switch (sortKey) {
+      case 'date-asc':
+        list.sort((a, b) => cmpDate(a, b) || a.id - b.id);
+        break;
+      case 'date-desc':
+        list.sort((a, b) => cmpDate(b, a) || b.id - a.id);
+        break;
+      case 'views-asc':
+        list.sort((a, b) => cmpViews(a, b) || dateDescTie(a, b) || a.id - b.id);
+        break;
+      case 'views-desc':
+        list.sort((a, b) => cmpViews(b, a) || dateDescTie(a, b) || b.id - a.id);
+        break;
+      default:
+        break;
+    }
+    return list;
+  }, [projects, sortKey]);
 
   useEffect(() => {
     const fetchProjects = async () => {
@@ -97,9 +138,27 @@ const ProjectsPage = () => {
             Explore our collection of coral research projects from around the world. 
             Each project contributes to our understanding of coral reef ecosystems and thermal tolerance.
           </p>
+          <div className="projects-sort-bar">
+            <Form.Label htmlFor="projects-sort" className="projects-sort-label">
+              Sort by
+            </Form.Label>
+            <Form.Select
+              id="projects-sort"
+              size="sm"
+              className="projects-sort-select"
+              value={sortKey}
+              onChange={(e) => setSortKey(e.target.value)}
+              aria-label="Sort projects list"
+            >
+              <option value="date-desc">Registration date — newest first</option>
+              <option value="date-asc">Registration date — oldest first</option>
+              <option value="views-desc">Views — highest first</option>
+              <option value="views-asc">Views — lowest first</option>
+            </Form.Select>
+          </div>
         </div>
         <Row className="g-4">
-          {projects.map((project) => {
+          {sortedProjects.map((project) => {
             const coverPhoto = getProjectCoverPhoto(project);
             return (
             <Col key={project.id} lg={6} xl={4}>
@@ -112,9 +171,21 @@ const ProjectsPage = () => {
                     <div className="project-icon">
                       <JournalText size={24} className="text-primary" />
                     </div>
-                    <Badge bg="light" text="primary" className="project-badge">
-                      {project.publications?.length || 0} Publications
-                    </Badge>
+                    <div className="project-badges d-flex flex-wrap gap-2 justify-content-end align-items-center">
+                      <Badge bg="light" text="primary" className="project-badge">
+                        {project.publications?.length || 0} Publications
+                      </Badge>
+                      <Badge
+                        bg="light"
+                        text="secondary"
+                        className="project-badge project-views-badge"
+                        title="Times signed-in users opened the project detail page"
+                      >
+                        <Eye size={14} className="me-1" aria-hidden />
+                        <span>{formatViewCount(project.view_count)}</span>
+                        <span className="ms-1 d-none d-sm-inline text-muted fw-normal small">views</span>
+                      </Badge>
+                    </div>
                   </div>
                   
                   <h5 className="project-title mb-3">

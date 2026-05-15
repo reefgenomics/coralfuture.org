@@ -31,6 +31,18 @@ export const BENTHIC_TILESETS = [
     url: '/api/public/benthic-tiles/redsea/{z}/{x}/{y}.pbf',
     bounds: [[6, 30], [35, 52]],
   },
+  {
+    id: 'micronesia',
+    label: 'Western Micronesia',
+    url: '/api/public/benthic-tiles/micronesia/{z}/{x}/{y}.pbf',
+    bounds: [[1, 131], [20, 163]],
+  },
+  {
+    id: 'sw_pacific',
+    label: 'Southwestern Pacific',
+    url: '/api/public/benthic-tiles/sw_pacific/{z}/{x}/{y}.pbf',
+    bounds: [[-26, 110], [5, 175]],
+  },
 ];
 
 /** Below this zoom, if the view hits multiple regions, only the one nearest to map center is active. */

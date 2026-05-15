@@ -7,6 +7,8 @@ from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 
+from django.db.models import F
+
 from projects.models import Project, Experiment, Observation, Colony, Attachment, Publication
 from api.serializers import ProjectSerializer, ProjectDetailSerializer
 
@@ -44,7 +46,9 @@ class ProjectDetailApiView(APIView):
         try:
             # Get the project object
             project = get_object_or_404(Project, id=project_id)
-            
+            Project.objects.filter(pk=project.pk).update(view_count=F('view_count') + 1)
+            project.refresh_from_db(fields=['view_count'])
+
             # Retrieve all experiments for the project
             experiments = project.experiments.all()
             

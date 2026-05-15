@@ -14,13 +14,15 @@ import {
   Image,
   Link45deg,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  Eye,
 } from 'react-bootstrap-icons';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './ProjectDetailPage.css';
 import { AuthContext } from '../../contexts/AuthContext';
 import { UserCartContext } from '../../contexts/UserCartContext';
+import { formatViewCount } from '../../utils/formatViewCount';
 
 const getDoiUrl = (doi) => {
   if (!doi) return null;
@@ -604,6 +606,10 @@ const ProjectDetailPage = () => {
                     <span>{ownerName}</span>
                   </Link>
                 ) : <span>Unknown</span>}
+              </span>
+              <span className="meta-item project-views-meta" title="How many times signed-in users opened this project page">
+                <Eye className="me-2" size={16} aria-hidden />
+                Views: <strong className="ms-1">{formatViewCount(project.view_count)}</strong>
               </span>
             </div>
             {project.colonies && project.colonies.length > 0 && (

@@ -7,6 +7,10 @@ import {
   BENTHIC_TILESETS,
   DEFAULT_BENTHIC_CLASS_COLORS,
 } from 'components/Tiles/BenthicTileLayer';
+import {
+  REEF_EXTENT_TILESETS,
+  DEFAULT_REEF_EXTENT_CLASS_COLORS,
+} from 'components/Tiles/ReefExtentTileLayer';
 import ColonyPopupContent from 'components/ColonyPopup/ColonyPopupContent';
 import {
   COLONIES_SOURCE,
@@ -35,11 +39,20 @@ const sourceIdFor = (tilesetId) => `benthic-${tilesetId}`;
 const fillLayerIdFor = (tilesetId) => `benthic-${tilesetId}-fill`;
 const lineLayerIdFor = (tilesetId) => `benthic-${tilesetId}-line`;
 
+const reefSourceIdFor = (tilesetId) => `reef-extent-${tilesetId}`;
+const reefFillLayerIdFor = (tilesetId) => `reef-extent-${tilesetId}-fill`;
+const reefLineLayerIdFor = (tilesetId) => `reef-extent-${tilesetId}-line`;
+
 const captionsUrlFor = (basemap) => (basemap === 'ocean' ? OCEAN_CAPTIONS_URL : DEFAULT_CAPTIONS_URL);
 
 const isBenthicTileError = (error) => {
   const url = error?.url || error?.message || '';
   return typeof url === 'string' && url.includes('/benthic-tiles/');
+};
+
+const isReefExtentTileError = (error) => {
+  const url = error?.url || error?.message || '';
+  return typeof url === 'string' && url.includes('/reef-extent-tiles/');
 };
 
 const buildColorMatchExpression = (classSettings = {}) => {
@@ -60,7 +73,28 @@ const buildVisibleClassFilter = (classSettings = {}) => {
   return ['in', ['get', 'class'], ['literal', visible]];
 };
 
-const getMaplibreActiveBenthicTilesetIds = (map) => {
+const buildReefExtentColorMatchExpression = (classSettings = {}) => {
+  const entries = Object.entries(DEFAULT_REEF_EXTENT_CLASS_COLORS);
+  const match = ['match', ['get', 'class']];
+  for (const [className, defaultColor] of entries) {
+    const c = classSettings[className]?.color || defaultColor;
+    match.push(className, c);
+  }
+  match.push('#34d399');
+  return match;
+};
+
+const buildVisibleReefExtentFilter = (classSettings = {}) => {
+  const visible = Object.entries(DEFAULT_REEF_EXTENT_CLASS_COLORS)
+    .filter(([className]) => classSettings[className]?.visible !== false)
+    .map(([className]) => className);
+  return ['in', ['get', 'class'], ['literal', visible]];
+};
+
+const REEF_EXTENT_SOURCE_LAYER =
+  process.env.REACT_APP_REEF_EXTENT_VECTOR_LAYER || 'reef_extent';
+
+const getMaplibreActiveTilesetIds = (map, tilesets) => {
   const getCenter = () => {
     const c = map.getCenter();
     return {
@@ -79,7 +113,6 @@ const getMaplibreActiveBenthicTilesetIds = (map) => {
     };
   };
 
-  // Direct implementation (no Leaflet dependency) using BENTHIC_TILESETS bounds.
   const z = map.getZoom();
   const bounds = map.getBounds();
   const sw = bounds.getSouthWest();
@@ -88,7 +121,7 @@ const getMaplibreActiveBenthicTilesetIds = (map) => {
   const swp = { lat: sw.lat - (ne.lat - sw.lat) * pad, lng: sw.lng - (ne.lng - sw.lng) * pad };
   const nep = { lat: ne.lat + (ne.lat - sw.lat) * pad, lng: ne.lng + (ne.lng - sw.lng) * pad };
 
-  const hits = BENTHIC_TILESETS.filter((t) => t.bounds).filter((t) => {
+  const hits = tilesets.filter((t) => t.bounds).filter((t) => {
     const [[s, w], [n, e]] = t.bounds;
     const intersects =
       e >= swp.lng && w <= nep.lng && n >= swp.lat && s <= nep.lat;
@@ -96,7 +129,7 @@ const getMaplibreActiveBenthicTilesetIds = (map) => {
   });
 
   if (hits.length === 0) return [];
-  const strictZoom = 5;
+  const strictZoom = Number(process.env.REACT_APP_BENTHIC_ZOOM_STRICT_REGION || 5);
   if (z < strictZoom && hits.length > 1) {
     const center = getCenter();
     const best = hits.reduce((acc, t) => {
@@ -111,11 +144,17 @@ const getMaplibreActiveBenthicTilesetIds = (map) => {
   return hits.map((t) => t.id);
 };
 
+const getMaplibreActiveBenthicTilesetIds = (map) => getMaplibreActiveTilesetIds(map, BENTHIC_TILESETS);
+const getMaplibreActiveReefExtentTilesetIds = (map) =>
+  getMaplibreActiveTilesetIds(map, REEF_EXTENT_TILESETS);
+
 export default function CustomerMapLibreMap({
   basemap = 'imagery',
   captionsVisible = true,
   benthicVisible = true,
   benthicClasses = {},
+  reefExtentVisible = false,
+  reefExtentClasses = {},
   colonies = [],
   focusTarget = null,
 }) {
@@ -155,6 +194,44 @@ export default function CustomerMapLibreMap({
         source: 'basemap',
       },
     ];
+
+    for (const t of REEF_EXTENT_TILESETS) {
+      sources[reefSourceIdFor(t.id)] = {
+        type: 'vector',
+        tiles: [toAbsoluteTileUrl(t.url)],
+        minzoom: BENTHIC_MIN_ZOOM,
+        maxzoom: Number(process.env.REACT_APP_REEF_EXTENT_MAX_NATIVE_ZOOM || 16),
+      };
+      layers.push(
+        {
+          id: reefFillLayerIdFor(t.id),
+          type: 'fill',
+          source: reefSourceIdFor(t.id),
+          'source-layer': REEF_EXTENT_SOURCE_LAYER,
+          layout: { visibility: 'none' },
+          minzoom: BENTHIC_MIN_ZOOM,
+          paint: {
+            'fill-color': buildReefExtentColorMatchExpression({}),
+            'fill-opacity': 0.55,
+          },
+          filter: buildVisibleReefExtentFilter({}),
+        },
+        {
+          id: reefLineLayerIdFor(t.id),
+          type: 'line',
+          source: reefSourceIdFor(t.id),
+          'source-layer': REEF_EXTENT_SOURCE_LAYER,
+          layout: { visibility: 'none' },
+          minzoom: BENTHIC_MIN_ZOOM,
+          paint: {
+            'line-color': buildReefExtentColorMatchExpression({}),
+            'line-opacity': 0.35,
+            'line-width': 0.5,
+          },
+          filter: buildVisibleReefExtentFilter({}),
+        },
+      );
+    }
 
     for (const t of BENTHIC_TILESETS) {
       sources[sourceIdFor(t.id)] = {
@@ -249,6 +326,34 @@ export default function CustomerMapLibreMap({
     }
   };
 
+  const applyReefExtentVisibility = (map) => {
+    const activeIds = reefExtentVisible ? getMaplibreActiveReefExtentTilesetIds(map) : [];
+    for (const t of REEF_EXTENT_TILESETS) {
+      const vis = activeIds.includes(t.id) ? 'visible' : 'none';
+      const fillId = reefFillLayerIdFor(t.id);
+      const lineId = reefLineLayerIdFor(t.id);
+      if (map.getLayer(fillId)) map.setLayoutProperty(fillId, 'visibility', vis);
+      if (map.getLayer(lineId)) map.setLayoutProperty(lineId, 'visibility', vis);
+    }
+  };
+
+  const applyReefExtentStyling = (map) => {
+    const colorExpr = buildReefExtentColorMatchExpression(reefExtentClasses);
+    const classFilter = buildVisibleReefExtentFilter(reefExtentClasses);
+    for (const t of REEF_EXTENT_TILESETS) {
+      const fillId = reefFillLayerIdFor(t.id);
+      const lineId = reefLineLayerIdFor(t.id);
+      if (map.getLayer(fillId)) {
+        map.setPaintProperty(fillId, 'fill-color', colorExpr);
+        map.setFilter(fillId, classFilter);
+      }
+      if (map.getLayer(lineId)) {
+        map.setPaintProperty(lineId, 'line-color', colorExpr);
+        map.setFilter(lineId, classFilter);
+      }
+    }
+  };
+
   const applyCaptionsVisibility = (map) => {
     if (map.getLayer(CAPTIONS_LAYER)) {
       map.setLayoutProperty(CAPTIONS_LAYER, 'visibility', captionsVisibleRef.current ? 'visible' : 'none');
@@ -317,15 +422,17 @@ export default function CustomerMapLibreMap({
       clusterControllerRef.current?.registerInteractions();
       // Style reload recreates sources/layers: re-apply all runtime state.
       applyBenthicStyling(map);
+      applyReefExtentStyling(map);
       applyCaptionsVisibility(map);
       applyBenthicVisibility(map);
+      applyReefExtentVisibility(map);
       applyColoniesData(map);
       clusterControllerRef.current?.clearSpider();
     };
     map.on('load', syncImagesAndHandlers);
     map.on('style.load', syncImagesAndHandlers);
     map.on('error', (event) => {
-      if (isBenthicTileError(event?.error)) {
+      if (isBenthicTileError(event?.error) || isReefExtentTileError(event?.error)) {
         return;
       }
       // Let non-benthic errors keep their normal development visibility.
@@ -377,6 +484,24 @@ export default function CustomerMapLibreMap({
     };
   }, [benthicVisible]);
 
+  // Reef extent visibility + viewport gating.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const apply = () => applyReefExtentVisibility(map);
+
+    if (map.isStyleLoaded()) apply();
+    map.on('moveend', apply);
+    map.on('zoomend', apply);
+    map.on('styledata', apply);
+    return () => {
+      map.off('moveend', apply);
+      map.off('zoomend', apply);
+      map.off('styledata', apply);
+    };
+  }, [reefExtentVisible]);
+
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -389,6 +514,12 @@ export default function CustomerMapLibreMap({
     if (!map) return;
     applyBenthicStyling(map);
   }, [benthicClasses]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    applyReefExtentStyling(map);
+  }, [reefExtentClasses]);
 
   // Update colonies data and fit bounds.
   useEffect(() => {

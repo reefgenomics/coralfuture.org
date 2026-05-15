@@ -7,6 +7,7 @@ import json
 import sqlite3
 from django.db.models import Max, Min
 from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.contrib.auth import authenticate, login, logout
 from django.http import JsonResponse, HttpResponse, HttpResponseNotFound
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -33,6 +34,7 @@ import re
 from django.conf import settings
 from profiles.models import ResearcherProfile
 from profiles.serializers import get_profile_photo_url
+from projects.management.commands.utils.column_mapper import expand_slash_separated_temperature_column
 
 
 def _find_column_case_insensitive(df, name):
@@ -40,42 +42,6 @@ def _find_column_case_insensitive(df, name):
         if str(col).strip().lower() == name.lower():
             return col
     return None
-
-
-def _is_precalculated_wide_ed_format(df):
-    has_ed50 = _find_column_case_insensitive(df, 'ED50') is not None
-    has_temperature_series = any(
-        re.match(r'^temperature\s*\d+$', str(col).strip(), flags=re.IGNORECASE)
-        for col in df.columns
-    )
-    return has_ed50 and has_temperature_series
-
-
-def _expand_precalculated_ed_rows(df):
-    """Convert wide ED-only uploads (Temperature 1..N) into observation-like long rows."""
-    temperature_columns = [
-        col for col in df.columns
-        if re.match(r'^temperature\s*\d+$', str(col).strip(), flags=re.IGNORECASE)
-    ]
-    temperature_columns.sort(key=lambda col: int(re.search(r'\d+', str(col)).group(0)))
-
-    if not temperature_columns:
-        return df
-
-    expanded_rows = []
-    for _, row in df.iterrows():
-        for temperature_col in temperature_columns:
-            temperature_value = row.get(temperature_col)
-            if pd.isna(temperature_value):
-                continue
-
-            expanded = row.drop(labels=temperature_columns).to_dict()
-            expanded['Temperature'] = temperature_value
-            if _find_column_case_insensitive(pd.DataFrame([expanded]), 'Pam_value') is None:
-                expanded['Pam_value'] = pd.NA
-            expanded_rows.append(expanded)
-
-    return pd.DataFrame(expanded_rows)
 
 
 class CheckAuthenticationApiView(APIView):
@@ -98,6 +64,40 @@ class CheckAuthenticationApiView(APIView):
         })
 
 
+def _mbtiles_vector_pbf_response(mbtiles_path, z, x, y, label):
+    """Read a TMS-layout MBTiles row for XYZ tile (z,x,y) and return HttpResponse or None (204)."""
+    if not mbtiles_path or not os.path.exists(mbtiles_path):
+        return None
+
+    tms_y = (1 << z) - 1 - y
+    try:
+        with sqlite3.connect(mbtiles_path) as conn:
+            cursor = conn.execute(
+                """
+                SELECT tile_data
+                FROM tiles
+                WHERE zoom_level = ? AND tile_column = ? AND tile_row = ?
+                """,
+                (z, x, tms_y),
+            )
+            row = cursor.fetchone()
+    except sqlite3.Error as exc:
+        return Response(
+            {'error': f'Could not read {label} tiles: {exc}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+    if not row:
+        return None
+
+    tile_data = row[0]
+    response = HttpResponse(tile_data, content_type='application/x-protobuf')
+    if tile_data[:2] == b'\x1f\x8b':
+        response['Content-Encoding'] = 'gzip'
+    response['Cache-Control'] = 'public, max-age=31536000, immutable'
+    return response
+
+
 class BenthicVectorTileApiView(APIView):
     """
     Serve pre-generated benthic habitat vector tiles from an MBTiles archive.
@@ -110,36 +110,29 @@ class BenthicVectorTileApiView(APIView):
     def get(self, request, z, x, y, region=None):
         mbtiles_paths = getattr(settings, 'BENTHIC_MBTILES_PATHS', {})
         mbtiles_path = mbtiles_paths.get(region) if region else settings.BENTHIC_MBTILES_PATH
-        if not mbtiles_path or not os.path.exists(mbtiles_path):
+        result = _mbtiles_vector_pbf_response(mbtiles_path, z, x, y, 'benthic')
+        if result is None:
             return HttpResponse(status=204)
+        if isinstance(result, Response):
+            return result
+        return result
 
-        tms_y = (1 << z) - 1 - y
-        try:
-            with sqlite3.connect(mbtiles_path) as conn:
-                cursor = conn.execute(
-                    """
-                    SELECT tile_data
-                    FROM tiles
-                    WHERE zoom_level = ? AND tile_column = ? AND tile_row = ?
-                    """,
-                    (z, x, tms_y)
-                )
-                row = cursor.fetchone()
-        except sqlite3.Error as exc:
-            return Response(
-                {'error': f'Could not read benthic tiles: {exc}'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
 
-        if not row:
+class ReefExtentVectorTileApiView(APIView):
+    """Serve reef extent (mask) vector tiles from MBTiles; same TMS/XYZ convention as benthic."""
+
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request, z, x, y, region=None):
+        mbtiles_paths = getattr(settings, 'REEF_EXTENT_MBTILES_PATHS', {})
+        mbtiles_path = mbtiles_paths.get(region) if region else settings.REEF_EXTENT_MBTILES_PATH
+        result = _mbtiles_vector_pbf_response(mbtiles_path, z, x, y, 'reef extent')
+        if result is None:
             return HttpResponse(status=204)
-
-        tile_data = row[0]
-        response = HttpResponse(tile_data, content_type='application/x-protobuf')
-        if tile_data[:2] == b'\x1f\x8b':
-            response['Content-Encoding'] = 'gzip'
-        response['Cache-Control'] = 'public, max-age=31536000, immutable'
-        return response
+        if isinstance(result, Response):
+            return result
+        return result
 
 
 @method_decorator(ensure_csrf_cookie, name='dispatch')
@@ -357,14 +350,15 @@ class UploadCSVApiView(APIView):
             # STEP 1: Load raw data and check for ED values
             # ==============================================================
             df_raw = pd.read_csv(csv_file)
+            try:
+                df_raw = expand_slash_separated_temperature_column(df_raw)
+            except ValueError as exc:
+                return Response(
+                    {'error': str(exc)},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             source_has_pam = _find_column_case_insensitive(df_raw, 'Pam_value') is not None
 
-            if _is_precalculated_wide_ed_format(df_raw):
-                original_rows = len(df_raw)
-                df_raw = _expand_precalculated_ed_rows(df_raw)
-                no_pam = no_pam or not source_has_pam
-                print(f"↔️ Expanded pre-calculated ED wide format: {original_rows} rows → {len(df_raw)} rows")
-            
             # Check if ED values already exist
             ed_patterns = ['ed50', 'ed5', 'ed95', 'ED50', 'ED5', 'ED95']
             has_ed_columns = any(
@@ -674,8 +668,14 @@ class UploadCSVApiView(APIView):
             if no_pam or not source_has_pam:
                 command_args.append('--no-pam')
 
-            call_command('populate_db', *command_args)
-            
+            try:
+                call_command('populate_db', *command_args)
+            except CommandError as exc:
+                return Response(
+                    {'error': str(exc)},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             # Get projects after populate_db (by name, not description, since get_or_create uses name)
             projects_after = set(Project.objects.filter(
                 owner=request.user,

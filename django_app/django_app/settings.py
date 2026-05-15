@@ -5,12 +5,12 @@ from pathlib import Path
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Initialise environment variables
+# Initialise environment variables (repo `.env` lives in parent of `django_app/`)
 env = environ.Env(
     # Set casting, default value
     DEBUG=(bool, False)
 )
-environ.Env.read_env()
+environ.Env.read_env(BASE_DIR.parent / '.env')
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = env('SECRET_KEY')
@@ -191,14 +191,66 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
+
+def _coralfuture_local_mapdata_fallback():
+    """On this project's production host, tiles live alongside the repo."""
+    probe = Path.home() / 'MapData'
+    try:
+        if probe.exists():
+            return str(probe)
+    except (OSError, RuntimeError):
+        pass
+    return ''
+
+
+_CORAL_MAPDATA_HOME = (
+    os.getenv('CORAL_MAPDATA_HOME', '').strip().rstrip('/') or _coralfuture_local_mapdata_fallback()
+)
+
+
+def _mbtiles_under_mapdata(relative_under_mapdata: str):
+    """
+    Default MBTiles filesystem path.
+
+    - If CORAL_MAPDATA_HOME is set (recommended for bare-metal Django on the host pointing at a
+      MapData tree): <CORAL_MAPDATA_HOME>/benthic/... or .../reef_extent/...
+
+    - Otherwise (Docker Compose): use top-level dirs /benthic and /reef_extent from volume mounts —
+      same filenames as scripts write under MapData.
+    """
+    rel = relative_under_mapdata.strip().strip('/').replace('\\', '/')
+    if _CORAL_MAPDATA_HOME:
+        return os.path.join(_CORAL_MAPDATA_HOME, rel)
+    return '/' + rel
+
+
+def _tile_env(primary_key: str, relative_under_mapdata: str):
+    return os.getenv(primary_key) or _mbtiles_under_mapdata(relative_under_mapdata)
+
+
 BENTHIC_MBTILES_PATHS = {
-    'cio': os.getenv('BENTHIC_CIO_MBTILES_PATH', '/benthic/benthic_cio.mbtiles'),
-    'caribbean': os.getenv('BENTHIC_CARIBBEAN_MBTILES_PATH', '/benthic/benthic_caribbean.mbtiles'),
-    'arabian': os.getenv('BENTHIC_ARABIAN_MBTILES_PATH', '/benthic/benthic_arabian.mbtiles'),
-    'redsea': os.getenv('BENTHIC_REDSEA_MBTILES_PATH', '/benthic/benthic_redsea.mbtiles'),
+    'cio': _tile_env('BENTHIC_CIO_MBTILES_PATH', 'benthic/benthic_cio.mbtiles'),
+    'caribbean': _tile_env('BENTHIC_CARIBBEAN_MBTILES_PATH', 'benthic/benthic_caribbean.mbtiles'),
+    'arabian': _tile_env('BENTHIC_ARABIAN_MBTILES_PATH', 'benthic/benthic_arabian.mbtiles'),
+    'redsea': _tile_env('BENTHIC_REDSEA_MBTILES_PATH', 'benthic/benthic_redsea.mbtiles'),
+    'micronesia': _tile_env('BENTHIC_MICRONESIA_MBTILES_PATH', 'benthic/benthic_micronesia.mbtiles'),
+    'sw_pacific': _tile_env('BENTHIC_SW_PACIFIC_MBTILES_PATH', 'benthic/benthic_sw_pacific.mbtiles'),
 }
 
-BENTHIC_MBTILES_PATH = os.getenv('BENTHIC_MBTILES_PATH', BENTHIC_MBTILES_PATHS['cio'])
+BENTHIC_MBTILES_PATH = os.getenv('BENTHIC_MBTILES_PATH') or BENTHIC_MBTILES_PATHS['cio']
+
+# Allen Coral Atlas reef mask polygons (source-layer name in PBF: reef_extent); paths mirror BENTHIC
+REEF_EXTENT_MBTILES_PATHS = {
+    'caribbean': _tile_env('REEF_EXTENT_CARIBBEAN_MBTILES_PATH', 'reef_extent/reef_extent_caribbean.mbtiles'),
+    'arabian': _tile_env('REEF_EXTENT_ARABIAN_MBTILES_PATH', 'reef_extent/reef_extent_arabian.mbtiles'),
+    'redsea': _tile_env('REEF_EXTENT_REDSEA_MBTILES_PATH', 'reef_extent/reef_extent_redsea.mbtiles'),
+    'micronesia': _tile_env('REEF_EXTENT_MICRONESIA_MBTILES_PATH', 'reef_extent/reef_extent_micronesia.mbtiles'),
+    'sw_pacific': _tile_env('REEF_EXTENT_SW_PACIFIC_MBTILES_PATH', 'reef_extent/reef_extent_sw_pacific.mbtiles'),
+}
+
+REEF_EXTENT_MBTILES_PATH = (
+    os.getenv('REEF_EXTENT_MBTILES_PATH') or REEF_EXTENT_MBTILES_PATHS['caribbean']
+)
 
 DEEPSEEK_API_KEY = os.getenv('DEEPSEEK_API_KEY', '')
 DEEPSEEK_API_URL = os.getenv('DEEPSEEK_API_URL', 'https://api.deepseek.com/chat/completions')

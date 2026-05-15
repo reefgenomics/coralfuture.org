@@ -136,7 +136,7 @@ class ProjectSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Project
-        fields = ['id', 'name', 'registration_date', 'description', 'owner', 'publications', 'cover_photo']
+        fields = ['id', 'name', 'registration_date', 'description', 'owner', 'publications', 'cover_photo', 'view_count']
 
 
 class ExperimentSerializer(serializers.ModelSerializer):
@@ -311,5 +311,5 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Project
-        fields = ['id', 'name', 'registration_date', 'description', 'owner',
+        fields = ['id', 'name', 'registration_date', 'description', 'owner', 'view_count',
                   'publications', 'attachment', 'experiments', 'colonies', 'observations']

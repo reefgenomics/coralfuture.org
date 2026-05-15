@@ -8,11 +8,19 @@ import SidebarFilterProvider from 'contexts/SidebarFilterContext';
 import InputSidebar from 'components/Sidebar/Sidebar';
 import Map from 'components/Map/Map';
 import { DEFAULT_BENTHIC_CLASS_COLORS } from 'components/Tiles/BenthicTileLayer';
+import { DEFAULT_REEF_EXTENT_CLASS_COLORS } from 'components/Tiles/ReefExtentTileLayer';
 
 const MAP_SETTINGS_CACHE_KEY = 'customerMapSettings';
 
 const buildDefaultBenthicClasses = () => Object.fromEntries(
   Object.entries(DEFAULT_BENTHIC_CLASS_COLORS).map(([className, color]) => [
+    className,
+    { visible: true, color },
+  ]),
+);
+
+const buildDefaultReefExtentClasses = () => Object.fromEntries(
+  Object.entries(DEFAULT_REEF_EXTENT_CLASS_COLORS).map(([className, color]) => [
     className,
     { visible: true, color },
   ]),
@@ -24,6 +32,8 @@ const getInitialMapSettings = () => {
     captionsVisible: true,
     benthicVisible: false,
     benthicClasses: buildDefaultBenthicClasses(),
+    reefExtentVisible: false,
+    reefExtentClasses: buildDefaultReefExtentClasses(),
   };
 
   try {
@@ -35,6 +45,10 @@ const getInitialMapSettings = () => {
       benthicClasses: {
         ...defaults.benthicClasses,
         ...(cached.benthicClasses || {}),
+      },
+      reefExtentClasses: {
+        ...defaults.reefExtentClasses,
+        ...(cached.reefExtentClasses || {}),
       },
     };
   } catch (_) {
@@ -48,17 +62,26 @@ const CustomerMap = () => {
   const [captionsVisible, setCaptionsVisible] = useState(initialSettings.captionsVisible);
   const [benthicVisible, setBenthicVisible] = useState(initialSettings.benthicVisible);
   const [benthicClasses, setBenthicClasses] = useState(initialSettings.benthicClasses);
+  const [reefExtentVisible, setReefExtentVisible] = useState(initialSettings.reefExtentVisible);
+  const [reefExtentClasses, setReefExtentClasses] = useState(initialSettings.reefExtentClasses);
 
   useEffect(() => {
     try {
       window.localStorage.setItem(
         MAP_SETTINGS_CACHE_KEY,
-        JSON.stringify({ basemap, captionsVisible, benthicVisible, benthicClasses }),
+        JSON.stringify({
+          basemap,
+          captionsVisible,
+          benthicVisible,
+          benthicClasses,
+          reefExtentVisible,
+          reefExtentClasses,
+        }),
       );
     } catch (_) {
       // Ignore localStorage quota/private mode issues.
     }
-  }, [basemap, captionsVisible, benthicVisible, benthicClasses]);
+  }, [basemap, captionsVisible, benthicVisible, benthicClasses, reefExtentVisible, reefExtentClasses]);
 
   return (
     <SidebarFilterProvider>
@@ -69,6 +92,8 @@ const CustomerMap = () => {
             captionsVisible={captionsVisible}
             benthicVisible={benthicVisible}
             benthicClasses={benthicClasses}
+            reefExtentVisible={reefExtentVisible}
+            reefExtentClasses={reefExtentClasses}
           />
         </div>
         
@@ -94,6 +119,10 @@ const CustomerMap = () => {
             onBenthicVisibleChange={setBenthicVisible}
             benthicClasses={benthicClasses}
             onBenthicClassesChange={setBenthicClasses}
+            reefExtentVisible={reefExtentVisible}
+            onReefExtentVisibleChange={setReefExtentVisible}
+            reefExtentClasses={reefExtentClasses}
+            onReefExtentClassesChange={setReefExtentClasses}
           />
         </div>
       </Container>
