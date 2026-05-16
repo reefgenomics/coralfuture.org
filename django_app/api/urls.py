@@ -6,7 +6,8 @@ from api.views import BioSamplesApiView, ObservationsApiView, \
     BreakpointTemperatureApiView, BreakpointTemperatureMinMaxView, \
     ThermalLimitApiView, ThermalLimitMinMaxView, \
     ProjectsApiView, CSRFTokenView, LoginApiView, LogoutApiView, \
-    BenthicVectorTileApiView, ReefExtentVectorTileApiView
+    BenthicVectorTileApiView, ReefExtentVectorTileApiView, \
+    BleachingVectorTileApiView, BleachingObservationsGeoJsonView, BleachingYearsJsonView
 from api.projects_api import (
     ProjectsApiView as NewProjectsApiView,
     ProjectDetailApiView,
@@ -47,6 +48,9 @@ urlpatterns = [
         path('benthic-tiles/<slug:region>/<int:z>/<int:x>/<int:y>.pbf', BenthicVectorTileApiView.as_view()),
         path('reef-extent-tiles/<int:z>/<int:x>/<int:y>.pbf', ReefExtentVectorTileApiView.as_view()),
         path('reef-extent-tiles/<slug:region>/<int:z>/<int:x>/<int:y>.pbf', ReefExtentVectorTileApiView.as_view()),
+        path('bleaching-tiles/<int:z>/<int:x>/<int:y>.pbf', BleachingVectorTileApiView.as_view()),
+        path('bleaching-observations.geojson', BleachingObservationsGeoJsonView.as_view()),
+        path('bleaching-years.json', BleachingYearsJsonView.as_view()),
         path('projects/', NewProjectsApiView.as_view()),
         path('projects/<int:project_id>/', ProjectDetailApiView.as_view()),
         path('', include(profile_public_urlpatterns)),

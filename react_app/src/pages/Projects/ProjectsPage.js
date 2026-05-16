@@ -150,10 +150,10 @@ const ProjectsPage = () => {
               onChange={(e) => setSortKey(e.target.value)}
               aria-label="Sort projects list"
             >
-              <option value="date-desc">Registration date — newest first</option>
-              <option value="date-asc">Registration date — oldest first</option>
-              <option value="views-desc">Views — highest first</option>
-              <option value="views-asc">Views — lowest first</option>
+              <option value="date-desc">Newest registration date</option>
+              <option value="date-asc">Oldest registration date</option>
+              <option value="views-desc">Most views</option>
+              <option value="views-asc">Fewest views</option>
             </Form.Select>
           </div>
         </div>

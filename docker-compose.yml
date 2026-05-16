@@ -37,6 +37,7 @@ services:
       - ./shared_data:/shared_data
       - /home/coralfuture-server/MapData/benthic:/benthic:ro
       - /home/coralfuture-server/MapData/reef_extent:/reef_extent:ro
+      - /home/coralfuture-server/MapData/bleaching:/bleaching:ro
     depends_on:
       - database
 

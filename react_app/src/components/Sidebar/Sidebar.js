@@ -14,6 +14,10 @@ import { SidebarFilterContext } from 'contexts/SidebarFilterContext';
 import AddToCartButton from 'components/Button/AddToCart';
 import { DEFAULT_BENTHIC_CLASS_COLORS } from 'components/Tiles/BenthicTileLayer';
 import { DEFAULT_REEF_EXTENT_CLASS_COLORS } from 'components/Tiles/ReefExtentTileLayer';
+import {
+  BLEACHING_SEVERITY_COLORS,
+  BLEACHING_SEVERITY_LABELS,
+} from 'components/Bleaching/bleachingSeverity';
 import { BASEMAPS } from 'components/Tiles/basemaps';
 import TemperatureFiltersModal from './TemperatureFiltersModal';
 
@@ -30,6 +34,11 @@ const InputSidebar = ({
   onReefExtentVisibleChange,
   reefExtentClasses = {},
   onReefExtentClassesChange,
+  bleachingVisible = false,
+  onBleachingVisibleChange,
+  bleachingYear = 2005,
+  onBleachingYearChange,
+  bleachingYears = [],
 }) => {
 
   const [selectedSpecies, setSelectedSpecies] = useState('');
@@ -557,6 +566,58 @@ const InputSidebar = ({
                   );
                 })}
               </div>
+            )}
+          </div>
+
+          <div className="layer-card">
+            <Form.Check
+              type="checkbox"
+              id="bleaching-layer-toggle"
+              label="Bleaching data"
+              checked={bleachingVisible}
+              onChange={(event) => onBleachingVisibleChange?.(event.target.checked)}
+              className="fw-semibold mb-2"
+            />
+            {bleachingVisible && (
+              <>
+                <Form.Group className="mb-2">
+                  <Form.Label htmlFor="bleaching-year-select" className="small mb-1">
+                    Year
+                  </Form.Label>
+                  <Form.Select
+                    id="bleaching-year-select"
+                    size="sm"
+                    value={bleachingYear}
+                    disabled={!bleachingYears.length}
+                    onChange={(event) => onBleachingYearChange?.(Number(event.target.value))}
+                  >
+                    {bleachingYears.length ? (
+                      bleachingYears.map((y) => (
+                        <option key={y} value={y}>{y}</option>
+                      ))
+                    ) : (
+                      <option value={bleachingYear}>{bleachingYear}</option>
+                    )}
+                  </Form.Select>
+                </Form.Group>
+                <ul className="list-unstyled mb-0 small">
+                  {Object.entries(BLEACHING_SEVERITY_LABELS).map(([code, label]) => (
+                    <li key={code} className="d-flex align-items-center gap-2 mb-1">
+                      <span
+                        style={{
+                          width: 12,
+                          height: 12,
+                          borderRadius: 2,
+                          background: BLEACHING_SEVERITY_COLORS[code],
+                          border: '1px solid rgba(0,0,0,0.15)',
+                          flexShrink: 0,
+                        }}
+                      />
+                      {label}
+                    </li>
+                  ))}
+                </ul>
+              </>
             )}
           </div>
         </div>

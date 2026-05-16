@@ -11,6 +11,10 @@ import {
   REEF_EXTENT_TILESETS,
   DEFAULT_REEF_EXTENT_CLASS_COLORS,
 } from 'components/Tiles/ReefExtentTileLayer';
+import {
+  buildBleachingSeverityColorExpression,
+  buildBleachingYearFilter,
+} from 'components/Bleaching/bleachingSeverity';
 import ColonyPopupContent from 'components/ColonyPopup/ColonyPopupContent';
 import {
   COLONIES_SOURCE,
@@ -43,6 +47,13 @@ const reefSourceIdFor = (tilesetId) => `reef-extent-${tilesetId}`;
 const reefFillLayerIdFor = (tilesetId) => `reef-extent-${tilesetId}-fill`;
 const reefLineLayerIdFor = (tilesetId) => `reef-extent-${tilesetId}-line`;
 
+const BLEACHING_SOURCE = 'bleaching-grid';
+const BLEACHING_LAYER = 'bleaching-grid-fill';
+const BLEACHING_OBS_SOURCE = 'bleaching-observations';
+const BLEACHING_OBS_LAYER = 'bleaching-observations-circles';
+const BLEACHING_SOURCE_LAYER = process.env.REACT_APP_BLEACHING_VECTOR_LAYER || 'bleaching';
+const DEFAULT_BLEACHING_YEAR = 2005;
+
 const captionsUrlFor = (basemap) => (basemap === 'ocean' ? OCEAN_CAPTIONS_URL : DEFAULT_CAPTIONS_URL);
 
 const isBenthicTileError = (error) => {
@@ -53,6 +64,11 @@ const isBenthicTileError = (error) => {
 const isReefExtentTileError = (error) => {
   const url = error?.url || error?.message || '';
   return typeof url === 'string' && url.includes('/reef-extent-tiles/');
+};
+
+const isBleachingTileError = (error) => {
+  const url = error?.url || error?.message || '';
+  return typeof url === 'string' && url.includes('/bleaching-tiles/');
 };
 
 const buildColorMatchExpression = (classSettings = {}) => {
@@ -155,6 +171,10 @@ export default function CustomerMapLibreMap({
   benthicClasses = {},
   reefExtentVisible = false,
   reefExtentClasses = {},
+  bleachingVisible = false,
+  bleachingYear = DEFAULT_BLEACHING_YEAR,
+  bleachingObservationsGeoJson = null,
+  onBleachingObservationClick,
   colonies = [],
   focusTarget = null,
 }) {
@@ -164,6 +184,9 @@ export default function CustomerMapLibreMap({
   const clusterControllerRef = useRef(null);
   const basemapRef = useRef(basemap);
   const captionsVisibleRef = useRef(captionsVisible);
+  const bleachingVisibleRef = useRef(bleachingVisible);
+  const onBleachingClickRef = useRef(onBleachingObservationClick);
+  const bleachingObsRef = useRef(bleachingObservationsGeoJson);
   const focusHandledKeyRef = useRef(null);
 
   const style = useMemo(() => {
@@ -271,6 +294,47 @@ export default function CustomerMapLibreMap({
       );
     }
 
+    sources[BLEACHING_SOURCE] = {
+      type: 'vector',
+      tiles: [toAbsoluteTileUrl('/api/public/bleaching-tiles/{z}/{x}/{y}.pbf')],
+      minzoom: 2,
+      maxzoom: 14,
+    };
+    layers.push({
+      id: BLEACHING_LAYER,
+      type: 'fill',
+      source: BLEACHING_SOURCE,
+      'source-layer': BLEACHING_SOURCE_LAYER,
+      layout: { visibility: 'none' },
+      minzoom: 2,
+      paint: {
+        'fill-color': buildBleachingSeverityColorExpression(),
+        'fill-opacity': 0.82,
+        'fill-outline-color': 'rgba(0,0,0,0.12)',
+      },
+      filter: buildBleachingYearFilter(DEFAULT_BLEACHING_YEAR),
+    });
+
+    sources[BLEACHING_OBS_SOURCE] = {
+      type: 'geojson',
+      data: { type: 'FeatureCollection', features: [] },
+    };
+    layers.push({
+      id: BLEACHING_OBS_LAYER,
+      type: 'circle',
+      source: BLEACHING_OBS_SOURCE,
+      layout: { visibility: 'none' },
+      minzoom: 4,
+      paint: {
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 3, 10, 7, 14, 10],
+        'circle-color': buildBleachingSeverityColorExpression(),
+        'circle-stroke-width': 1.5,
+        'circle-stroke-color': '#1f2937',
+        'circle-opacity': 0.95,
+      },
+      filter: buildBleachingYearFilter(DEFAULT_BLEACHING_YEAR),
+    });
+
     layers.push({
       id: CAPTIONS_LAYER,
       type: 'raster',
@@ -293,6 +357,18 @@ export default function CustomerMapLibreMap({
   useEffect(() => {
     captionsVisibleRef.current = captionsVisible;
   }, [captionsVisible]);
+
+  useEffect(() => {
+    bleachingVisibleRef.current = bleachingVisible;
+  }, [bleachingVisible]);
+
+  useEffect(() => {
+    onBleachingClickRef.current = onBleachingObservationClick;
+  }, [onBleachingObservationClick]);
+
+  useEffect(() => {
+    bleachingObsRef.current = bleachingObservationsGeoJson;
+  }, [bleachingObservationsGeoJson]);
 
   useEffect(() => {
     coloniesRef.current = colonies;
@@ -357,6 +433,26 @@ export default function CustomerMapLibreMap({
   const applyCaptionsVisibility = (map) => {
     if (map.getLayer(CAPTIONS_LAYER)) {
       map.setLayoutProperty(CAPTIONS_LAYER, 'visibility', captionsVisibleRef.current ? 'visible' : 'none');
+    }
+  };
+
+  const applyBleachingVisibility = (map) => {
+    const vis = bleachingVisibleRef.current ? 'visible' : 'none';
+    if (map.getLayer(BLEACHING_LAYER)) map.setLayoutProperty(BLEACHING_LAYER, 'visibility', vis);
+    if (map.getLayer(BLEACHING_OBS_LAYER)) map.setLayoutProperty(BLEACHING_OBS_LAYER, 'visibility', vis);
+  };
+
+  const applyBleachingYear = (map, year) => {
+    if (year == null) return;
+    const yearFilter = buildBleachingYearFilter(year);
+    if (map.getLayer(BLEACHING_LAYER)) map.setFilter(BLEACHING_LAYER, yearFilter);
+    if (map.getLayer(BLEACHING_OBS_LAYER)) map.setFilter(BLEACHING_OBS_LAYER, yearFilter);
+  };
+
+  const applyBleachingObservations = (map) => {
+    const src = map.getSource(BLEACHING_OBS_SOURCE);
+    if (src && bleachingObsRef.current) {
+      src.setData(bleachingObsRef.current);
     }
   };
 
@@ -426,13 +522,31 @@ export default function CustomerMapLibreMap({
       applyCaptionsVisibility(map);
       applyBenthicVisibility(map);
       applyReefExtentVisibility(map);
+      applyBleachingVisibility(map);
+      applyBleachingYear(map, bleachingYear);
+      applyBleachingObservations(map);
       applyColoniesData(map);
       clusterControllerRef.current?.clearSpider();
     };
     map.on('load', syncImagesAndHandlers);
     map.on('style.load', syncImagesAndHandlers);
+    map.on('click', BLEACHING_OBS_LAYER, (e) => {
+      if (!bleachingVisibleRef.current) return;
+      const feature = e.features?.[0];
+      if (feature?.properties) onBleachingClickRef.current?.(feature.properties);
+    });
+    map.on('mouseenter', BLEACHING_OBS_LAYER, () => {
+      if (bleachingVisibleRef.current) map.getCanvas().style.cursor = 'pointer';
+    });
+    map.on('mouseleave', BLEACHING_OBS_LAYER, () => {
+      map.getCanvas().style.cursor = '';
+    });
     map.on('error', (event) => {
-      if (isBenthicTileError(event?.error) || isReefExtentTileError(event?.error)) {
+      if (
+        isBenthicTileError(event?.error) ||
+        isReefExtentTileError(event?.error) ||
+        isBleachingTileError(event?.error)
+      ) {
         return;
       }
       // Let non-benthic errors keep their normal development visibility.
@@ -501,6 +615,45 @@ export default function CustomerMapLibreMap({
       map.off('styledata', apply);
     };
   }, [reefExtentVisible]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const apply = () => applyBleachingVisibility(map);
+
+    if (map.isStyleLoaded()) apply();
+    map.on('styledata', apply);
+    return () => {
+      map.off('styledata', apply);
+    };
+  }, [bleachingVisible]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || bleachingYear == null) return;
+
+    const apply = () => applyBleachingYear(map, bleachingYear);
+
+    if (map.isStyleLoaded()) apply();
+    map.on('styledata', apply);
+    return () => {
+      map.off('styledata', apply);
+    };
+  }, [bleachingYear]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !bleachingObservationsGeoJson) return;
+
+    const apply = () => applyBleachingObservations(map);
+
+    if (map.isStyleLoaded()) apply();
+    map.on('styledata', apply);
+    return () => {
+      map.off('styledata', apply);
+    };
+  }, [bleachingObservationsGeoJson]);
 
   useEffect(() => {
     const map = mapRef.current;

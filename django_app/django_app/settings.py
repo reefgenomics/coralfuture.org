@@ -228,28 +228,79 @@ def _tile_env(primary_key: str, relative_under_mapdata: str):
     return os.getenv(primary_key) or _mbtiles_under_mapdata(relative_under_mapdata)
 
 
+# Allen Coral Atlas regional MBTiles (see coral-future/scripts/atlas_regions.tsv + generate_all_*_regions.sh)
+_ATLAS_REGION_SLUGS = [
+    'caribbean',
+    'arabian',
+    'redsea',
+    'micronesia',
+    'sw_pacific',
+    'andaman_sea',
+    'bermuda',
+    'brazil',
+    'central_south_pacific',
+    'coral_sea',
+    'eastern_micronesia',
+    'eastern_tropical_pacific',
+    'great_barrier_reef',
+    'northeastern_asia',
+    'south_china_sea',
+    'southeastern_asia',
+    'southeastern_caribbean',
+    'southern_asia',
+    'subtropical_eastern_australia',
+    'timor_arafura',
+    'western_africa',
+    'western_australia',
+]
+
+
+def _atlas_region_env_var(prefix: str, slug: str) -> str:
+    """e.g. prefix BENTHIC, slug sw_pacific -> BENTHIC_SW_PACIFIC_MBTILES_PATH"""
+    return f'{prefix}_{slug.upper()}_MBTILES_PATH'
+
+
 BENTHIC_MBTILES_PATHS = {
     'cio': _tile_env('BENTHIC_CIO_MBTILES_PATH', 'benthic/benthic_cio.mbtiles'),
-    'caribbean': _tile_env('BENTHIC_CARIBBEAN_MBTILES_PATH', 'benthic/benthic_caribbean.mbtiles'),
-    'arabian': _tile_env('BENTHIC_ARABIAN_MBTILES_PATH', 'benthic/benthic_arabian.mbtiles'),
-    'redsea': _tile_env('BENTHIC_REDSEA_MBTILES_PATH', 'benthic/benthic_redsea.mbtiles'),
-    'micronesia': _tile_env('BENTHIC_MICRONESIA_MBTILES_PATH', 'benthic/benthic_micronesia.mbtiles'),
-    'sw_pacific': _tile_env('BENTHIC_SW_PACIFIC_MBTILES_PATH', 'benthic/benthic_sw_pacific.mbtiles'),
 }
+for _slug in _ATLAS_REGION_SLUGS:
+    BENTHIC_MBTILES_PATHS[_slug] = _tile_env(
+        _atlas_region_env_var('BENTHIC', _slug),
+        f'benthic/benthic_{_slug}.mbtiles',
+    )
 
 BENTHIC_MBTILES_PATH = os.getenv('BENTHIC_MBTILES_PATH') or BENTHIC_MBTILES_PATHS['cio']
 
-# Allen Coral Atlas reef mask polygons (source-layer name in PBF: reef_extent); paths mirror BENTHIC
-REEF_EXTENT_MBTILES_PATHS = {
-    'caribbean': _tile_env('REEF_EXTENT_CARIBBEAN_MBTILES_PATH', 'reef_extent/reef_extent_caribbean.mbtiles'),
-    'arabian': _tile_env('REEF_EXTENT_ARABIAN_MBTILES_PATH', 'reef_extent/reef_extent_arabian.mbtiles'),
-    'redsea': _tile_env('REEF_EXTENT_REDSEA_MBTILES_PATH', 'reef_extent/reef_extent_redsea.mbtiles'),
-    'micronesia': _tile_env('REEF_EXTENT_MICRONESIA_MBTILES_PATH', 'reef_extent/reef_extent_micronesia.mbtiles'),
-    'sw_pacific': _tile_env('REEF_EXTENT_SW_PACIFIC_MBTILES_PATH', 'reef_extent/reef_extent_sw_pacific.mbtiles'),
-}
+REEF_EXTENT_MBTILES_PATHS = {}
+for _slug in _ATLAS_REGION_SLUGS:
+    REEF_EXTENT_MBTILES_PATHS[_slug] = _tile_env(
+        _atlas_region_env_var('REEF_EXTENT', _slug),
+        f'reef_extent/reef_extent_{_slug}.mbtiles',
+    )
 
 REEF_EXTENT_MBTILES_PATH = (
     os.getenv('REEF_EXTENT_MBTILES_PATH') or REEF_EXTENT_MBTILES_PATHS['caribbean']
+)
+
+BLEACHING_GRID_MBTILES_PATH = _tile_env(
+    'BLEACHING_GRID_MBTILES_PATH',
+    'bleaching/bleaching_grid.mbtiles',
+)
+BLEACHING_OBSERVATIONS_GEOJSON_PATH = (
+    os.getenv('BLEACHING_OBSERVATIONS_GEOJSON_PATH')
+    or (
+        os.path.join(_CORAL_MAPDATA_HOME, 'bleaching', 'bleaching_observations.geojson')
+        if _CORAL_MAPDATA_HOME
+        else '/bleaching/bleaching_observations.geojson'
+    )
+)
+BLEACHING_YEARS_JSON_PATH = (
+    os.getenv('BLEACHING_YEARS_JSON_PATH')
+    or (
+        os.path.join(_CORAL_MAPDATA_HOME, 'bleaching', 'bleaching_years.json')
+        if _CORAL_MAPDATA_HOME
+        else '/bleaching/bleaching_years.json'
+    )
 )
 
 DEEPSEEK_API_KEY = os.getenv('DEEPSEEK_API_KEY', '')

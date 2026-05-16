@@ -9,7 +9,7 @@ from django.db.models import Max, Min
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.contrib.auth import authenticate, login, logout
-from django.http import JsonResponse, HttpResponse, HttpResponseNotFound
+from django.http import FileResponse, JsonResponse, HttpResponse, HttpResponseNotFound
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.utils.decorators import method_decorator
 from django.views import View
@@ -133,6 +133,48 @@ class ReefExtentVectorTileApiView(APIView):
         if isinstance(result, Response):
             return result
         return result
+
+
+class BleachingVectorTileApiView(APIView):
+    """Serve bleaching 1 km grid vector tiles (source-layer: bleaching)."""
+
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request, z, x, y):
+        mbtiles_path = getattr(settings, 'BLEACHING_GRID_MBTILES_PATH', '')
+        result = _mbtiles_vector_pbf_response(mbtiles_path, z, x, y, 'bleaching')
+        if result is None:
+            return HttpResponse(status=204)
+        if isinstance(result, Response):
+            return result
+        return result
+
+
+class BleachingObservationsGeoJsonView(APIView):
+    """Full observation points GeoJSON for bleaching map popups."""
+
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request):
+        path = getattr(settings, 'BLEACHING_OBSERVATIONS_GEOJSON_PATH', '')
+        if not path or not os.path.exists(path):
+            return Response({'error': 'Bleaching observations not found'}, status=status.HTTP_404_NOT_FOUND)
+        return FileResponse(open(path, 'rb'), content_type='application/geo+json')
+
+
+class BleachingYearsJsonView(APIView):
+    """Available years for bleaching layer filter."""
+
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request):
+        path = getattr(settings, 'BLEACHING_YEARS_JSON_PATH', '')
+        if not path or not os.path.exists(path):
+            return Response({'error': 'Bleaching years metadata not found'}, status=status.HTTP_404_NOT_FOUND)
+        return FileResponse(open(path, 'rb'), content_type='application/json')
 
 
 @method_decorator(ensure_csrf_cookie, name='dispatch')

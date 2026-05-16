@@ -1,16 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { Container } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
-// Internal imports
-// Contexts
 import SidebarFilterProvider from 'contexts/SidebarFilterContext';
-// Components
 import InputSidebar from 'components/Sidebar/Sidebar';
 import Map from 'components/Map/Map';
+import BleachingObservationModal from 'components/Bleaching/BleachingObservationModal';
 import { DEFAULT_BENTHIC_CLASS_COLORS } from 'components/Tiles/BenthicTileLayer';
 import { DEFAULT_REEF_EXTENT_CLASS_COLORS } from 'components/Tiles/ReefExtentTileLayer';
 
 const MAP_SETTINGS_CACHE_KEY = 'customerMapSettings';
+const DEFAULT_BLEACHING_YEAR = 2005;
 
 const buildDefaultBenthicClasses = () => Object.fromEntries(
   Object.entries(DEFAULT_BENTHIC_CLASS_COLORS).map(([className, color]) => [
@@ -34,6 +33,8 @@ const getInitialMapSettings = () => {
     benthicClasses: buildDefaultBenthicClasses(),
     reefExtentVisible: false,
     reefExtentClasses: buildDefaultReefExtentClasses(),
+    bleachingVisible: false,
+    bleachingYear: DEFAULT_BLEACHING_YEAR,
   };
 
   try {
@@ -64,6 +65,35 @@ const CustomerMap = () => {
   const [benthicClasses, setBenthicClasses] = useState(initialSettings.benthicClasses);
   const [reefExtentVisible, setReefExtentVisible] = useState(initialSettings.reefExtentVisible);
   const [reefExtentClasses, setReefExtentClasses] = useState(initialSettings.reefExtentClasses);
+  const [bleachingVisible, setBleachingVisible] = useState(initialSettings.bleachingVisible);
+  const [bleachingYear, setBleachingYear] = useState(initialSettings.bleachingYear);
+  const [bleachingYears, setBleachingYears] = useState([]);
+  const [bleachingObservations, setBleachingObservations] = useState(null);
+  const [selectedBleachingObs, setSelectedBleachingObs] = useState(null);
+
+  useEffect(() => {
+    const loadBleaching = async () => {
+      try {
+        const [yearsRes, obsRes] = await Promise.all([
+          fetch('/api/public/bleaching-years.json'),
+          fetch('/api/public/bleaching-observations.geojson'),
+        ]);
+        if (!yearsRes.ok || !obsRes.ok) return;
+        const yearsData = await yearsRes.json();
+        const obsData = await obsRes.json();
+        const list = yearsData.years || [];
+        setBleachingYears(list);
+        setBleachingObservations(obsData);
+        if (list.length && !list.includes(bleachingYear)) {
+          setBleachingYear(list[list.length - 1]);
+        }
+      } catch (_) {
+        // Bleaching layer optional if files missing.
+      }
+    };
+    loadBleaching();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     try {
@@ -76,12 +106,23 @@ const CustomerMap = () => {
           benthicClasses,
           reefExtentVisible,
           reefExtentClasses,
+          bleachingVisible,
+          bleachingYear,
         }),
       );
     } catch (_) {
       // Ignore localStorage quota/private mode issues.
     }
-  }, [basemap, captionsVisible, benthicVisible, benthicClasses, reefExtentVisible, reefExtentClasses]);
+  }, [
+    basemap,
+    captionsVisible,
+    benthicVisible,
+    benthicClasses,
+    reefExtentVisible,
+    reefExtentClasses,
+    bleachingVisible,
+    bleachingYear,
+  ]);
 
   return (
     <SidebarFilterProvider>
@@ -94,14 +135,18 @@ const CustomerMap = () => {
             benthicClasses={benthicClasses}
             reefExtentVisible={reefExtentVisible}
             reefExtentClasses={reefExtentClasses}
+            bleachingVisible={bleachingVisible}
+            bleachingYear={bleachingYear}
+            bleachingObservationsGeoJson={bleachingObservations}
+            onBleachingObservationClick={setSelectedBleachingObs}
           />
         </div>
-        
-        <div style={{ 
-          position: 'absolute', 
-          top: '20px', 
+
+        <div style={{
+          position: 'absolute',
+          top: '20px',
           right: '16px',
-          zIndex: 1000, 
+          zIndex: 1000,
           width: '390px',
           maxWidth: 'calc(100vw - 32px)',
           maxHeight: 'calc(100vh - 100px)',
@@ -123,9 +168,20 @@ const CustomerMap = () => {
             onReefExtentVisibleChange={setReefExtentVisible}
             reefExtentClasses={reefExtentClasses}
             onReefExtentClassesChange={setReefExtentClasses}
+            bleachingVisible={bleachingVisible}
+            onBleachingVisibleChange={setBleachingVisible}
+            bleachingYear={bleachingYear}
+            onBleachingYearChange={setBleachingYear}
+            bleachingYears={bleachingYears}
           />
         </div>
       </Container>
+
+      <BleachingObservationModal
+        show={!!selectedBleachingObs}
+        onHide={() => setSelectedBleachingObs(null)}
+        observation={selectedBleachingObs}
+      />
     </SidebarFilterProvider>
   );
 };

@@ -13,6 +13,10 @@ const Map = ({
   benthicClasses = {},
   reefExtentVisible = false,
   reefExtentClasses = {},
+  bleachingVisible = false,
+  bleachingYear = 2005,
+  bleachingObservationsGeoJson = null,
+  onBleachingObservationClick,
 }) => {
   const { allColonies, filters, setFilteredColonies, defaultValues } =
     useContext(SidebarFilterContext);
@@ -89,6 +93,10 @@ const Map = ({
       benthicClasses={benthicClasses}
       reefExtentVisible={reefExtentVisible}
       reefExtentClasses={reefExtentClasses}
+      bleachingVisible={bleachingVisible}
+      bleachingYear={bleachingYear}
+      bleachingObservationsGeoJson={bleachingObservationsGeoJson}
+      onBleachingObservationClick={onBleachingObservationClick}
       colonies={computedColonies}
       focusTarget={focusTarget}
     />

@@ -3,46 +3,24 @@ import L from 'leaflet';
 import { useMap } from 'react-leaflet';
 import { createLayerComponent } from '@react-leaflet/core';
 import 'leaflet.vectorgrid';
+import { ALLEN_ATLAS_REGION_TILESETS } from './atlasViewportRegions';
 
 export const BENTHIC_OVERLAY_NAME = 'Benthic habitat';
 
 const BENTHIC_TILE_URL = process.env.REACT_APP_BENTHIC_TILE_URL || '/api/public/benthic-tiles/{z}/{x}/{y}.pbf';
 const BENTHIC_VECTOR_LAYER = process.env.REACT_APP_BENTHIC_VECTOR_LAYER || 'benthic';
 
-// Geographic envelopes [[south, west], [north, east]] — only mount a tileset when the (padded) view intersects.
-// CIO matches legacy Mapbox benthic extent; other boxes are loose data bounds.
+const atlasBenthicTilesets = ALLEN_ATLAS_REGION_TILESETS.map((r) => ({
+  id: r.id,
+  label: r.label,
+  url: `/api/public/benthic-tiles/${r.id}/{z}/{x}/{y}.pbf`,
+  bounds: r.bounds,
+}));
+
+// Geographic envelopes [[south, west], [north, east]] — CIO legacy; atlas regions from GeoPackage extents.
 export const BENTHIC_TILESETS = [
   { id: 'cio', label: 'Central Indian Ocean', url: BENTHIC_TILE_URL, bounds: [[-7.5, 71.0], [12.5, 74.0]] },
-  {
-    id: 'caribbean',
-    label: 'Caribbean Sea',
-    url: '/api/public/benthic-tiles/caribbean/{z}/{x}/{y}.pbf',
-    bounds: [[8, -98], [32, -60]],
-  },
-  {
-    id: 'arabian',
-    label: 'Northwestern Arabian Sea',
-    url: '/api/public/benthic-tiles/arabian/{z}/{x}/{y}.pbf',
-    bounds: [[10, 52], [32, 72]],
-  },
-  {
-    id: 'redsea',
-    label: 'Red Sea & Gulf of Aden',
-    url: '/api/public/benthic-tiles/redsea/{z}/{x}/{y}.pbf',
-    bounds: [[6, 30], [35, 52]],
-  },
-  {
-    id: 'micronesia',
-    label: 'Western Micronesia',
-    url: '/api/public/benthic-tiles/micronesia/{z}/{x}/{y}.pbf',
-    bounds: [[1, 131], [20, 163]],
-  },
-  {
-    id: 'sw_pacific',
-    label: 'Southwestern Pacific',
-    url: '/api/public/benthic-tiles/sw_pacific/{z}/{x}/{y}.pbf',
-    bounds: [[-26, 110], [5, 175]],
-  },
+  ...atlasBenthicTilesets,
 ];
 
 /** Below this zoom, if the view hits multiple regions, only the one nearest to map center is active. */
