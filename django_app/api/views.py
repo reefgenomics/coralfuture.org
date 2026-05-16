@@ -384,6 +384,66 @@ class UploadCSVApiView(APIView):
             if has_ed_columns:
                 print("✅ ED values detected in uploaded file")
                 df_with_eds = df_raw
+                if no_pam or not source_has_pam:
+                    import requests
+                    from pathlib import Path
+
+                    shared_data_path = Path('/shared_data')
+                    attachments_path = shared_data_path / 'attachments' / dataset_name
+                    attachments_path.mkdir(parents=True, exist_ok=True)
+                    print(f"📁 no-PAM attachments folder: {attachments_path}")
+
+                    canonical_columns = {
+                        'site': 'Site', 'condition': 'Condition', 'species': 'Species',
+                        'timepoint': 'Timepoint', 'temperature': 'Temperature',
+                        'project': 'Project', 'date': 'Date', 'country': 'Country',
+                        'latitude': 'Latitude', 'longitude': 'Longitude', 'genotype': 'Genotype',
+                        'ed5': 'ED5', 'ed50': 'ED50', 'ed95': 'ED95',
+                    }
+                    df_for_r = df_raw.copy()
+                    rename_map = {}
+                    for col in df_for_r.columns:
+                        c = col.strip()
+                        key = c.lower()
+                        if key in canonical_columns and c != canonical_columns[key]:
+                            rename_map[col] = canonical_columns[key]
+                    if rename_map:
+                        df_for_r = df_for_r.rename(columns=rename_map)
+
+                    with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as tmp:
+                        df_for_r.to_csv(tmp.name, index=False)
+                        temp_no_pam_csv = tmp.name
+
+                    try:
+                        ed50_service_url = os.getenv(
+                            'ED50_SERVICE_URL', 'http://ed50-fastapi:8001/calculate-csv'
+                        )
+                        grouping = 'Site,Condition,Species,Timepoint'
+                        with open(temp_no_pam_csv, 'rb') as f:
+                            response = requests.post(
+                                ed50_service_url,
+                                files={'file': (csv_file.name, f, 'text/csv')},
+                                data={
+                                    'no_pam': 'true',
+                                    'save_to': f'attachments/{dataset_name}',
+                                    'grouping_properties': grouping,
+                                    'condition': 'Condition',
+                                    'faceting': ' ~ Species',
+                                    'size_text': 10,
+                                    'size_points': 1,
+                                },
+                                timeout=600,
+                            )
+                        if response.status_code != 200:
+                            error_text = response.text[:500] if response.text else 'No error message'
+                            return Response(
+                                {'error': f'no-PAM statistics/boxplot failed: {error_text}'},
+                                status=status.HTTP_400_BAD_REQUEST,
+                            )
+                        print("✅ no-PAM statistics and boxplot generated")
+                    finally:
+                        if os.path.exists(temp_no_pam_csv):
+                            os.unlink(temp_no_pam_csv)
             else:
                 # ==============================================================
                 # STEP 2: Calculate ED values using ed50-fastapi service

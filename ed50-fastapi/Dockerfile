@@ -55,7 +55,7 @@ RUN mkdir -p uploads
 COPY . .
 
 # make R script executable
-RUN chmod +x calculate_eds.R
+RUN chmod +x calculate_eds.R no_pam_attachments.R
 
 # expose port
 EXPOSE 8001
