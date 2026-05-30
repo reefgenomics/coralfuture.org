@@ -33,6 +33,8 @@ const NavigationBar = () => {
     }
   };
 
+  const navUserName = [authData.firstName, authData.lastName].filter(Boolean).join(' ') || authData.username;
+
   return (
     <Navbar 
       expand="lg" 
@@ -125,7 +127,26 @@ const NavigationBar = () => {
 
         <div className="ms-lg-4">
           {authData.authenticated ? (
-            <NavDropdown title={<>{authData.username} <i className="bi bi-person-circle"></i></>} id="basic-nav-dropdown">
+            <NavDropdown
+              title={(
+                <>
+                  {authData.profilePhotoUrl ? (
+                    <img
+                      src={authData.profilePhotoUrl}
+                      alt=""
+                      style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover', marginRight: 6 }}
+                    />
+                  ) : (
+                    <i className="bi bi-person-circle"></i>
+                  )}
+                  {navUserName}
+                </>
+              )}
+              id="basic-nav-dropdown"
+            >
+              <NavDropdown.Item as={Link} to={`/users/${authData.username}`}>
+                <i className="bi bi-person"></i> Profile
+              </NavDropdown.Item>
               <NavDropdown.Item as={Link} to="/cart">
                 <i className="bi bi-cart"></i> Cart
               </NavDropdown.Item>

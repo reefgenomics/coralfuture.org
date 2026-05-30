@@ -4,7 +4,13 @@ import React, { useState, useEffect, createContext } from 'react';
 export const AuthContext = createContext();
 
 const AuthContextProvider = (props) => {
-  const [authData, setAuthData] = useState({ username: '', authenticated: false });
+  const [authData, setAuthData] = useState({
+    username: '',
+    firstName: '',
+    lastName: '',
+    profilePhotoUrl: '',
+    authenticated: false
+  });
   const [loading, setLoading] = useState(true);
 
   const checkAuthentication = async (backendUrl) => {
@@ -14,16 +20,19 @@ const AuthContextProvider = (props) => {
         withCredentials: true,
       });
 
-      const { username, authenticated } = response.data;
+      const { username, authenticated, first_name, last_name, profile_photo_url } = response.data;
       setAuthData({
-        username: username, 
+        username: username || '',
+        firstName: first_name || '',
+        lastName: last_name || '',
+        profilePhotoUrl: profile_photo_url || '',
         authenticated: authenticated
       });
       console.log('Authentication status checked:', { username, authenticated });
 
     } catch (error) {
       console.error('Error checking authentication:', error);
-      setAuthData({ username: '', authenticated: false });
+      setAuthData({ username: '', firstName: '', lastName: '', profilePhotoUrl: '', authenticated: false });
     } finally {
       setLoading(false);
     }
@@ -88,7 +97,7 @@ const AuthContextProvider = (props) => {
 
       if (logoutResponse.data.success) {
         // Clear local auth data
-        setAuthData({ username: '', authenticated: false });
+        setAuthData({ username: '', firstName: '', lastName: '', profilePhotoUrl: '', authenticated: false });
         return { success: true, message: logoutResponse.data.message };
       } else {
         return { success: false, error: logoutResponse.data.error };
@@ -96,7 +105,7 @@ const AuthContextProvider = (props) => {
     } catch (error) {
       console.error('Logout error:', error);
       // Even if logout fails on server, clear local auth data
-      setAuthData({ username: '', authenticated: false });
+      setAuthData({ username: '', firstName: '', lastName: '', profilePhotoUrl: '', authenticated: false });
       return { success: false, error: 'Logout failed, but you have been logged out locally.' };
     } finally {
       setLoading(false);

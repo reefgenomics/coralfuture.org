@@ -4,7 +4,7 @@ import pandas as pd
 import json
 import re
 
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 from users.models import CustomUser
@@ -43,14 +43,12 @@ class Command(BaseCommand):
         try:
             owner = CustomUser.objects.get(username=owner_username)
         except CustomUser.DoesNotExist:
-            sys.stdout.write(f"User '{owner_username}' does not exist.\n")
-            return
+            raise CommandError(f"User '{owner_username}' does not exist.") from None
 
         try:
             df_raw = pd.read_csv(csv_path)
         except FileNotFoundError:
-            sys.stdout.write(f"CSV file not found at '{csv_path}'.\n")
-            return
+            raise CommandError(f"CSV file not found at '{csv_path}'.") from None
 
         # --------------------------------------------------------------
         # 1. Map raw dataframe to standard schema columns
@@ -60,7 +58,7 @@ class Command(BaseCommand):
             df_std, mapping_instructions = result
         except Exception as e:
             sys.stdout.write(f"❌ Column mapping failed: {e}\n")
-            return
+            raise CommandError(f"Column mapping failed: {e}") from e
 
         # Temporary compatibility: validator expects 'Colony.ed50_value'
         if 'Colony.ed50_value' not in df_std.columns and 'Colony.ed50' in df_std.columns:
@@ -203,30 +201,30 @@ class Command(BaseCommand):
                 )
                 sys.stdout.write(f"Thermal Limit (ED95): {thermal_limit}, created: {created}\n")
 
-            if use_pam:
-                biosample, created = create_biosample(colony, (
-                    row['BioSample.name'], row['BioSample.collection_date']))
-                sys.stdout.write(
-                    f"Biosample: {biosample}, created: {created}\n")
+            biosample, created = create_biosample(colony, (
+                row['BioSample.name'], row['BioSample.collection_date']))
+            sys.stdout.write(
+                f"Biosample: {biosample}, created: {created}\n")
 
-                observation, created = create_observation(experiment, biosample,
-                                                          row)
-                sys.stdout.write(
-                    f"Observation: {observation}, created: {created}\n")
-                
-                # Create publication if DOI exists
-                if 'Publication.doi' in row and not pd.isnull(row['Publication.doi']):
-                    publication, created = create_publication(row)
-                    sys.stdout.write(
-                        f"Publication: {publication}, created: {created}\n")
+            observation, created = create_observation(experiment, biosample,
+                                                      row)
+            sys.stdout.write(
+                f"Observation: {observation}, created: {created}\n")
 
-                    publication.biosamples.add(biosample)
-                    project.publications.add(publication)
-                    project.biosamples.add(biosample)
-                
-                # Add observation to thermal metrics
-                if thermal_tolerance:
-                    thermal_tolerance.observations.add(observation)
+            project.biosamples.add(biosample)
+
+            # Create publication if DOI exists
+            if 'Publication.doi' in row and not pd.isnull(row['Publication.doi']):
+                publication, created = create_publication(row)
+                sys.stdout.write(
+                    f"Publication: {publication}, created: {created}\n")
+
+                publication.biosamples.add(biosample)
+                project.publications.add(publication)
+
+            # Add observation to thermal metrics, including no-PAM uploads.
+            if thermal_tolerance:
+                thermal_tolerance.observations.add(observation)
         
         # Save debug info to file
         debug_info.append("=== THERMAL TOLERANCE CREATION LOG ===")

@@ -32,6 +32,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
 R_SCRIPT_PATH = Path(__file__).parent / "calculate_eds.R"
+NO_PAM_SCRIPT_PATH = Path(__file__).parent / "no_pam_attachments.R"
 
 # Defaults: match user's working settings (Grouping Site,Condition,Species,Timepoint; Text size 10; Point size 1)
 ED_CALCULATOR_DEFAULTS = {
@@ -207,6 +208,71 @@ def run_r_script(
         logger.exception(f"Exception while running R script: {e}")
         return False, f"Error running R script: {str(e)}"
 
+
+def run_no_pam_r_script(
+    input_csv: str,
+    statistics_csv: str,
+    boxplot_path: str,
+    grouping_properties: str,
+    condition: str,
+    faceting: str,
+    size_text: float,
+    size_points: float,
+) -> Tuple[bool, str]:
+    try:
+        logger.info(f"Running no-PAM R script: {NO_PAM_SCRIPT_PATH}")
+        process = subprocess.Popen(
+            [
+                "Rscript",
+                str(NO_PAM_SCRIPT_PATH),
+                input_csv,
+                statistics_csv,
+                boxplot_path,
+                grouping_properties,
+                condition or "Condition",
+                faceting or " ~ Species",
+                str(size_text),
+                str(size_points),
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+            universal_newlines=True,
+        )
+        output_lines = []
+        for line in process.stdout:
+            line = line.strip()
+            if line:
+                logger.info(f"[R no-PAM] {line}")
+                output_lines.append(line)
+        process.wait()
+        if process.returncode != 0:
+            error_msg = "\n".join(output_lines) if output_lines else "Unknown error"
+            return False, f"no-PAM R script error: {error_msg}"
+        if not os.path.exists(statistics_csv):
+            return False, "no-PAM statistics file was not created"
+        if boxplot_path and not os.path.exists(boxplot_path):
+            return False, "no-PAM boxplot file was not created"
+        return True, ""
+    except Exception as exc:
+        logger.exception(f"Exception while running no-PAM R script: {exc}")
+        return False, f"Error running no-PAM R script: {exc}"
+
+
+def resolve_save_path(save_to: str) -> Path:
+    save_to_clean = str(save_to).strip()
+    if save_to_clean.startswith("/shared_data/"):
+        save_to_clean = save_to_clean.replace("/shared_data/", "", 1)
+    elif save_to_clean.startswith("/shared_data"):
+        save_to_clean = save_to_clean.replace("/shared_data", "", 1)
+    if save_to_clean.startswith("/"):
+        save_to_clean = save_to_clean[1:]
+    save_path = SHARED_DATA_PATH / save_to_clean
+    save_path.mkdir(parents=True, exist_ok=True)
+    return save_path
+
+
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     logger.info(f"GET request to home page from {request.client.host if request.client else 'unknown'}")
@@ -224,6 +290,7 @@ async def calculate_csv(
     size_text: float = Form(ED_CALCULATOR_DEFAULTS["size_text"]),
     size_points: float = Form(ED_CALCULATOR_DEFAULTS["size_points"]),
     save_to: Optional[str] = Form(None),
+    no_pam: Optional[str] = Form(None),
 ):
     """Calculate EDs and return CSV directly. If save_to is provided, save plots and statistics."""
     input_file: Optional[str] = None
@@ -231,13 +298,46 @@ async def calculate_csv(
     boxplot_file: Optional[str] = None
     temp_curve_file: Optional[str] = None
     model_curve_file: Optional[str] = None
+    statistics_file: Optional[str] = None
 
     try:
         logger.info(f"📊 CSV calculation request for {file.filename}")
         logger.info(f"📤 Received save_to parameter: {save_to}")
+        is_no_pam = parse_checkbox(no_pam)
         
         # Save uploaded file
         input_file = await materialize_uploaded_file(file)
+
+        if is_no_pam:
+            if not save_to:
+                return JSONResponse(
+                    content={"error": "no_pam uploads require save_to for statistics and boxplot"},
+                    status_code=400,
+                )
+            save_path = resolve_save_path(save_to)
+            statistics_file = str(save_path / "statistics.csv")
+            boxplot_file = str(save_path / "boxplot.png")
+            success, error_message = run_no_pam_r_script(
+                input_file,
+                statistics_file,
+                boxplot_file,
+                grouping_properties,
+                condition,
+                faceting,
+                size_text,
+                size_points,
+            )
+            if not success:
+                return JSONResponse(content={"error": error_message}, status_code=500)
+            with open(input_file, "r", encoding="utf-8") as f:
+                csv_data = f.read()
+            from fastapi.responses import Response
+            return Response(
+                content=csv_data,
+                media_type="text/csv",
+                headers={"Content-Disposition": "attachment; filename=eds_results.csv"},
+            )
+
         output_file = create_temp_csv_file()
 
         # Create plot files if saving
@@ -286,37 +386,7 @@ async def calculate_csv(
         
         # Save files to shared path if save_to provided
         if save_to:
-            # Always prepend shared_data_path to ensure files are saved in shared volume
-            # This works for both relative paths (e.g., "attachments/dataset") and 
-            # absolute paths that should be relative to shared_data (e.g., "/shared_data/attachments/dataset")
-            save_to_clean = str(save_to).strip()
-            
-            # Remove leading /shared_data if present to avoid duplication
-            if save_to_clean.startswith('/shared_data/'):
-                save_to_clean = save_to_clean.replace('/shared_data/', '', 1)
-            elif save_to_clean.startswith('/shared_data'):
-                save_to_clean = save_to_clean.replace('/shared_data', '', 1)
-            
-            # Remove leading slash if present (to make it relative)
-            if save_to_clean.startswith('/'):
-                save_to_clean = save_to_clean[1:]
-            
-            # Build final path relative to shared_data
-            save_path = SHARED_DATA_PATH / save_to_clean
-            
-            logger.info(f"🔍 Processing save_to: '{save_to}'")
-            logger.info(f"🔍 Cleaned path: '{save_to_clean}'")
-            logger.info(f"🔍 SHARED_DATA_PATH: {SHARED_DATA_PATH}")
-            logger.info(f"🔍 Final save_path: {save_path}")
-            
-            # Ensure the directory exists
-            try:
-                save_path.mkdir(parents=True, exist_ok=True)
-                logger.info(f"✅ Directory created/exists: {save_path}")
-            except Exception as e:
-                logger.error(f"❌ Failed to create directory {save_path}: {e}")
-                raise
-            
+            save_path = resolve_save_path(save_to)
             logger.info(f"💾 Saving files to shared path: {save_path}")
             
             # Save individual ED results

@@ -4,10 +4,12 @@ import tempfile
 import pandas as pd
 import csv
 import json
+import sqlite3
 from django.db.models import Max, Min
 from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.contrib.auth import authenticate, login, logout
-from django.http import JsonResponse
+from django.http import FileResponse, JsonResponse, HttpResponse, HttpResponseNotFound
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.utils.decorators import method_decorator
 from django.views import View
@@ -28,6 +30,18 @@ from django.db.models import Count, Q
 from django.db import transaction
 from django.utils import timezone
 from datetime import timedelta
+import re
+from django.conf import settings
+from profiles.models import ResearcherProfile
+from profiles.serializers import get_profile_photo_url
+from projects.management.commands.utils.column_mapper import expand_slash_separated_temperature_column
+
+
+def _find_column_case_insensitive(df, name):
+    for col in df.columns:
+        if str(col).strip().lower() == name.lower():
+            return col
+    return None
 
 
 class CheckAuthenticationApiView(APIView):
@@ -36,9 +50,131 @@ class CheckAuthenticationApiView(APIView):
     """
 
     def get(self, request):
+        if not request.user.is_authenticated:
+            return Response({'authenticated': False, 'username': ''})
+
+        profile, _ = ResearcherProfile.objects.get_or_create(user=request.user)
         return Response({
-            'authenticated': request.user.is_authenticated,
-            'username': request.user.username})
+            'authenticated': True,
+            'username': request.user.username,
+            'first_name': request.user.first_name,
+            'last_name': request.user.last_name,
+            'profile_photo_url': get_profile_photo_url(profile, request),
+            'has_profile': True,
+        })
+
+
+def _mbtiles_vector_pbf_response(mbtiles_path, z, x, y, label):
+    """Read a TMS-layout MBTiles row for XYZ tile (z,x,y) and return HttpResponse or None (204)."""
+    if not mbtiles_path or not os.path.exists(mbtiles_path):
+        return None
+
+    tms_y = (1 << z) - 1 - y
+    try:
+        with sqlite3.connect(mbtiles_path) as conn:
+            cursor = conn.execute(
+                """
+                SELECT tile_data
+                FROM tiles
+                WHERE zoom_level = ? AND tile_column = ? AND tile_row = ?
+                """,
+                (z, x, tms_y),
+            )
+            row = cursor.fetchone()
+    except sqlite3.Error as exc:
+        return Response(
+            {'error': f'Could not read {label} tiles: {exc}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+    if not row:
+        return None
+
+    tile_data = row[0]
+    response = HttpResponse(tile_data, content_type='application/x-protobuf')
+    if tile_data[:2] == b'\x1f\x8b':
+        response['Content-Encoding'] = 'gzip'
+    response['Cache-Control'] = 'public, max-age=31536000, immutable'
+    return response
+
+
+class BenthicVectorTileApiView(APIView):
+    """
+    Serve pre-generated benthic habitat vector tiles from an MBTiles archive.
+    MBTiles uses TMS tile rows, so incoming XYZ y values are flipped.
+    """
+
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request, z, x, y, region=None):
+        mbtiles_paths = getattr(settings, 'BENTHIC_MBTILES_PATHS', {})
+        mbtiles_path = mbtiles_paths.get(region) if region else settings.BENTHIC_MBTILES_PATH
+        result = _mbtiles_vector_pbf_response(mbtiles_path, z, x, y, 'benthic')
+        if result is None:
+            return HttpResponse(status=204)
+        if isinstance(result, Response):
+            return result
+        return result
+
+
+class ReefExtentVectorTileApiView(APIView):
+    """Serve reef extent (mask) vector tiles from MBTiles; same TMS/XYZ convention as benthic."""
+
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request, z, x, y, region=None):
+        mbtiles_paths = getattr(settings, 'REEF_EXTENT_MBTILES_PATHS', {})
+        mbtiles_path = mbtiles_paths.get(region) if region else settings.REEF_EXTENT_MBTILES_PATH
+        result = _mbtiles_vector_pbf_response(mbtiles_path, z, x, y, 'reef extent')
+        if result is None:
+            return HttpResponse(status=204)
+        if isinstance(result, Response):
+            return result
+        return result
+
+
+class BleachingVectorTileApiView(APIView):
+    """Serve bleaching 1 km grid vector tiles (source-layer: bleaching)."""
+
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request, z, x, y):
+        mbtiles_path = getattr(settings, 'BLEACHING_GRID_MBTILES_PATH', '')
+        result = _mbtiles_vector_pbf_response(mbtiles_path, z, x, y, 'bleaching')
+        if result is None:
+            return HttpResponse(status=204)
+        if isinstance(result, Response):
+            return result
+        return result
+
+
+class BleachingObservationsGeoJsonView(APIView):
+    """Full observation points GeoJSON for bleaching map popups."""
+
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request):
+        path = getattr(settings, 'BLEACHING_OBSERVATIONS_GEOJSON_PATH', '')
+        if not path or not os.path.exists(path):
+            return Response({'error': 'Bleaching observations not found'}, status=status.HTTP_404_NOT_FOUND)
+        return FileResponse(open(path, 'rb'), content_type='application/geo+json')
+
+
+class BleachingYearsJsonView(APIView):
+    """Available years for bleaching layer filter."""
+
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request):
+        path = getattr(settings, 'BLEACHING_YEARS_JSON_PATH', '')
+        if not path or not os.path.exists(path):
+            return Response({'error': 'Bleaching years metadata not found'}, status=status.HTTP_404_NOT_FOUND)
+        return FileResponse(open(path, 'rb'), content_type='application/json')
 
 
 @method_decorator(ensure_csrf_cookie, name='dispatch')
@@ -256,7 +392,15 @@ class UploadCSVApiView(APIView):
             # STEP 1: Load raw data and check for ED values
             # ==============================================================
             df_raw = pd.read_csv(csv_file)
-            
+            try:
+                df_raw = expand_slash_separated_temperature_column(df_raw)
+            except ValueError as exc:
+                return Response(
+                    {'error': str(exc)},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            source_has_pam = _find_column_case_insensitive(df_raw, 'Pam_value') is not None
+
             # Check if ED values already exist
             ed_patterns = ['ed50', 'ed5', 'ed95', 'ED50', 'ED5', 'ED95']
             has_ed_columns = any(
@@ -282,6 +426,66 @@ class UploadCSVApiView(APIView):
             if has_ed_columns:
                 print("✅ ED values detected in uploaded file")
                 df_with_eds = df_raw
+                if no_pam or not source_has_pam:
+                    import requests
+                    from pathlib import Path
+
+                    shared_data_path = Path('/shared_data')
+                    attachments_path = shared_data_path / 'attachments' / dataset_name
+                    attachments_path.mkdir(parents=True, exist_ok=True)
+                    print(f"📁 no-PAM attachments folder: {attachments_path}")
+
+                    canonical_columns = {
+                        'site': 'Site', 'condition': 'Condition', 'species': 'Species',
+                        'timepoint': 'Timepoint', 'temperature': 'Temperature',
+                        'project': 'Project', 'date': 'Date', 'country': 'Country',
+                        'latitude': 'Latitude', 'longitude': 'Longitude', 'genotype': 'Genotype',
+                        'ed5': 'ED5', 'ed50': 'ED50', 'ed95': 'ED95',
+                    }
+                    df_for_r = df_raw.copy()
+                    rename_map = {}
+                    for col in df_for_r.columns:
+                        c = col.strip()
+                        key = c.lower()
+                        if key in canonical_columns and c != canonical_columns[key]:
+                            rename_map[col] = canonical_columns[key]
+                    if rename_map:
+                        df_for_r = df_for_r.rename(columns=rename_map)
+
+                    with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as tmp:
+                        df_for_r.to_csv(tmp.name, index=False)
+                        temp_no_pam_csv = tmp.name
+
+                    try:
+                        ed50_service_url = os.getenv(
+                            'ED50_SERVICE_URL', 'http://ed50-fastapi:8001/calculate-csv'
+                        )
+                        grouping = 'Site,Condition,Species,Timepoint'
+                        with open(temp_no_pam_csv, 'rb') as f:
+                            response = requests.post(
+                                ed50_service_url,
+                                files={'file': (csv_file.name, f, 'text/csv')},
+                                data={
+                                    'no_pam': 'true',
+                                    'save_to': f'attachments/{dataset_name}',
+                                    'grouping_properties': grouping,
+                                    'condition': 'Condition',
+                                    'faceting': ' ~ Species',
+                                    'size_text': 10,
+                                    'size_points': 1,
+                                },
+                                timeout=600,
+                            )
+                        if response.status_code != 200:
+                            error_text = response.text[:500] if response.text else 'No error message'
+                            return Response(
+                                {'error': f'no-PAM statistics/boxplot failed: {error_text}'},
+                                status=status.HTTP_400_BAD_REQUEST,
+                            )
+                        print("✅ no-PAM statistics and boxplot generated")
+                    finally:
+                        if os.path.exists(temp_no_pam_csv):
+                            os.unlink(temp_no_pam_csv)
             else:
                 # ==============================================================
                 # STEP 2: Calculate ED values using ed50-fastapi service
@@ -563,11 +767,17 @@ class UploadCSVApiView(APIView):
                 '--csv_path', temp_combined_csv,
                 '--owner', request.user.username,
             ]
-            if no_pam:
+            if no_pam or not source_has_pam:
                 command_args.append('--no-pam')
 
-            call_command('populate_db', *command_args)
-            
+            try:
+                call_command('populate_db', *command_args)
+            except CommandError as exc:
+                return Response(
+                    {'error': str(exc)},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             # Get projects after populate_db (by name, not description, since get_or_create uses name)
             projects_after = set(Project.objects.filter(
                 owner=request.user,
@@ -628,12 +838,27 @@ class UploadCSVApiView(APIView):
             call_command('assign_mmm')
             print("✅ assign_mmm completed successfully")
 
-            return Response({
+            affected_project_ids = sorted(projects_after) if projects_after else sorted(created_project_ids)
+            if not affected_project_ids and project_names:
+                affected_project_ids = sorted(
+                    Project.objects.filter(
+                        owner=request.user,
+                        name__in=project_names,
+                    ).values_list('id', flat=True)
+                )
+
+            response_payload = {
                 'message': 'Data uploaded and processed successfully',
                 'filename': csv_file.name,
                 'rows_processed': len(df_with_eds),
-                'ed_source': 'pre-calculated' if has_ed_columns else 'calculated'
-            }, status=status.HTTP_201_CREATED)
+                'ed_source': 'pre-calculated' if has_ed_columns else 'calculated',
+            }
+            if affected_project_ids:
+                response_payload['project_id'] = affected_project_ids[0]
+                if len(affected_project_ids) > 1:
+                    response_payload['project_ids'] = affected_project_ids
+
+            return Response(response_payload, status=status.HTTP_201_CREATED)
 
         except Exception as e:
             print(f"❌ Error during upload processing: {str(e)}")

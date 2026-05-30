@@ -1,23 +1,63 @@
-import React, { useState, useEffect, useContext } from 'react';
-import { Container, Row, Col, Card, Badge, Button } from 'react-bootstrap';
+import React, { useState, useEffect, useContext, useMemo } from 'react';
+import { Container, Row, Col, Card, Badge, Button, Form } from 'react-bootstrap';
 import { 
   JournalText, 
   Calendar, 
   Person, 
-  BoxArrowUpRight,
   FileText,
-  Globe
+  Globe,
+  Eye,
 } from 'react-bootstrap-icons';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './ProjectsPage.css';
 import { AuthContext } from '../../contexts/AuthContext';
+import { formatViewCount } from '../../utils/formatViewCount';
+
+const DEFAULT_SORT = 'date-desc';
 
 const ProjectsPage = () => {
   const navigate = useNavigate();
   const { authData } = useContext(AuthContext);
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [sortKey, setSortKey] = useState(DEFAULT_SORT);
+
+  const sortedProjects = useMemo(() => {
+    const list = Array.isArray(projects) ? [...projects] : [];
+    const dateDescTie = (a, b) => {
+      const ta = new Date(a.registration_date || 0).getTime();
+      const tb = new Date(b.registration_date || 0).getTime();
+      return tb - ta;
+    };
+    const cmpDate = (a, b) => {
+      const ta = new Date(a.registration_date || 0).getTime();
+      const tb = new Date(b.registration_date || 0).getTime();
+      return ta - tb;
+    };
+    const cmpViews = (a, b) => {
+      const va = Number(a.view_count) || 0;
+      const vb = Number(b.view_count) || 0;
+      return va - vb;
+    };
+    switch (sortKey) {
+      case 'date-asc':
+        list.sort((a, b) => cmpDate(a, b) || a.id - b.id);
+        break;
+      case 'date-desc':
+        list.sort((a, b) => cmpDate(b, a) || b.id - a.id);
+        break;
+      case 'views-asc':
+        list.sort((a, b) => cmpViews(a, b) || dateDescTie(a, b) || a.id - b.id);
+        break;
+      case 'views-desc':
+        list.sort((a, b) => cmpViews(b, a) || dateDescTie(a, b) || b.id - a.id);
+        break;
+      default:
+        break;
+    }
+    return list;
+  }, [projects, sortKey]);
 
   useEffect(() => {
     const fetchProjects = async () => {
@@ -51,6 +91,28 @@ const ProjectsPage = () => {
     return `https://doi.org/${s.replace(/^https?:\/\/doi\.org\/?/i, '')}`;
   };
 
+  const getProjectCoverPhoto = (project) => {
+    return project?.attachment?.cover_photo
+      || project?.cover_photo
+      || project?.cover_photo_url
+      || project?.image
+      || null;
+  };
+
+  const getOwnerName = (owner) => (
+    [owner?.first_name, owner?.last_name].filter(Boolean).join(' ') || owner?.username || 'Unknown'
+  );
+
+  const renderOwnerAvatar = (owner) => (
+    owner?.profile_photo_url ? (
+      <img src={owner.profile_photo_url} alt="" className="owner-avatar" />
+    ) : (
+      <span className="owner-avatar owner-avatar-placeholder">
+        {(getOwnerName(owner) || '?').charAt(0).toUpperCase()}
+      </span>
+    )
+  );
+
   if (loading) {
     return (
       <div className="projects-page">
@@ -76,19 +138,54 @@ const ProjectsPage = () => {
             Explore our collection of coral research projects from around the world. 
             Each project contributes to our understanding of coral reef ecosystems and thermal tolerance.
           </p>
+          <div className="projects-sort-bar">
+            <Form.Label htmlFor="projects-sort" className="projects-sort-label">
+              Sort by
+            </Form.Label>
+            <Form.Select
+              id="projects-sort"
+              size="sm"
+              className="projects-sort-select"
+              value={sortKey}
+              onChange={(e) => setSortKey(e.target.value)}
+              aria-label="Sort projects list"
+            >
+              <option value="date-desc">Newest registration date</option>
+              <option value="date-asc">Oldest registration date</option>
+              <option value="views-desc">Most views</option>
+              <option value="views-asc">Fewest views</option>
+            </Form.Select>
+          </div>
         </div>
         <Row className="g-4">
-          {projects.map((project) => (
+          {sortedProjects.map((project) => {
+            const coverPhoto = getProjectCoverPhoto(project);
+            return (
             <Col key={project.id} lg={6} xl={4}>
-              <Card className="project-card h-100">
+              <Card
+                className={`project-card h-100${coverPhoto ? ' project-card-with-cover' : ''}`}
+                style={coverPhoto ? { '--project-cover-image': `url(${coverPhoto})` } : undefined}
+              >
                 <Card.Body className="p-4 d-flex flex-column">
                   <div className="d-flex align-items-start justify-content-between mb-3">
                     <div className="project-icon">
                       <JournalText size={24} className="text-primary" />
                     </div>
-                    <Badge bg="light" text="primary" className="project-badge">
-                      {project.publications?.length || 0} Publications
-                    </Badge>
+                    <div className="project-badges d-flex flex-wrap gap-2 justify-content-end align-items-center">
+                      <Badge bg="light" text="primary" className="project-badge">
+                        {project.publications?.length || 0} Publications
+                      </Badge>
+                      <Badge
+                        bg="light"
+                        text="secondary"
+                        className="project-badge project-views-badge"
+                        title="Times signed-in users opened the project detail page"
+                      >
+                        <Eye size={14} className="me-1" aria-hidden />
+                        <span>{formatViewCount(project.view_count)}</span>
+                        <span className="ms-1 d-none d-sm-inline text-muted fw-normal small">views</span>
+                      </Badge>
+                    </div>
                   </div>
                   
                   <h5 className="project-title mb-3">
@@ -101,9 +198,20 @@ const ProjectsPage = () => {
                       <Calendar size={16} className="text-muted me-2" />
                       <span className="text-muted">Created: {formatDate(project.registration_date)}</span>
                     </div>
-                    <div className="meta-item">
-                      <Person size={16} className="text-muted me-2" />
-                      <span className="text-muted">Owner: {project.owner?.username || 'Unknown'}</span>
+                    <div className="meta-item owner-meta">
+                      <Person size={16} className="text-muted owner-meta-icon" />
+                      <div className="owner-meta-content">
+                        <span className="owner-meta-label">Owner:</span>
+                        {project.owner?.username ? (
+                          <Link to={`/users/${project.owner.username}`} className="owner-inline owner-profile-link">
+                            {renderOwnerAvatar(project.owner)}
+                            <span>{getOwnerName(project.owner)}</span>
+                          </Link>
+                        ) : <span className="text-muted">Unknown</span>}
+                        {project.owner?.affiliation && (
+                          <span className="owner-affiliation">{project.owner.affiliation}</span>
+                        )}
+                      </div>
                     </div>
                   </div>
                   
@@ -170,7 +278,8 @@ const ProjectsPage = () => {
                 </Card.Body>
               </Card>
             </Col>
-          ))}
+            );
+          })}
         </Row>
         
         {projects.length === 0 && (

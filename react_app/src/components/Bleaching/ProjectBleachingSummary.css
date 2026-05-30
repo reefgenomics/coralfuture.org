@@ -1,0 +1,45 @@
+.project-bleaching-summary {
+  margin-top: 12px;
+  padding: 14px 16px;
+  border: 1px solid #e9ecef;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.project-bleaching-summary-header h6 {
+  font-weight: 600;
+}
+
+.project-bleaching-summary-loading {
+  display: flex;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.project-bleaching-summary-totals {
+  margin-top: 12px;
+  margin-bottom: 10px;
+}
+
+.project-bleaching-total-count {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #0a58ca;
+}
+
+.project-bleaching-year-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.project-bleaching-year-btn {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 4px 10px;
+}
+
+.project-bleaching-year-label {
+  font-variant-numeric: tabular-nums;
+}

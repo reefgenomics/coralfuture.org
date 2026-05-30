@@ -17,9 +17,12 @@ def create_project(owner, project_key, description):
         registration_date = datetime.now().date()
     return Project.objects.get_or_create(
         name=project_key,
-        registration_date=registration_date,
-        description=description,
-        owner=owner)
+        owner=owner,
+        defaults={
+            'registration_date': registration_date,
+            'description': description,
+        },
+    )
 
 
 def create_experiment(project, experiment_key):
@@ -102,13 +105,17 @@ def create_biosample(colony, biosample_key):
 
 
 def create_observation(experiment, biosample, row):
+    pam_value = row['Observation.pam_value']
+    if pd.isna(pam_value):
+        pam_value = None
+
     return Observation.objects.get_or_create(
         experiment=experiment,
         biosample=biosample,
         condition=row['Observation.condition'],
         temperature=row['Observation.temperature'],
         timepoint=str(row['Observation.timepoint']) if not pd.isna(row['Observation.timepoint']) else "",
-        pam_value=row['Observation.pam_value'])
+        pam_value=pam_value)
 
 
 def create_publication(row):

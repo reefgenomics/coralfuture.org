@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from profiles.serializers import get_profile_photo_url
 from projects.models import BioSample, Colony, ThermalTolerance, \
     Observation, Project, BreakpointTemperature, ThermalLimit, Experiment
 
@@ -48,6 +49,7 @@ class ColonySerializer(serializers.ModelSerializer):
     breakpoint_temperatures = serializers.SerializerMethodField()
     thermal_limits = serializers.SerializerMethodField()
     projects = serializers.SerializerMethodField()
+    project_links = serializers.SerializerMethodField()
 
     def get_projects(self, obj):
         # Get all projects related to the colony's biosamples
@@ -55,6 +57,11 @@ class ColonySerializer(serializers.ModelSerializer):
         projects = Project.objects.filter(biosamples__in=biosamples).distinct()
         # Assuming you want to serialize projects' names
         return [project.name for project in projects]
+
+    def get_project_links(self, obj):
+        biosamples = obj.biosamples.all()
+        projects = Project.objects.filter(biosamples__in=biosamples).distinct()
+        return [{'id': project.id, 'name': project.name} for project in projects]
 
     def get_thermal_tolerances(self, obj):
         # Get all thermal tolerances associated with the colony
@@ -80,7 +87,8 @@ class ColonySerializer(serializers.ModelSerializer):
     class Meta:
         model = Colony
         fields = ['id', 'name', 'species', 'country', 'latitude', 'longitude',
-                  'thermal_tolerances', 'breakpoint_temperatures', 'thermal_limits', 'projects']
+                  'thermal_tolerances', 'breakpoint_temperatures', 'thermal_limits',
+                  'projects', 'project_links']
 
 
 class ObservationSerializer(serializers.ModelSerializer):
@@ -92,6 +100,7 @@ class ObservationSerializer(serializers.ModelSerializer):
 class ProjectSerializer(serializers.ModelSerializer):
     publications = serializers.SerializerMethodField()
     owner = serializers.SerializerMethodField()
+    cover_photo = serializers.SerializerMethodField()
     
     def get_publications(self, obj):
         publications = obj.publications.all()
@@ -105,21 +114,52 @@ class ProjectSerializer(serializers.ModelSerializer):
         } for pub in publications]
     
     def get_owner(self, obj):
+        profile = getattr(obj.owner, 'researcher_profile', None)
         return {
             'id': obj.owner.id,
             'username': obj.owner.username,
-            'email': obj.owner.email
+            'first_name': obj.owner.first_name,
+            'last_name': obj.owner.last_name,
+            'profile_photo_url': get_profile_photo_url(profile, self.context.get('request')),
+            'affiliation': profile.affiliation if profile else '',
         }
+
+    def get_cover_photo(self, obj):
+        attachment = obj.attachments.first()
+        if not attachment or not attachment.cover_photo:
+            return None
+
+        request = self.context.get('request')
+        if request:
+            return request.build_absolute_uri(attachment.cover_photo.url)
+        return attachment.cover_photo.url
     
     class Meta:
         model = Project
-        fields = ['id', 'name', 'registration_date', 'description', 'owner', 'publications']
+        fields = ['id', 'name', 'registration_date', 'description', 'owner', 'publications', 'cover_photo', 'view_count']
 
 
 class ExperimentSerializer(serializers.ModelSerializer):
+    species = serializers.SerializerMethodField()
+
+    def get_species(self, obj):
+        observations = self.context.get('observations')
+        if observations is None:
+            observations = obj.observations.select_related('biosample__colony').all()
+
+        species = {
+            observation.biosample.colony.species
+            for observation in observations
+            if observation.experiment_id == obj.id
+            and observation.biosample
+            and observation.biosample.colony
+            and observation.biosample.colony.species
+        }
+        return ', '.join(sorted(species)) if species else None
+
     class Meta:
         model = Experiment
-        fields = ['id', 'name', 'date']
+        fields = ['id', 'name', 'date', 'species']
 
 
 class ColonyDetailSerializer(serializers.ModelSerializer):
@@ -206,10 +246,14 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
     observations = serializers.SerializerMethodField()
 
     def get_owner(self, obj):
+        profile = getattr(obj.owner, 'researcher_profile', None)
         return {
             'id': obj.owner.id,
             'username': obj.owner.username,
-            'email': obj.owner.email
+            'first_name': obj.owner.first_name,
+            'last_name': obj.owner.last_name,
+            'profile_photo_url': get_profile_photo_url(profile, self.context.get('request')),
+            'affiliation': profile.affiliation if profile else '',
         }
 
     def get_publications(self, obj):
@@ -251,7 +295,9 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
 
     def get_experiments(self, obj):
         experiments = self.context.get('experiments', [])
-        return ExperimentSerializer(experiments, many=True).data
+        return ExperimentSerializer(experiments, many=True, context={
+            'observations': self.context.get('observations', [])
+        }).data
 
     def get_colonies(self, obj):
         colonies = self.context.get('colonies', [])
@@ -265,5 +311,5 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Project
-        fields = ['id', 'name', 'registration_date', 'description', 'owner',
+        fields = ['id', 'name', 'registration_date', 'description', 'owner', 'view_count',
                   'publications', 'attachment', 'experiments', 'colonies', 'observations']

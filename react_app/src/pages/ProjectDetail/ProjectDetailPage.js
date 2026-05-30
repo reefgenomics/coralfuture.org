@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext, useCallback } from 'react';
-import { Container, Row, Col, Card, Badge, Table, Button, Spinner, Form } from 'react-bootstrap';
+import { Container, Row, Col, Card, Badge, Table, Button, Spinner, Form, Modal, Alert } from 'react-bootstrap';
 import {
   ArrowLeft,
   Calendar,
@@ -12,12 +12,18 @@ import {
   PencilSquare,
   Trash2,
   Image,
-  Link45deg
+  Link45deg,
+  ChevronDown,
+  ChevronRight,
+  Eye,
 } from 'react-bootstrap-icons';
-import { useParams, useNavigate } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './ProjectDetailPage.css';
 import { AuthContext } from '../../contexts/AuthContext';
+import { UserCartContext } from '../../contexts/UserCartContext';
+import { formatViewCount } from '../../utils/formatViewCount';
+import ProjectMapPanel from '../../components/Map/ProjectMapPanel';
 
 const getDoiUrl = (doi) => {
   if (!doi) return null;
@@ -32,6 +38,39 @@ const getCsrfToken = () => {
 };
 
 const CITATION_API = 'https://citation.doi.org/format';
+
+const STATISTICS_COLUMN_ORDER = [
+  'site',
+  'species',
+  'condition',
+  'timepoint',
+  'ed5',
+  'ed50',
+  'ed95',
+  'meaned5',
+  'meaned50',
+  'meaned95',
+  'sd',
+  'sded5',
+  'sded50',
+  'sded95',
+];
+
+const normalizeStatisticsKey = (key) => String(key).toLowerCase().replace(/[^a-z0-9]/g, '');
+const TEXT_STATISTICS_KEYS = new Set(['site', 'species', 'condition', 'timepoint']);
+
+const formatStatisticsValue = (value, key) => {
+  if (value == null || value === '') return '—';
+
+  const normalizedKey = normalizeStatisticsKey(key);
+  if (TEXT_STATISTICS_KEYS.has(normalizedKey)) return String(value);
+
+  const numericValue = typeof value === 'number'
+    ? value
+    : (typeof value === 'string' && value.trim() !== '' ? Number(value) : NaN);
+
+  return Number.isFinite(numericValue) ? numericValue.toFixed(2) : String(value);
+};
 
 function normalizeDoi(doi) {
   if (!doi || typeof doi !== 'string') return null;
@@ -81,6 +120,7 @@ const ProjectDetailPage = () => {
   const { projectId } = useParams();
   const navigate = useNavigate();
   const { authData, loading: authLoading } = useContext(AuthContext);
+  const { addToCart } = useContext(UserCartContext);
   const [project, setProject] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -96,6 +136,13 @@ const ProjectDetailPage = () => {
   const [savingCover, setSavingCover] = useState(false);
   const [newAdditionalLink, setNewAdditionalLink] = useState('');
   const [savingAdditionalLinks, setSavingAdditionalLinks] = useState(false);
+  const [showCartModal, setShowCartModal] = useState(false);
+  const [selectedCartColonies, setSelectedCartColonies] = useState(new Set());
+  const [cartGroupName, setCartGroupName] = useState('');
+  const [addingToCart, setAddingToCart] = useState(false);
+  const [cartMessage, setCartMessage] = useState(null);
+  const [showColonies, setShowColonies] = useState(false);
+  const [showObservations, setShowObservations] = useState(false);
 
   const backendUrl = '';
 
@@ -131,7 +178,21 @@ const ProjectDetailPage = () => {
     if (projectId) fetchProject();
   }, [projectId, authData.authenticated, authLoading, fetchProject]);
 
+  useEffect(() => {
+    if (!project) return;
+
+    const colonyIds = Array.isArray(project.colonies)
+      ? project.colonies.map((colony) => colony.id)
+      : [];
+    setSelectedCartColonies(new Set(colonyIds));
+    setCartGroupName(project.name ? `${project.name} colonies` : 'Project colonies');
+  }, [project]);
+
   const isOwner = project && project.owner && authData.username && project.owner.username === authData.username;
+  const ownerName = project?.owner
+    ? [project.owner.first_name, project.owner.last_name].filter(Boolean).join(' ') || project.owner.username
+    : 'Unknown';
+  const ownerInitial = ownerName.charAt(0).toUpperCase() || '?';
 
   const patchProject = async (payload) => {
     const csrf = getCsrfToken();
@@ -304,47 +365,119 @@ const ProjectDetailPage = () => {
     return new Date(dateString).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
   };
 
-  const formatThermalData = (data, type) => {
-    if (!data || data.length === 0) return 'No data available';
-    
-    // Group by condition and timepoint to avoid duplicates
-    const grouped = {};
-    data.forEach((item) => {
-      const key = `${item.condition} (Timepoint: ${item.timepoint})`;
-      if (!grouped[key]) {
-        grouped[key] = [];
-      }
-      if (item[type] != null) {
-        grouped[key].push(item[type]);
-      }
-    });
-    
-    // Format each group
-    return Object.entries(grouped)
-      .map(([key, values]) => {
-        if (values.length === 0) return `${key}: N/A`;
-        if (values.length === 1) return `${key}: ${values[0]}`;
-        // Multiple values: show all unique values
-        const uniqueValues = [...new Set(values)];
-        return `${key}: ${uniqueValues.join(', ')}`;
-      })
-      .join('; ');
-  };
+  const sortTimepoints = (timepoints) => [...timepoints].sort((a, b) => {
+    const aNumber = Number(a);
+    const bNumber = Number(b);
+    if (Number.isFinite(aNumber) && Number.isFinite(bNumber)) return aNumber - bNumber;
+    return String(a).localeCompare(String(b));
+  });
 
-  const getColonyConditionsAndTimepoints = (colony) => {
-    const conditions = new Set();
+  const getColonyTimepointRows = (colony) => {
     const timepoints = new Set();
     for (const arr of [colony?.breakpoint_temperatures, colony?.thermal_tolerances, colony?.thermal_limits]) {
       if (!Array.isArray(arr)) continue;
       for (const item of arr) {
-        if (item?.condition != null && item.condition !== '') conditions.add(String(item.condition));
         if (item?.timepoint != null && item.timepoint !== '') timepoints.add(String(item.timepoint));
       }
     }
-    return {
-      conditions: [...conditions].sort(),
-      timepoints: [...timepoints].sort(),
-    };
+    const sortedTimepoints = sortTimepoints(timepoints);
+    return sortedTimepoints.length > 0 ? sortedTimepoints : ['—'];
+  };
+
+  const getConditionsForTimepoint = (colony, timepoint) => {
+    const conditions = new Set();
+    for (const arr of [colony?.breakpoint_temperatures, colony?.thermal_tolerances, colony?.thermal_limits]) {
+      if (!Array.isArray(arr)) continue;
+      for (const item of arr) {
+        if (String(item?.timepoint) !== String(timepoint)) continue;
+        if (item?.condition != null && item.condition !== '') conditions.add(String(item.condition));
+      }
+    }
+    return [...conditions].sort();
+  };
+
+  const formatThermalDataForTimepoint = (data, type, timepoint) => {
+    if (!Array.isArray(data)) return '—';
+
+    const grouped = {};
+    data
+      .filter((item) => String(item?.timepoint) === String(timepoint))
+      .forEach((item) => {
+        const condition = item.condition || 'Condition';
+        if (!grouped[condition]) grouped[condition] = [];
+        if (item[type] != null) grouped[condition].push(item[type]);
+      });
+
+    const formattedGroups = Object.entries(grouped).map(([condition, values]) => {
+      const uniqueValues = [...new Set(values)];
+      if (uniqueValues.length === 0) return `${condition}: N/A`;
+      if (Object.keys(grouped).length === 1) return uniqueValues.join(', ');
+      return `${condition}: ${uniqueValues.join(', ')}`;
+    });
+
+    return formattedGroups.length > 0 ? formattedGroups.join('; ') : '—';
+  };
+
+  const openCartModal = () => {
+    const colonyIds = Array.isArray(project?.colonies)
+      ? project.colonies.map((colony) => colony.id)
+      : [];
+    setSelectedCartColonies(new Set(colonyIds));
+    setCartGroupName(project?.name ? `${project.name} colonies` : 'Project colonies');
+    setCartMessage(null);
+    setShowCartModal(true);
+  };
+
+  const toggleCartColony = (colonyId) => {
+    setSelectedCartColonies((previous) => {
+      const next = new Set(previous);
+      if (next.has(colonyId)) {
+        next.delete(colonyId);
+      } else {
+        next.add(colonyId);
+      }
+      return next;
+    });
+  };
+
+  const setAllCartColonies = (checked) => {
+    const colonyIds = checked && Array.isArray(project?.colonies)
+      ? project.colonies.map((colony) => colony.id)
+      : [];
+    setSelectedCartColonies(new Set(colonyIds));
+  };
+
+  const handleProjectAddToCart = async () => {
+    const colonyIds = Array.from(selectedCartColonies);
+    if (!cartGroupName.trim()) {
+      setCartMessage({ type: 'danger', text: 'Please enter a cart group name.' });
+      return;
+    }
+    if (colonyIds.length === 0) {
+      setCartMessage({ type: 'danger', text: 'Select at least one colony.' });
+      return;
+    }
+
+    setAddingToCart(true);
+    setCartMessage(null);
+    try {
+      await addToCart(
+        colonyIds,
+        { project: project?.name || '', source: 'project_detail', project_id: project?.id },
+        cartGroupName.trim(),
+        backendUrl
+      );
+      setCartMessage({ type: 'success', text: `${colonyIds.length} colonies added to cart.` });
+      setTimeout(() => {
+        setShowCartModal(false);
+        setCartMessage(null);
+      }, 900);
+    } catch (err) {
+      console.error('Error adding project colonies to cart:', err);
+      setCartMessage({ type: 'danger', text: 'Could not add selected colonies to cart.' });
+    } finally {
+      setAddingToCart(false);
+    }
   };
 
   if (authLoading || loading) {
@@ -409,8 +542,19 @@ const ProjectDetailPage = () => {
     ? (Array.isArray(att.statistics) ? att.statistics : [att.statistics])
     : [];
   const statisticsKeys = statisticsRows.length > 0 && typeof statisticsRows[0] === 'object' && statisticsRows[0] !== null
-    ? [...new Set(statisticsRows.flatMap((row) => Object.keys(row)))]
+    ? [...new Set(statisticsRows.flatMap((row) => Object.keys(row)))].sort((a, b) => {
+        const aOrder = STATISTICS_COLUMN_ORDER.indexOf(normalizeStatisticsKey(a));
+        const bOrder = STATISTICS_COLUMN_ORDER.indexOf(normalizeStatisticsKey(b));
+        if (aOrder !== -1 || bOrder !== -1) {
+          if (aOrder === -1) return 1;
+          if (bOrder === -1) return -1;
+          return aOrder - bOrder;
+        }
+        return a.localeCompare(b);
+      })
     : [];
+  const projectColonies = Array.isArray(project.colonies) ? project.colonies : [];
+  const allCartColoniesSelected = projectColonies.length > 0 && selectedCartColonies.size === projectColonies.length;
 
   return (
     <div className="project-detail-page">
@@ -450,11 +594,31 @@ const ProjectDetailPage = () => {
                 <Calendar className="me-2" size={16} />
                 Created: {formatDate(project.registration_date)}
               </span>
-              <span className="meta-item">
-                <Person className="me-2" size={16} />
-                Owner: {project.owner?.username || 'Unknown'}
+              <span className="meta-item project-owner-meta">
+                <Person className="project-owner-icon" size={16} />
+                <span className="project-owner-label">Owner:</span>
+                {project.owner?.username ? (
+                  <Link to={`/users/${project.owner.username}`} className="project-owner-link">
+                    {project.owner.profile_photo_url ? (
+                      <img src={project.owner.profile_photo_url} alt="" className="project-owner-avatar" />
+                    ) : (
+                      <span className="project-owner-avatar project-owner-avatar-placeholder">{ownerInitial}</span>
+                    )}
+                    <span>{ownerName}</span>
+                  </Link>
+                ) : <span>Unknown</span>}
+              </span>
+              <span className="meta-item project-views-meta" title="How many times signed-in users opened this project page">
+                <Eye className="me-2" size={16} aria-hidden />
+                Views: <strong className="ms-1">{formatViewCount(project.view_count)}</strong>
               </span>
             </div>
+            {project.colonies && project.colonies.length > 0 && (
+              <Button variant="light" className="project-cart-button" onClick={openCartModal}>
+                <i className="bi bi-cart4 me-2"></i>
+                Add colonies to cart
+              </Button>
+            )}
             {saveMessage && <p className="text-white mb-0 mt-2 small">{saveMessage}</p>}
           </div>
         </Container>
@@ -489,6 +653,23 @@ const ProjectDetailPage = () => {
                     )}
                   </>
                 )}
+              </Card.Body>
+            </Card>
+          </Col>
+        </Row>
+
+        <Row className="mb-5">
+          <Col>
+            <Card className="section-card">
+              <Card.Header className="section-header">
+                <Globe className="me-2" size={20} />
+                Project map
+              </Card.Header>
+              <Card.Body className="p-3">
+                <ProjectMapPanel
+                  colonies={projectColonies}
+                  projectName={project.name}
+                />
               </Card.Body>
             </Card>
           </Col>
@@ -727,7 +908,7 @@ const ProjectDetailPage = () => {
                         {statisticsRows.map((row, idx) => (
                           <tr key={idx}>
                             {statisticsKeys.map((key) => (
-                              <td key={key}>{row[key] != null ? String(row[key]) : '—'}</td>
+                              <td key={key}>{formatStatisticsValue(row[key], key)}</td>
                             ))}
                           </tr>
                         ))}
@@ -756,6 +937,7 @@ const ProjectDetailPage = () => {
                     <thead>
                       <tr>
                         <th>Experiment Name</th>
+                        <th>Species</th>
                         <th>Experiment Date</th>
                       </tr>
                     </thead>
@@ -763,6 +945,7 @@ const ProjectDetailPage = () => {
                       {project.experiments.map((experiment) => (
                         <tr key={experiment.id}>
                           <td>{experiment.name}</td>
+                          <td>{experiment.species || '—'}</td>
                           <td>{formatDate(experiment.date)}</td>
                         </tr>
                       ))}
@@ -779,47 +962,74 @@ const ProjectDetailPage = () => {
           <Row className="mb-5">
             <Col>
               <Card className="section-card">
-                <Card.Header className="section-header">
-                  <Globe className="me-2" size={20} />
-                  Colonies ({project.colonies.length})
+                <Card.Header className="section-header collapsible-section-header">
+                  <button
+                    type="button"
+                    className="section-toggle"
+                    onClick={() => setShowColonies((current) => !current)}
+                    aria-expanded={showColonies}
+                    aria-controls="project-colonies-section"
+                  >
+                    <span>
+                      <Globe className="me-2" size={20} />
+                      Colonies ({project.colonies.length})
+                    </span>
+                    {showColonies ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+                  </button>
                 </Card.Header>
-                <Card.Body>
-                  <div className="table-responsive">
-                    <Table responsive striped hover>
-                      <thead>
-                        <tr>
-                          <th>Colony Name</th>
-                          <th>Species</th>
-                          <th>Country</th>
-                          <th>Coordinates</th>
-                          <th>Condition</th>
-                          <th>Timepoint</th>
-                          <th>Breakpoint Temperature ED5</th>
-                          <th>Thermal Tolerance ED50</th>
-                          <th>Thermal Limit ED95</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {project.colonies.map((colony) => {
-                          const { conditions, timepoints } = getColonyConditionsAndTimepoints(colony);
-                          return (
-                            <tr key={colony.id}>
-                              <td>{colony.name}</td>
-                              <td>{colony.species}</td>
-                              <td>{colony.country}</td>
-                              <td><small className="text-muted">{colony.latitude}, {colony.longitude}</small></td>
-                              <td><small>{conditions.length ? conditions.join(', ') : '—'}</small></td>
-                              <td><small>{timepoints.length ? timepoints.join(', ') : '—'}</small></td>
-                              <td><small>{formatThermalData(colony.breakpoint_temperatures, 'abs_breakpoint_temperature')}</small></td>
-                              <td><small>{formatThermalData(colony.thermal_tolerances, 'abs_thermal_tolerance')}</small></td>
-                              <td><small>{formatThermalData(colony.thermal_limits, 'abs_thermal_limit')}</small></td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </Table>
-                  </div>
-                </Card.Body>
+                {showColonies && (
+                  <Card.Body id="project-colonies-section">
+                    <div className="table-responsive">
+                      <Table responsive striped hover>
+                        <thead>
+                          <tr>
+                            <th>Colony Name</th>
+                            <th>Species</th>
+                            <th>Country</th>
+                            <th>Coordinates</th>
+                            <th>Condition</th>
+                            <th>Timepoint</th>
+                            <th>Breakpoint Temperature ED5</th>
+                            <th>Thermal Tolerance ED50</th>
+                            <th>Thermal Limit ED95</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {project.colonies.flatMap((colony) => (
+                            getColonyTimepointRows(colony).map((timepoint) => {
+                              const conditions = getConditionsForTimepoint(colony, timepoint);
+                              const colonyTimepoints = getColonyTimepointRows(colony);
+                              const isFirstTimepoint = colonyTimepoints[0] === timepoint;
+                              const isLastTimepoint = colonyTimepoints[colonyTimepoints.length - 1] === timepoint;
+                              return (
+                                <tr
+                                  key={`${colony.id}-${timepoint}`}
+                                  className={`colony-timepoint-row${isFirstTimepoint ? ' colony-timepoint-row-first' : ''}${isLastTimepoint ? ' colony-timepoint-row-last' : ''}`}
+                                >
+                                  {isFirstTimepoint && (
+                                    <>
+                                      <td rowSpan={colonyTimepoints.length} className="align-middle">{colony.name}</td>
+                                      <td rowSpan={colonyTimepoints.length} className="align-middle">{colony.species}</td>
+                                      <td rowSpan={colonyTimepoints.length} className="align-middle">{colony.country}</td>
+                                      <td rowSpan={colonyTimepoints.length} className="align-middle">
+                                        <small className="text-muted">{colony.latitude}, {colony.longitude}</small>
+                                      </td>
+                                    </>
+                                  )}
+                                  <td><small>{conditions.length ? conditions.join(', ') : '—'}</small></td>
+                                  <td><small>{timepoint}</small></td>
+                                  <td><small>{formatThermalDataForTimepoint(colony.breakpoint_temperatures, 'abs_breakpoint_temperature', timepoint)}</small></td>
+                                  <td><small>{formatThermalDataForTimepoint(colony.thermal_tolerances, 'abs_thermal_tolerance', timepoint)}</small></td>
+                                  <td><small>{formatThermalDataForTimepoint(colony.thermal_limits, 'abs_thermal_limit', timepoint)}</small></td>
+                                </tr>
+                              );
+                            })
+                          ))}
+                        </tbody>
+                      </Table>
+                    </div>
+                  </Card.Body>
+                )}
               </Card>
             </Col>
           </Row>
@@ -830,52 +1040,65 @@ const ProjectDetailPage = () => {
           <Row className="mb-5">
             <Col>
               <Card className="section-card">
-                <Card.Header className="section-header">
-                  <ThermometerHalf className="me-2" size={20} />
-                  Observations ({project.observations.length})
+                <Card.Header className="section-header collapsible-section-header">
+                  <button
+                    type="button"
+                    className="section-toggle"
+                    onClick={() => setShowObservations((current) => !current)}
+                    aria-expanded={showObservations}
+                    aria-controls="project-observations-section"
+                  >
+                    <span>
+                      <ThermometerHalf className="me-2" size={20} />
+                      Observations ({project.observations.length})
+                    </span>
+                    {showObservations ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+                  </button>
                 </Card.Header>
-                <Card.Body>
-                  <div className="table-responsive">
-                    <Table responsive striped hover>
-                      <thead>
-                        <tr>
-                          <th>Exp. Measurement</th>
-                          <th>Collection Date</th>
-                          <th>Experiment</th>
-                          <th>Condition</th>
-                          <th>Temperature</th>
-                          <th>Timepoint</th>
-                          <th>PAM Value</th>
-                          <th>Related Projects</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {project.observations.map((observation) => (
-                          <tr key={observation.id}>
-                            <td>{observation.biosample?.name}</td>
-                            <td>{observation.biosample?.collection_date ? formatDate(observation.biosample.collection_date) : 'N/A'}</td>
-                            <td>{observation.experiment?.name}</td>
-                            <td>{observation.condition}</td>
-                            <td>{observation.temperature}°C</td>
-                            <td>{observation.timepoint}</td>
-                            <td>{observation.pam_value ?? 'N/A'}</td>
-                            <td>
-                              {observation.related_projects?.length > 0 ? (
-                                <ul className="list-unstyled mb-0">
-                                  {observation.related_projects.map((proj, idx) => (
-                                    <li key={idx} className="small">{proj.name}</li>
-                                  ))}
-                                </ul>
-                              ) : (
-                                <span className="text-muted small">None</span>
-                              )}
-                            </td>
+                {showObservations && (
+                  <Card.Body id="project-observations-section">
+                    <div className="table-responsive">
+                      <Table responsive striped hover>
+                        <thead>
+                          <tr>
+                            <th>Exp. Measurement</th>
+                            <th>Collection Date</th>
+                            <th>Experiment</th>
+                            <th>Condition</th>
+                            <th>Temperature</th>
+                            <th>Timepoint</th>
+                            <th>PAM Value</th>
+                            <th>Related Projects</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </Table>
-                  </div>
-                </Card.Body>
+                        </thead>
+                        <tbody>
+                          {project.observations.map((observation) => (
+                            <tr key={observation.id}>
+                              <td>{observation.biosample?.name}</td>
+                              <td>{observation.biosample?.collection_date ? formatDate(observation.biosample.collection_date) : 'N/A'}</td>
+                              <td>{observation.experiment?.name}</td>
+                              <td>{observation.condition}</td>
+                              <td>{observation.temperature}°C</td>
+                              <td>{observation.timepoint}</td>
+                              <td>{observation.pam_value ?? 'N/A'}</td>
+                              <td>
+                                {observation.related_projects?.length > 0 ? (
+                                  <ul className="list-unstyled mb-0">
+                                    {observation.related_projects.map((proj, idx) => (
+                                      <li key={idx} className="small">{proj.name}</li>
+                                    ))}
+                                  </ul>
+                                ) : (
+                                  <span className="text-muted small">None</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </Table>
+                    </div>
+                  </Card.Body>
+                )}
               </Card>
             </Col>
           </Row>
@@ -897,6 +1120,69 @@ const ProjectDetailPage = () => {
           </Row>
         )}
       </Container>
+
+      <Modal show={showCartModal} onHide={() => setShowCartModal(false)} size="lg" centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Add Project Colonies to Cart</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {cartMessage && (
+            <Alert variant={cartMessage.type} className="mb-3">
+              {cartMessage.text}
+            </Alert>
+          )}
+
+          <Form.Group className="mb-3">
+            <Form.Label>Cart Group Name</Form.Label>
+            <Form.Control
+              type="text"
+              value={cartGroupName}
+              onChange={(event) => setCartGroupName(event.target.value)}
+              placeholder="Enter a name for this cart group"
+            />
+          </Form.Group>
+
+          <div className="cart-colony-toolbar">
+            <Form.Check
+              type="checkbox"
+              id="select-all-project-colonies"
+              label={`Select all colonies (${projectColonies.length})`}
+              checked={allCartColoniesSelected}
+              onChange={(event) => setAllCartColonies(event.target.checked)}
+            />
+            <span className="text-muted small">
+              Selected: {selectedCartColonies.size}
+            </span>
+          </div>
+
+          <div className="cart-colony-list">
+            {projectColonies.map((colony) => (
+              <label key={colony.id} className="cart-colony-option">
+                <Form.Check
+                  type="checkbox"
+                  checked={selectedCartColonies.has(colony.id)}
+                  onChange={() => toggleCartColony(colony.id)}
+                  aria-label={`Select ${colony.name}`}
+                />
+                <div className="cart-colony-option-main">
+                  <div className="cart-colony-name">{colony.name}</div>
+                  <div className="cart-colony-meta">
+                    {colony.species || 'Unknown species'} · {colony.country || 'Unknown location'}
+                  </div>
+                </div>
+              </label>
+            ))}
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowCartModal(false)} disabled={addingToCart}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={handleProjectAddToCart} disabled={addingToCart || selectedCartColonies.size === 0}>
+            {addingToCart ? 'Adding...' : `Add ${selectedCartColonies.size} to Cart`}
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 };

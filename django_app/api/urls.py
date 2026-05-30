@@ -5,7 +5,9 @@ from api.views import BioSamplesApiView, ObservationsApiView, \
     ColoniesApiView, ThermalToleranceApiView, ThermalToleranceMinMaxView, \
     BreakpointTemperatureApiView, BreakpointTemperatureMinMaxView, \
     ThermalLimitApiView, ThermalLimitMinMaxView, \
-    ProjectsApiView, CSRFTokenView, LoginApiView, LogoutApiView
+    ProjectsApiView, CSRFTokenView, LoginApiView, LogoutApiView, \
+    BenthicVectorTileApiView, ReefExtentVectorTileApiView, \
+    BleachingVectorTileApiView, BleachingObservationsGeoJsonView, BleachingYearsJsonView
 from api.projects_api import (
     ProjectsApiView as NewProjectsApiView,
     ProjectDetailApiView,
@@ -14,6 +16,9 @@ from api.projects_api import (
     ProjectPublicationAddApiView,
     ProjectPublicationRemoveApiView,
 )
+from api.chat.views import ChatApiView
+from profiles.urls import auth_urlpatterns as profile_auth_urlpatterns
+from profiles.urls import public_urlpatterns as profile_public_urlpatterns
 
 urlpatterns = [
     path('auth/', include([
@@ -21,6 +26,7 @@ urlpatterns = [
         path('cart/group/<int:group_id>/', CartGroupManagementApiView.as_view()),
         path('cart/export/', CartExportApiView.as_view()),
         path('status/', CheckAuthenticationApiView.as_view()),
+        path('', include(profile_auth_urlpatterns)),
         path('csrf/', CSRFTokenView.as_view()),
         path('login/', LoginApiView.as_view()),
         path('logout/', LogoutApiView.as_view()),
@@ -38,8 +44,17 @@ urlpatterns = [
         path('biosamples/', BioSamplesApiView.as_view()),
         path('colonies/', ColoniesApiView.as_view()),
         path('observations/', ObservationsApiView.as_view()),
+        path('benthic-tiles/<int:z>/<int:x>/<int:y>.pbf', BenthicVectorTileApiView.as_view()),
+        path('benthic-tiles/<slug:region>/<int:z>/<int:x>/<int:y>.pbf', BenthicVectorTileApiView.as_view()),
+        path('reef-extent-tiles/<int:z>/<int:x>/<int:y>.pbf', ReefExtentVectorTileApiView.as_view()),
+        path('reef-extent-tiles/<slug:region>/<int:z>/<int:x>/<int:y>.pbf', ReefExtentVectorTileApiView.as_view()),
+        path('bleaching-tiles/<int:z>/<int:x>/<int:y>.pbf', BleachingVectorTileApiView.as_view()),
+        path('bleaching-observations.geojson', BleachingObservationsGeoJsonView.as_view()),
+        path('bleaching-years.json', BleachingYearsJsonView.as_view()),
         path('projects/', NewProjectsApiView.as_view()),
         path('projects/<int:project_id>/', ProjectDetailApiView.as_view()),
+        path('', include(profile_public_urlpatterns)),
+        path('chat/', ChatApiView.as_view()),
         path('thermal-tolerances/', include([
             path('', ThermalToleranceApiView.as_view()),
             # Main API view for thermal tolerances

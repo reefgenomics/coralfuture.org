@@ -8,3 +8,6 @@ DB_USER=''
 DB_PASSWORD=''
 DB_NAME=''
 CONTACT_EMAIL_ADDRESS=''
+DEEPSEEK_API_KEY=''
+DEEPSEEK_API_URL=https://api.deepseek.com/chat/completions
+DEEPSEEK_MODEL=deepseek-chat

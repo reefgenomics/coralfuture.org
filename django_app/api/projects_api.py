@@ -7,6 +7,8 @@ from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 
+from django.db.models import F
+
 from projects.models import Project, Experiment, Observation, Colony, Attachment, Publication
 from api.serializers import ProjectSerializer, ProjectDetailSerializer
 
@@ -21,8 +23,13 @@ class ProjectsApiView(APIView):
     """
     
     def get(self, request):
-        projects = Project.objects.prefetch_related('publications', 'owner').all()
-        serializer = ProjectSerializer(projects, many=True)
+        projects = (
+            Project.objects
+            .select_related('owner')
+            .prefetch_related('publications', 'attachments')
+            .order_by('-registration_date', '-id')
+        )
+        serializer = ProjectSerializer(projects, many=True, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
@@ -39,12 +46,17 @@ class ProjectDetailApiView(APIView):
         try:
             # Get the project object
             project = get_object_or_404(Project, id=project_id)
-            
+            Project.objects.filter(pk=project.pk).update(view_count=F('view_count') + 1)
+            project.refresh_from_db(fields=['view_count'])
+
             # Retrieve all experiments for the project
             experiments = project.experiments.all()
             
             # Retrieve all observations for the project's experiments
-            observations = Observation.objects.filter(experiment__in=experiments)
+            observations = Observation.objects.filter(experiment__in=experiments).select_related(
+                'experiment',
+                'biosample__colony'
+            )
             
             # Retrieve all colonies for the project's biosamples
             colonies = Colony.objects.filter(biosamples__observations__in=observations).distinct()

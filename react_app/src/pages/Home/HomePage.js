@@ -20,13 +20,6 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import './HomePage.css';
 import Statistics from '../../components/Statistics/Statistics';
 
-// Debug: Log available icons
-console.log('Available icons:', {
-  Globe, Map, GraphUp, Upload, Database, 
-  Search, Shield, People, JournalText, Star,
-  Book, Github, Envelope
-});
-
 const HomePage = () => {
   const features = [
     {
@@ -98,7 +91,49 @@ const HomePage = () => {
         }
       ],
       icon: <Book className="cbass-icon" />
-    }
+    },
+    {
+      title: "Allen Coral Atlas",
+      description:
+        "Benthic habitat, reef extent, and related regional map layers on CoralFuture are derived from Allen Coral Atlas geospatial products: high-resolution reef mapping and benthic classification for tropical coral reefs worldwide.",
+      references: [
+        {
+          text: "Allen Coral Atlas (2022) — Zenodo",
+          url: "https://doi.org/10.5281/zenodo.3833242",
+        },
+        {
+          text: "allencoralatlas.org",
+          url: "https://allencoralatlas.org/",
+        },
+      ],
+      icon: (
+        <img
+          src="https://allencoralatlas.org/static/favicon.ico"
+          alt=""
+          className="cbass-card-logo"
+        />
+      ),
+    },
+    {
+      title: "Global Mass Coral Bleaching Database",
+      description:
+        "The Bleaching map layer uses the ReefBase-derived global mass coral bleaching database (Donner et al., 2017): georeferenced survey records with year, coordinates, depth, bleaching severity (mild to severe), mortality where reported, and metadata from published studies and monitoring programs.",
+      references: [
+        {
+          text: "Donner et al. 2017 — PLOS ONE",
+          url: "https://doi.org/10.1371/journal.pone.0175490",
+        },
+        {
+          text: "Bleaching probabilities (figshare)",
+          url: "https://doi.org/10.6084/m9.figshare.4743781.v1",
+        },
+        {
+          text: "Bleaching database V1.0 (figshare)",
+          url: "https://doi.org/10.6084/m9.figshare.4743778.v1",
+        },
+      ],
+      icon: <Globe className="cbass-icon" />,
+    },
   ];
 
   return (
@@ -139,6 +174,25 @@ const HomePage = () => {
             <a href="/map" className="hero-btn secondary">
               View Map
             </a>
+          </div>
+
+          <div className="hero-citation" aria-label="CoralFuture citation">
+            <div className="citation-icon">
+              <JournalText size={20} />
+            </div>
+            <div className="citation-content">
+              <span className="citation-label">If you use this resource, please cite us</span>
+              <p>
+                Betyaev I, Iakovleva Y, Colin L, Voolstra CR.{' '}
+                <a href="https://coralfuture.org" target="_blank" rel="noopener noreferrer">
+                  coralfuture.org
+                </a>
+                , Version 1.0. Zenodo; 2026. doi:{' '}
+                <a href="https://doi.org/10.5281/ZENODO.19597144" target="_blank" rel="noopener noreferrer">
+                  10.5281/ZENODO.19597144
+                </a>
+              </p>
+            </div>
           </div>
         </div>
       </section>
@@ -202,9 +256,9 @@ const HomePage = () => {
         <Container>
           <Row className="justify-content-center text-center mb-5">
             <Col lg={8}>
-              <h2 className="section-title">CBASS Research Tools</h2>
+              <h2 className="section-title">Research Tools</h2>
               <p className="section-subtitle">
-                Advanced experimental systems and software for coral thermal tolerance research
+                CBASS thermal tolerance workflows, Allen Coral Atlas map layers, and global bleaching survey data
               </p>
             </Col>
           </Row>
@@ -249,6 +303,7 @@ const HomePage = () => {
           </Row>
         </Container>
       </section>
+
 
       {/* Features Section */}
       <section id="features" className="features-section">

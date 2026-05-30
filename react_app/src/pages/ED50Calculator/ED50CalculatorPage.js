@@ -29,6 +29,20 @@ const ED50CalculatorPage = () => {
 
   const apiUrl = process.env.REACT_APP_ED50_API_URL || '/shiny';
 
+  const citationNotice = (
+    <Alert variant="info" className="mt-3 mb-0">
+      <strong>If you use this resource, please cite us:</strong><br />
+      Betyaev I, Iakovleva Y, Colin L, Voolstra CR.{' '}
+      <a href="https://coralfuture.org" target="_blank" rel="noopener noreferrer">
+        coralfuture.org
+      </a>
+      , Version 1.0. Zenodo; 2026. doi:{' '}
+      <a href="https://doi.org/10.5281/ZENODO.19597144" target="_blank" rel="noopener noreferrer">
+        10.5281/ZENODO.19597144
+      </a>
+    </Alert>
+  );
+
   const handleFileChange = (e) => {
     setFile(e.target.files[0]);
     setError(null);
@@ -460,6 +474,7 @@ const ED50CalculatorPage = () => {
               >
                 Download Template CSV
               </Button>
+              {citationNotice}
             </Card.Body>
           </Card>
 

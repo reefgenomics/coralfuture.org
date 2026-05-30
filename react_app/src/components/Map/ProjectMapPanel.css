@@ -1,0 +1,80 @@
+.project-map-panel {
+  display: flex;
+  gap: 12px;
+  align-items: stretch;
+  min-height: 500px;
+  max-height: 520px;
+  margin-bottom: 2rem;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #e9ecef;
+  background: #f8f9fa;
+}
+
+.project-map-panel-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+  padding: 1.5rem;
+  border-radius: 12px;
+  border: 1px dashed #dee2e6;
+  background: #f8f9fa;
+}
+
+.project-map-canvas {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+}
+
+.project-map-canvas .maplibregl-map {
+  width: 100%;
+  height: 100%;
+}
+
+.project-map-sidebar-wrap {
+  flex: 0 0 320px;
+  max-width: 320px;
+  padding: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.project-map-sidebar-wrap .sidebar {
+  max-height: 100%;
+  height: 100%;
+  width: 100%;
+}
+
+.project-map-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.project-map-global-link {
+  display: inline-flex;
+  align-items: center;
+}
+
+@media (max-width: 992px) {
+  .project-map-panel {
+    flex-direction: column;
+    max-height: none;
+    min-height: 0;
+  }
+
+  .project-map-canvas {
+    min-height: 360px;
+    height: 360px;
+  }
+
+  .project-map-sidebar-wrap {
+    flex: none;
+    max-width: none;
+    width: 100%;
+  }
+}

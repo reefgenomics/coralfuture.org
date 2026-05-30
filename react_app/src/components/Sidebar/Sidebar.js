@@ -1,6 +1,6 @@
 // External imports
-import axios from 'axios';
-import React, { useState, useEffect, useContext, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useContext } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Button, Form, FormGroup, Row, Col, Card } from 'react-bootstrap';
 import { Box, Slider } from '@mui/material';
 import { ThermometerHalf } from 'react-bootstrap-icons';
@@ -13,9 +13,37 @@ import './Sidebar.css';
 import { SidebarFilterContext } from 'contexts/SidebarFilterContext';
 // Components
 import AddToCartButton from 'components/Button/AddToCart';
+import { DEFAULT_BENTHIC_CLASS_COLORS } from 'components/Tiles/BenthicTileLayer';
+import { DEFAULT_REEF_EXTENT_CLASS_COLORS } from 'components/Tiles/ReefExtentTileLayer';
+import {
+  BLEACHING_SEVERITY_COLORS,
+  BLEACHING_SEVERITY_LABELS,
+} from 'components/Bleaching/bleachingSeverity';
+import { BASEMAPS } from 'components/Tiles/basemaps';
 import TemperatureFiltersModal from './TemperatureFiltersModal';
 
-const InputSidebar = () => {
+const InputSidebar = ({
+  basemap = 'imagery',
+  onBasemapChange,
+  captionsVisible = true,
+  onCaptionsVisibleChange,
+  benthicVisible = true,
+  onBenthicVisibleChange,
+  benthicClasses = {},
+  onBenthicClassesChange,
+  reefExtentVisible = false,
+  onReefExtentVisibleChange,
+  reefExtentClasses = {},
+  onReefExtentClassesChange,
+  bleachingVisible = false,
+  onBleachingVisibleChange,
+  bleachingYear = 2005,
+  onBleachingYearChange,
+  bleachingYears = [],
+  layout = 'full',
+  sidebarTitle = 'Map',
+  hideProjectFilter = false,
+}) => {
 
   const [selectedSpecies, setSelectedSpecies] = useState('');
   const [selectedProject, setSelectedProject] = useState('');
@@ -23,12 +51,33 @@ const InputSidebar = () => {
   
   // State for temperature filters modal
   const [showTemperatureModal, setShowTemperatureModal] = useState(false);
-  
-  
+  const [activeTab, setActiveTab] = useState('filters');
+  const [searchParams] = useSearchParams();
+  const projectFromUrlAppliedRef = useRef(false);
+
   // Get all Colonies and Projects from Context and define list of species
-  const { allColonies, allBioSamples, allProjects, filters, setFilters, defaultValues } = useContext(SidebarFilterContext);
+  const { allColonies, allProjects, filters, setFilters, defaultValues } = useContext(SidebarFilterContext);
   const speciesList = [...new Set(allColonies.map(allColonies => allColonies.species))].sort();
   const projectList = [...new Set(allProjects.map(allProjects => allProjects.name))].sort();
+
+  useEffect(() => {
+    setSelectedSpecies(filters.species || '');
+    setSelectedProject(filters.project || '');
+    setSelectedDates(Array.isArray(filters.years) ? filters.years : []);
+  }, [filters.species, filters.project, filters.years]);
+
+  useEffect(() => {
+    if (hideProjectFilter || projectFromUrlAppliedRef.current) return;
+    const projectFromUrl = searchParams.get('project');
+    if (!projectFromUrl) return;
+
+    projectFromUrlAppliedRef.current = true;
+    setSelectedProject(projectFromUrl);
+    setFilters((prev) => ({
+      ...prev,
+      project: projectFromUrl,
+    }));
+  }, [hideProjectFilter, searchParams, setFilters]);
 
   // Extract temperature filters from global filters
   const temperatureFilters = {
@@ -162,6 +211,50 @@ const InputSidebar = () => {
     setShowTemperatureModal(false);
   };
 
+  const updateBenthicClass = (className, patch) => {
+    onBenthicClassesChange?.((previous) => ({
+      ...previous,
+      [className]: {
+        visible: previous[className]?.visible ?? true,
+        color: previous[className]?.color || DEFAULT_BENTHIC_CLASS_COLORS[className],
+        ...patch,
+      },
+    }));
+  };
+
+  const resetBenthicColors = () => {
+    onBenthicClassesChange?.(
+      Object.fromEntries(
+        Object.entries(DEFAULT_BENTHIC_CLASS_COLORS).map(([className, color]) => [
+          className,
+          { visible: true, color },
+        ])
+      )
+    );
+  };
+
+  const resetReefExtentColors = () => {
+    onReefExtentClassesChange?.(
+      Object.fromEntries(
+        Object.entries(DEFAULT_REEF_EXTENT_CLASS_COLORS).map(([className, color]) => [
+          className,
+          { visible: true, color },
+        ])
+      )
+    );
+  };
+
+  const updateReefExtentClass = (className, patch) => {
+    onReefExtentClassesChange?.((previous) => ({
+      ...previous,
+      [className]: {
+        visible: previous[className]?.visible ?? true,
+        color: previous[className]?.color || DEFAULT_REEF_EXTENT_CLASS_COLORS[className],
+        ...patch,
+      },
+    }));
+  };
+
   // Render compact slider for sidebar
   const renderCompactSlider = (parameter, label, unit = '°C') => {
     const defaultValue = defaultValues[parameter] || { min: 20, max: 40 };
@@ -253,25 +346,39 @@ const InputSidebar = () => {
 
   return (
     <>
-      <div className="sidebar">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-          <div className="d-flex align-items-center">
-            <h4 style={{ margin: 0 }}>Filters</h4>
-            {activeFiltersCount > 0 && (
-              <span className="badge bg-primary ms-2 filter-count-badge">
-                {activeFiltersCount}
-              </span>
-            )}
-          </div>
+      <div className={`sidebar${layout === 'embedded' ? ' sidebar-embedded' : ''}`}>
+        <div className="map-sidebar-header">
+          <div className="map-sidebar-title">{sidebarTitle}</div>
           <Button 
             variant="outline-secondary" 
             size="sm" 
             onClick={toggleSidebar}
-            style={{ width: '30px', height: '30px', padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            className="map-sidebar-collapse-btn"
           >
-            <i className="bi bi-chevron-left"></i>
+            <i className="bi bi-chevron-right"></i>
           </Button>
         </div>
+
+        <div className="map-sidebar-tabs">
+          <button
+            type="button"
+            className={`map-sidebar-tab ${activeTab === 'filters' ? 'active' : ''}`}
+            onClick={() => setActiveTab('filters')}
+          >
+            Filters
+            {activeFiltersCount > 0 && <span className="filter-count-badge">{activeFiltersCount}</span>}
+          </button>
+          <button
+            type="button"
+            className={`map-sidebar-tab ${activeTab === 'layers' ? 'active' : ''}`}
+            onClick={() => setActiveTab('layers')}
+          >
+            Layers
+          </button>
+        </div>
+
+        {activeTab === 'filters' && (
+        <div className="sidebar-section">
         
         <Form>
           <Row className="mb-3">
@@ -288,6 +395,7 @@ const InputSidebar = () => {
             </Col>
           </Row>
 
+          {!hideProjectFilter && (
           <Row className="mb-3">
             <Col>
               <FormGroup className="mb-2">
@@ -301,6 +409,7 @@ const InputSidebar = () => {
               </FormGroup>
             </Col>
           </Row>
+          )}
 
           {/* Temperature Sliders */}
           <Row className="mb-3">
@@ -366,6 +475,207 @@ const InputSidebar = () => {
             </Col>
           </Row>
         </Form>
+        </div>
+        )}
+
+        {activeTab === 'layers' && (
+        <div className="sidebar-section layers-section">
+          <div className="layer-card">
+            <div className="layer-card-title">Data layers</div>
+            <div className="layer-toggle-row">
+              <Form.Check
+                type="checkbox"
+                id="benthic-layer-toggle"
+                label={(
+                  <span className="d-inline-flex align-items-center gap-1">
+                    <span>Benthic Map</span>
+                    <a
+                      href="https://storage.googleapis.com/coral-atlas-static-files/download-package-materials/Class-Descriptions-Benthic-Maps-v3.pdf"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label="Open Benthic Map class description"
+                      title="Class descriptions"
+                      onClick={(event) => event.stopPropagation()}
+                      className="text-decoration-none"
+                    >
+                      <i className="bi bi-info-circle-fill text-primary" />
+                    </a>
+                  </span>
+                )}
+                checked={benthicVisible}
+                onChange={(event) => onBenthicVisibleChange?.(event.target.checked)}
+                className="fw-semibold"
+              />
+              <Button variant="link" size="sm" onClick={resetBenthicColors} className="layer-reset-btn">
+                Reset
+              </Button>
+            </div>
+
+            {benthicVisible && (
+              <div className="benthic-class-list">
+                {Object.entries(DEFAULT_BENTHIC_CLASS_COLORS).map(([className, defaultColor]) => {
+                  const classSettings = benthicClasses[className] || { visible: true, color: defaultColor };
+                  return (
+                    <div key={className} className={`benthic-class-row ${classSettings.visible ? '' : 'disabled'}`}>
+                      <Form.Check
+                        type="checkbox"
+                        id={`benthic-class-${className}`}
+                        checked={classSettings.visible}
+                        onChange={(event) => updateBenthicClass(className, { visible: event.target.checked })}
+                      />
+                      <input
+                        type="color"
+                        value={classSettings.color || defaultColor}
+                        onChange={(event) => updateBenthicClass(className, { color: event.target.value })}
+                        className="benthic-color-input"
+                        aria-label={`${className} color`}
+                      />
+                      <span className="benthic-class-label">{className}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="layer-card">
+            <div className="layer-toggle-row">
+              <Form.Check
+                type="checkbox"
+                id="reef-extent-layer-toggle"
+                label="Reef extent"
+                checked={reefExtentVisible}
+                onChange={(event) => onReefExtentVisibleChange?.(event.target.checked)}
+                className="fw-semibold"
+              />
+              <Button variant="link" size="sm" onClick={resetReefExtentColors} className="layer-reset-btn">
+                Reset
+              </Button>
+            </div>
+            <p className="text-muted small mb-2">
+              Database creators define reef extent as areas where coral reef is present and visible from satellites.
+            </p>
+
+            {reefExtentVisible && (
+              <div className="benthic-class-list">
+                {Object.entries(DEFAULT_REEF_EXTENT_CLASS_COLORS).map(([className, defaultColor]) => {
+                  const classSettings = reefExtentClasses[className] || { visible: true, color: defaultColor };
+                  return (
+                    <div key={className} className={`benthic-class-row ${classSettings.visible ? '' : 'disabled'}`}>
+                      <Form.Check
+                        type="checkbox"
+                        id={`reef-extent-class-${className}`}
+                        checked={classSettings.visible}
+                        onChange={(event) => updateReefExtentClass(className, { visible: event.target.checked })}
+                      />
+                      <input
+                        type="color"
+                        value={classSettings.color || defaultColor}
+                        onChange={(event) => updateReefExtentClass(className, { color: event.target.value })}
+                        className="benthic-color-input"
+                        aria-label={`${className} color`}
+                      />
+                      <span className="benthic-class-label">{className}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="layer-card">
+            <Form.Check
+              type="checkbox"
+              id="bleaching-layer-toggle"
+              label={(
+                <span className="d-inline-flex align-items-center gap-1">
+                  <span>Bleaching data</span>
+                  <a
+                    href="https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0175490"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Open bleaching data reference"
+                    title="Data source"
+                    onClick={(event) => event.stopPropagation()}
+                    className="text-decoration-none"
+                  >
+                    <i className="bi bi-info-circle-fill text-primary" />
+                  </a>
+                </span>
+              )}
+              checked={bleachingVisible}
+              onChange={(event) => onBleachingVisibleChange?.(event.target.checked)}
+              className="fw-semibold mb-2"
+            />
+            {bleachingVisible && (
+              <>
+                <Form.Group className="mb-2">
+                  <Form.Label htmlFor="bleaching-year-select" className="small mb-1">
+                    Year
+                  </Form.Label>
+                  <Form.Select
+                    id="bleaching-year-select"
+                    size="sm"
+                    value={bleachingYear}
+                    disabled={!bleachingYears.length}
+                    onChange={(event) => onBleachingYearChange?.(Number(event.target.value))}
+                  >
+                    {bleachingYears.length ? (
+                      bleachingYears.map((y) => (
+                        <option key={y} value={y}>{y}</option>
+                      ))
+                    ) : (
+                      <option value={bleachingYear}>{bleachingYear}</option>
+                    )}
+                  </Form.Select>
+                </Form.Group>
+                <ul className="list-unstyled mb-0 small">
+                  {Object.entries(BLEACHING_SEVERITY_LABELS).map(([code, label]) => (
+                    <li key={code} className="d-flex align-items-center gap-2 mb-1">
+                      <span
+                        style={{
+                          width: 12,
+                          height: 12,
+                          borderRadius: 2,
+                          background: BLEACHING_SEVERITY_COLORS[code],
+                          border: '1px solid rgba(0,0,0,0.15)',
+                          flexShrink: 0,
+                        }}
+                      />
+                      {label}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </div>
+
+          <div className="layer-card">
+            <div className="layer-card-title">Map settings</div>
+            {Object.entries(BASEMAPS).map(([key, config]) => (
+              <Form.Check
+                key={key}
+                type="radio"
+                id={`basemap-${key}`}
+                name="basemap"
+                label={config.label}
+                checked={basemap === key}
+                onChange={() => onBasemapChange?.(key)}
+                className="layer-radio"
+              />
+            ))}
+            <div className="layer-divider" />
+            <Form.Check
+              type="checkbox"
+              id="captions-layer-toggle"
+              label="Captions"
+              checked={captionsVisible}
+              onChange={(event) => onCaptionsVisibleChange?.(event.target.checked)}
+              className="fw-semibold"
+            />
+          </div>
+        </div>
+        )}
       </div>
 
       {/* Temperature Filters Modal */}

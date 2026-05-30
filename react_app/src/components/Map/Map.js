@@ -1,117 +1,116 @@
-// External imports
-import React, { useEffect, useState, useContext } from 'react';
-import L from 'leaflet';
-import { MapContainer, TileLayer, LayersControl, useMap } from 'react-leaflet';
+import React, { useContext, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import CustomerMapLibreMap from 'components/MapLibre/CustomerMapLibreMap';
+import { SidebarFilterContext } from 'contexts/SidebarFilterContext';
+import filterColonies from 'utils/filterColonies';
 import { Spinner } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
-// Internal imports
-import { SidebarFilterContext } from 'contexts/SidebarFilterContext'
-import Markers from 'components/Markers/Markers';
-import filterColonies from 'utils/filterColonies';
 
+const Map = ({
+  basemap = 'imagery',
+  captionsVisible = true,
+  benthicVisible = true,
+  benthicClasses = {},
+  reefExtentVisible = false,
+  reefExtentClasses = {},
+  bleachingVisible = false,
+  bleachingYear = 2005,
+  bleachingObservationsGeoJson = null,
+  onBleachingObservationClick,
+  scopedColonies = null,
+  skipUrlFocus = false,
+}) => {
+  const { allColonies, filters, setFilteredColonies, defaultValues } =
+    useContext(SidebarFilterContext);
+  const [ready, setReady] = useState(false);
+  const [searchParams] = useSearchParams();
 
-// To adjust map center and zoom to selection
-const ChangeView = ({ markers }) => {
-  const map = useMap();
-  useEffect(() => {
-    if (markers.length > 0) {
-      const bounds = new L.LatLngBounds(markers.map(marker => [marker.latitude, marker.longitude]));
-      map.fitBounds(bounds);
+  const colonySource = scopedColonies ?? allColonies;
+
+  const computedColonies = useMemo(() => {
+    if (!colonySource || colonySource.length === 0) return [];
+    if (filters && Object.keys(filters).length > 0) {
+      return filterColonies(filters, colonySource, defaultValues);
     }
-  }, [markers, map]);
-  return null;
-}
+    return colonySource;
+  }, [colonySource, filters, defaultValues]);
 
-const Map = () => {
-  const { BaseLayer } = LayersControl;
-  const { allColonies, filters, filteredColonies, setFilteredColonies, defaultValues } = useContext(SidebarFilterContext);
-  const [mapCenter, setMapCenter] = useState(null);
-  
+  const focusTarget = useMemo(() => {
+    if (skipUrlFocus) return null;
+    const colonyParam = searchParams.get('colony');
+    const lngParam = searchParams.get('lng');
+    const latParam = searchParams.get('lat');
+    const zoomParam = searchParams.get('zoom');
+    const colonyId = colonyParam ? Number(colonyParam) : NaN;
+    const lng = lngParam ? Number(lngParam) : NaN;
+    const lat = latParam ? Number(latParam) : NaN;
+    const zoom = zoomParam ? Number(zoomParam) : 12;
+    const colonies = Array.isArray(allColonies) ? allColonies : [];
+    const colony = Number.isFinite(colonyId)
+      ? colonies.find((item) => item.id === colonyId)
+      : null;
+
+    const targetLng = Number.isFinite(lng) ? lng : colony?.longitude;
+    const targetLat = Number.isFinite(lat) ? lat : colony?.latitude;
+    if (!Number.isFinite(targetLng) || !Number.isFinite(targetLat)) return null;
+
+    return {
+      key: `${colonyId || 'point'}-${targetLng}-${targetLat}-${zoom}`,
+      colony,
+      coordinates: [targetLng, targetLat],
+      zoom: Number.isFinite(zoom) ? zoom : 12,
+    };
+  }, [allColonies, searchParams, skipUrlFocus]);
+
   useEffect(() => {
-    if (allColonies && allColonies.length > 0) {
-      let dataToSet = allColonies;
-
-      // Only apply the filter if filters are set
-      if (filters && Object.keys(filters).length > 0) {
-        dataToSet = filterColonies(filters, allColonies, defaultValues);
-      }
-      // Recalculate map center based on selection
-      const avgLat = dataToSet.reduce((sum, marker) => sum + marker.latitude, 0) / dataToSet.length;
-      const avgLng = dataToSet.reduce((sum, marker) => sum + marker.longitude, 0) / dataToSet.length;
-
-      setMapCenter([avgLat, avgLng]);
-      setFilteredColonies(dataToSet);
+    if (scopedColonies) {
+      setFilteredColonies(computedColonies);
+      setReady(true);
+      return;
     }
-  }, [filters, allColonies, setFilteredColonies]);
+    if (!allColonies || allColonies.length === 0) {
+      setReady(false);
+      return;
+    }
+    setFilteredColonies(computedColonies);
+    setReady(true);
+  }, [scopedColonies, allColonies, computedColonies, setFilteredColonies]);
 
-
-  return (
-    mapCenter ? (
-      <MapContainer
-        center={mapCenter}
-        zoom={3}
-        style={{ height: '100%', width: '100%' }}
-        attributionControl={false}
+  if (!ready) {
+    return (
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '100%',
+          width: '100%',
+          backgroundColor: '#f8f9fa',
+        }}
       >
-        <ChangeView markers={filteredColonies} />
-        <LayersControl position="topright">
-        <BaseLayer name="OpenStreetMap">
-            <TileLayer
-              url='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
-            />
-          </BaseLayer>
-          <BaseLayer checked name="World Imagery">
-            <TileLayer
-              url='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
-            />
-          </BaseLayer>
-        </LayersControl>
-        <Markers colonies={filteredColonies} />
-        <style>
-          {`
-            .leaflet-control-layers-base label {
-              text-align: left;
-            }
-            
-            .leaflet-popup-content {
-              margin: 10px 10px;
-            }
-            
-            .leaflet-popup-content::-webkit-scrollbar {
-              width: 6px;
-            }
-            
-            .leaflet-popup-content::-webkit-scrollbar-track {
-              background: #f1f1f1;
-              border-radius: 3px;
-            }
-            
-            .leaflet-popup-content::-webkit-scrollbar-thumb {
-              background: #888;
-              border-radius: 3px;
-            }
-            
-            .leaflet-popup-content::-webkit-scrollbar-thumb:hover {
-              background: #555;
-            }
-          `}
-        </style>
-      </MapContainer>
-    ) : (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        height: '100%', 
-        width: '100%',
-        backgroundColor: '#f8f9fa'
-      }}>
         <Spinner animation="border" role="status">
           <span className="visually-hidden">Loading...</span>
         </Spinner>
       </div>
-    )
-  );  
+    );
+  }
+
+  return (
+    <CustomerMapLibreMap
+      basemap={basemap}
+      captionsVisible={captionsVisible}
+      benthicVisible={benthicVisible}
+      benthicClasses={benthicClasses}
+      reefExtentVisible={reefExtentVisible}
+      reefExtentClasses={reefExtentClasses}
+      bleachingVisible={bleachingVisible}
+      bleachingYear={bleachingYear}
+      bleachingObservationsGeoJson={bleachingObservationsGeoJson}
+      onBleachingObservationClick={onBleachingObservationClick}
+      colonies={computedColonies}
+      focusTarget={focusTarget}
+    />
+  );
 };
 
 export default Map;

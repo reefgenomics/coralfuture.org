@@ -62,6 +62,74 @@ DIRECT_MAPPING: Dict[str, str] = {
 }
 
 
+def _find_temperature_input_column(df: pd.DataFrame) -> str | None:
+    for col in df.columns:
+        if str(col).strip().lower() == "temperature":
+            return col
+    return None
+
+
+def _parse_single_temperature_token(segment: str, *, full_cell: str) -> float:
+    t = segment.strip()
+    t = re.sub(r"°?\s*[CcFf]\s*$", "", t).strip()
+    t = t.replace(",", ".")
+    if not re.fullmatch(r"-?\d+\.?\d*", t):
+        raise ValueError(
+            f"Invalid temperature segment {segment!r} in {full_cell!r}. "
+            "Use '/' only between numeric temperatures, e.g. 28/32/36/40."
+        )
+    return float(t)
+
+
+def expand_slash_separated_temperature_column(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Assay temperatures in column ``Temperature``:
+
+    - Four values in one cell: ``28/32/36/40`` → one output row per value
+      (ED columns duplicated).
+    - One value per row already: ``28.0`` or ``28`` (e.g. after a prior expand and
+      ``to_csv``) → left as a single numeric row (same pipeline runs twice on upload).
+    """
+    col = _find_temperature_input_column(df)
+    if col is None:
+        raise ValueError('Missing column "Temperature" (required for upload).')
+
+    out_rows: List[dict] = []
+    for i, (_, row) in enumerate(df.iterrows()):
+        line_no = i + 2  # 1-based file line: header + data offset
+        val = row[col]
+        if pd.isna(val) or (isinstance(val, str) and not str(val).strip()):
+            raise ValueError(f"Row {line_no}: Temperature is empty.")
+
+        if isinstance(val, (int, float)) and not isinstance(val, bool):
+            d = row.to_dict()
+            d[col] = float(val)
+            out_rows.append(d)
+            continue
+
+        s = str(val).strip()
+        if "/" in s:
+            parts = [p.strip() for p in s.split("/") if p.strip()]
+            if len(parts) != 4:
+                raise ValueError(
+                    f'Row {line_no}: Temperature must list 4 assay values in one column, '
+                    f'separated by slashes (e.g. 28/32/36/40); got {len(parts)} value(s): {val!r}.'
+                )
+            nums = [_parse_single_temperature_token(p, full_cell=s) for p in parts]
+            for t in nums:
+                d = row.to_dict()
+                d[col] = t
+                out_rows.append(d)
+            continue
+
+        t = _parse_single_temperature_token(s, full_cell=s)
+        d = row.to_dict()
+        d[col] = t
+        out_rows.append(d)
+
+    return pd.DataFrame(out_rows, columns=df.columns)
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -76,6 +144,8 @@ def map_columns(df: pd.DataFrame) -> pd.DataFrame:
     Returns:
         DataFrame with standard column names
     """
+    df = expand_slash_separated_temperature_column(df.copy())
+
     # Apply direct mapping
     df_mapped = df.rename(columns=DIRECT_MAPPING)
     
@@ -190,12 +260,17 @@ def _transform_data(df: pd.DataFrame) -> pd.DataFrame:
         df["Colony.country"] = df["Colony.country"].astype(str).str[:3].str.upper()
     
     # Ensure numeric columns are proper types
-    numeric_cols = ["Colony.latitude", "Colony.longitude", "Colony.ed5", "Colony.ed50", 
-                   "Colony.ed95", "Observation.temperature", "Observation.pam_value"]
+    numeric_cols = ["Colony.latitude", "Colony.longitude", "Colony.ed5", "Colony.ed50",
+                    "Colony.ed95", "Observation.pam_value"]
     for col in numeric_cols:
         if col in df.columns:
             df[col] = _clean_and_convert_to_numeric(df[col])
-    
+
+    if "Observation.temperature" in df.columns:
+        df["Observation.temperature"] = pd.to_numeric(
+            df["Observation.temperature"], errors="raise"
+        )
+
     return df
 
 

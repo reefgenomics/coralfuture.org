@@ -31,6 +31,11 @@ class Project(models.Model):
     publications = models.ManyToManyField(Publication,
                                           related_name='projects')
     biosamples = models.ManyToManyField('BioSample', related_name='projects')
+    view_count = models.PositiveIntegerField(
+        default=0,
+        db_index=True,
+        help_text='Number of authenticated project detail page loads.',
+    )
 
     def __str__(self):
         return f"Project {self.name}"
