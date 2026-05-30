@@ -1,4 +1,5 @@
 import React, { useState, useRef, useContext } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Container, Row, Col, Card, Form, Button, Alert, Table, ProgressBar } from 'react-bootstrap';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
@@ -8,6 +9,7 @@ import { AuthContext } from 'contexts/AuthContext';
 const backendUrl = '';
 
 const UploadDataPage = () => {
+  const navigate = useNavigate();
   const { authData } = useContext(AuthContext);
   const [file, setFile] = useState(null);
   const [csvData, setCsvData] = useState({ data: [] });
@@ -138,9 +140,15 @@ const UploadDataPage = () => {
         },
       });
 
-      setUploadStatus({ 
-        type: 'success', 
-        message: response.data?.message || 'Your files have been successfully uploaded and are now queued for processing. You can upload another dataset or navigate away from this page.' 
+      const projectId = response.data?.project_id;
+      if (projectId) {
+        navigate(`/project/${projectId}`, { replace: true });
+        return;
+      }
+
+      setUploadStatus({
+        type: 'success',
+        message: response.data?.message || 'Your files have been successfully uploaded and are now queued for processing. You can upload another dataset or navigate away from this page.',
       });
       setUploadComplete(true);
 
@@ -175,46 +183,42 @@ const UploadDataPage = () => {
         </div>
       </Card.Header>
       <Card.Body className="p-4">
-        <p className="text-muted mb-4 lh-base">
-          Import coral stress-experiment results into the Coral Future database with our guided process.
+        <p className="text-muted small lh-base mb-3">
+          CSV or Excel. We detect which pipeline fits your file.
         </p>
-        
-        <div className="workflow-steps">
-            <div className="step mb-4">
-              <div className="d-flex align-items-start">
-                <div className="step-number me-3 mt-1">
-                  <span className="badge bg-primary rounded-circle d-inline-flex align-items-center justify-content-center" style={{ width: '24px', height: '24px', fontSize: '12px' }}>1</span>
-                </div>
-                <div className="flex-grow-1">
-                  <h6 className="fw-semibold text-dark mb-2">Prepare Your Data</h6>
-                  <p className="text-muted small lh-base">
-                    CSV or Excel with Site, Condition, Species, Timepoint, and Temperature.
-                    Temperature must list at least two assay values in one column, separated by slashes (e.g. 28/32/36/40).
-                  </p>
-                </div>
-              </div>
-            </div>
-            
-            <div className="step mb-4">
-              <div className="d-flex align-items-start">
-                <div className="step-number me-3 mt-1">
-                  <span className="badge bg-primary rounded-circle d-inline-flex align-items-center justify-content-center" style={{ width: '24px', height: '24px', fontSize: '12px' }}>2</span>
-                </div>
-                <div className="flex-grow-1">
-                  <h6 className="fw-semibold text-dark mb-2">Upload & Auto-Calculate</h6>
-                  <p className="text-muted small lh-base">
-                    Upload your CSV. System will automatically calculate ED5/ED50/ED95 if not included.
-                  </p>
-                </div>
-              </div>
-            </div>
-            
-        </div>
-        
-        <div className="mt-4 pt-4 border-top">
+
+        <div className="mb-3">
+          <h6 className="fw-semibold text-dark mb-1">With PAM</h6>
           <p className="text-muted small lh-base mb-0">
-            <span className="fw-medium">Need help?</span> Large files are supported with progress tracking. 
-            Contact us via "Get Help" for special data structures.
+            Required columns: <code className="text-dark">Site</code>, <code className="text-dark">Condition</code>, <code className="text-dark">Species</code>, <code className="text-dark">Timepoint</code>,
+            <code className="text-dark"> Temperature</code>, and <code className="text-dark">Pam_value</code>. ED5, ED50, and ED95 are calculated from the fitted curve.
+          </p>
+        </div>
+
+        <div className="mb-3">
+          <h6 className="fw-semibold text-dark mb-1">Without PAM</h6>
+          <p className="text-muted small lh-base mb-0">
+            No <code className="text-dark">Pam_value</code> column — add <code className="text-dark">Temperature</code> with
+            four assay temps in one cell, slash-separated (e.g. <code className="text-dark">28/32/36/40</code>).
+            Each row expands to four on import; EDs are calculated from temperature only. Example:{' '}
+            <a
+              href="/examples/Input_withoutPam_formated.xlsx"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Input_withoutPam_formated.xlsx
+            </a>
+            .
+          </p>
+        </div>
+
+        <p className="text-muted small lh-base mb-0">
+          Either way you need Site, Condition, Species, and Timepoint. Upload maps columns and attaches plots to your project.
+        </p>
+
+        <div className="mt-4 pt-3 border-top">
+          <p className="text-muted small lh-base mb-0">
+            Stuck? Use Get Help — large files are fine.
           </p>
         </div>
       </Card.Body>

@@ -17,21 +17,26 @@ const Map = ({
   bleachingYear = 2005,
   bleachingObservationsGeoJson = null,
   onBleachingObservationClick,
+  scopedColonies = null,
+  skipUrlFocus = false,
 }) => {
   const { allColonies, filters, setFilteredColonies, defaultValues } =
     useContext(SidebarFilterContext);
   const [ready, setReady] = useState(false);
   const [searchParams] = useSearchParams();
 
+  const colonySource = scopedColonies ?? allColonies;
+
   const computedColonies = useMemo(() => {
-    if (!allColonies || allColonies.length === 0) return [];
+    if (!colonySource || colonySource.length === 0) return [];
     if (filters && Object.keys(filters).length > 0) {
-      return filterColonies(filters, allColonies, defaultValues);
+      return filterColonies(filters, colonySource, defaultValues);
     }
-    return allColonies;
-  }, [allColonies, filters, defaultValues]);
+    return colonySource;
+  }, [colonySource, filters, defaultValues]);
 
   const focusTarget = useMemo(() => {
+    if (skipUrlFocus) return null;
     const colonyParam = searchParams.get('colony');
     const lngParam = searchParams.get('lng');
     const latParam = searchParams.get('lat');
@@ -55,16 +60,21 @@ const Map = ({
       coordinates: [targetLng, targetLat],
       zoom: Number.isFinite(zoom) ? zoom : 12,
     };
-  }, [allColonies, searchParams]);
+  }, [allColonies, searchParams, skipUrlFocus]);
 
   useEffect(() => {
+    if (scopedColonies) {
+      setFilteredColonies(computedColonies);
+      setReady(true);
+      return;
+    }
     if (!allColonies || allColonies.length === 0) {
       setReady(false);
       return;
     }
     setFilteredColonies(computedColonies);
     setReady(true);
-  }, [allColonies, computedColonies, setFilteredColonies]);
+  }, [scopedColonies, allColonies, computedColonies, setFilteredColonies]);
 
   if (!ready) {
     return (

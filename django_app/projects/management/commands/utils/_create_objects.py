@@ -17,9 +17,12 @@ def create_project(owner, project_key, description):
         registration_date = datetime.now().date()
     return Project.objects.get_or_create(
         name=project_key,
-        registration_date=registration_date,
-        description=description,
-        owner=owner)
+        owner=owner,
+        defaults={
+            'registration_date': registration_date,
+            'description': description,
+        },
+    )
 
 
 def create_experiment(project, experiment_key):

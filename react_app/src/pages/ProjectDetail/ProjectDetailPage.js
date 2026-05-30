@@ -23,6 +23,7 @@ import './ProjectDetailPage.css';
 import { AuthContext } from '../../contexts/AuthContext';
 import { UserCartContext } from '../../contexts/UserCartContext';
 import { formatViewCount } from '../../utils/formatViewCount';
+import ProjectMapPanel from '../../components/Map/ProjectMapPanel';
 
 const getDoiUrl = (doi) => {
   if (!doi) return null;
@@ -652,6 +653,23 @@ const ProjectDetailPage = () => {
                     )}
                   </>
                 )}
+              </Card.Body>
+            </Card>
+          </Col>
+        </Row>
+
+        <Row className="mb-5">
+          <Col>
+            <Card className="section-card">
+              <Card.Header className="section-header">
+                <Globe className="me-2" size={20} />
+                Project map
+              </Card.Header>
+              <Card.Body className="p-3">
+                <ProjectMapPanel
+                  colonies={projectColonies}
+                  projectName={project.name}
+                />
               </Card.Body>
             </Card>
           </Col>

@@ -341,6 +341,12 @@
   box-shadow: 0 8px 25px rgba(14, 165, 233, 0.3);
 }
 
+.cbass-card-logo {
+  width: 42px;
+  height: 42px;
+  object-fit: contain;
+}
+
 .references-section {
   border-top: 1px solid #e2e8f0;
   padding-top: 1rem;

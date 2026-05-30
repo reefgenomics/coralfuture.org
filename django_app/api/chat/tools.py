@@ -1,6 +1,15 @@
-from django.db.models import Count, Q
+from django.db.models import Avg, Count, Max, Min, Q
 from django.shortcuts import get_object_or_404
 
+from api.chat.bleaching_data import (
+    aggregate_bleaching_observations,
+    collect_bleaching_near_colonies,
+    filter_observations_by_countries,
+    global_bleaching_overview,
+    load_bleaching_features,
+    resolve_bleaching_country_names,
+    SEVERITY_LABELS,
+)
 from projects.models import (
     BreakpointTemperature,
     Colony,
@@ -44,8 +53,25 @@ def _project_url(project_id):
     return f'/project/{project_id}'
 
 
-def _map_url(colony, zoom=12):
-    return f'/map?colony={colony.id}&lng={colony.longitude}&lat={colony.latitude}&zoom={zoom}'
+def _map_url(colony, zoom=12, bleaching_year=None):
+    url = f'/map?colony={colony.id}&lng={colony.longitude}&lat={colony.latitude}&zoom={zoom}'
+    if bleaching_year is not None:
+        url += f'&bleachingYear={int(bleaching_year)}'
+    return url
+
+
+def _project_map_url(project, colonies, bleaching_year=None):
+    points = [c for c in colonies if c.latitude is not None and c.longitude is not None]
+    if not points:
+        return _project_url(project.id)
+    lng = sum(c.longitude for c in points) / len(points)
+    lat = sum(c.latitude for c in points) / len(points)
+    from urllib.parse import quote
+
+    url = f'/map?lng={lng:.6f}&lat={lat:.6f}&zoom=10&project={quote(project.name)}'
+    if bleaching_year is not None:
+        url += f'&bleachingYear={int(bleaching_year)}'
+    return url
 
 
 def _projects_for_colony(colony):
@@ -234,6 +260,8 @@ def get_project_summary(project_id):
     }
     colony_payloads = [_colony_payload(colony) for colony in colonies]
     links = [project_link] + [link for item in colony_payloads for link in item['links']]
+    geolocated = [c for c in colonies if c.latitude is not None and c.longitude is not None]
+    bleaching_block = _bleaching_payload_for_project(project, colonies, geolocated, list(links))
     return {
         'id': project.id,
         'name': project.name,
@@ -251,6 +279,214 @@ def get_project_summary(project_id):
         ],
         'observationsCount': observations_count,
         'colonies': colony_payloads,
+        'bleachingSurveysNearProject': bleaching_block,
+        'links': bleaching_block.get('links', links),
+    }
+
+
+def get_bleaching_overview():
+    """Global bleaching survey coverage and counts by year."""
+    if not load_bleaching_features():
+        return {
+            'error': 'Bleaching observation dataset is not available on this server.',
+            'links': [],
+        }
+    summary = global_bleaching_overview()
+    return {
+        **summary,
+        'links': [{
+            'label': 'Open global map (bleaching layer)',
+            'href': '/map?bleachingYear={}'.format(
+                summary['byYear'][-1]['year'] if summary.get('byYear') else 2005
+            ),
+            'type': 'map',
+        }],
+    }
+
+
+def _bleaching_payload_for_project(project, colonies, geolocated, links):
+    """Shared bleaching survey block for project tools."""
+    project_countries = sorted({c.country for c in colonies if c.country})
+    project_link = {
+        'label': f'Project: {project.name}',
+        'href': _project_url(project.id),
+        'type': 'project',
+    }
+
+    if not load_bleaching_features():
+        return {
+            'available': False,
+            'error': 'Bleaching observation dataset is not available on this server.',
+            'projectCountries': project_countries,
+            'resolvedBleachingCountries': resolve_bleaching_country_names(project_countries),
+            'links': links,
+        }
+
+    collected = collect_bleaching_near_colonies(
+        geolocated,
+        project_countries=project_countries,
+        padding_deg=0.75,
+    )
+    observations = collected['combined']
+    bleaching = aggregate_bleaching_observations(observations)
+    bleaching_bbox = aggregate_bleaching_observations(collected['byBoundingBox'])
+    bleaching_countries = aggregate_bleaching_observations(collected['byCountries'])
+
+    peak_year = None
+    if bleaching.get('byYear'):
+        peak_year = max(bleaching['byYear'], key=lambda row: row['count'])['year']
+        links.append({
+            'label': f'Open map — bleaching {peak_year} (project region)',
+            'href': _project_map_url(project, geolocated, peak_year),
+            'type': 'map',
+        })
+
+    bleaching_country_set = {
+        row['country'] for row in bleaching.get('countriesInBleachingData', [])
+        if row.get('country') and row['country'] != 'Unknown'
+    }
+    resolved = collected['resolvedCountries']
+    overlap_countries = sorted(
+        set(resolved) & bleaching_country_set
+        | {c for c in project_countries if c in bleaching_country_set}
+    )
+
+    sample_sites = []
+    severe = [o for o in observations if o.get('severity') == 3]
+    sample_pool = severe if severe else observations
+    for obs in sorted(sample_pool, key=lambda o: o['year'], reverse=True)[:8]:
+        sample_sites.append({
+            'year': obs['year'],
+            'severity': SEVERITY_LABELS.get(obs['severity'], 'Unknown'),
+            'site': obs.get('site') or None,
+            'country': obs.get('country') or None,
+        })
+
+    return {
+        'available': True,
+        'dataSource': 'BleachingDataBase.csv (independent survey records, not linked to project colonies in ORM)',
+        'searchMethod': (
+            'Combined spatial filter (bounding box around geolocated colonies) and country/region filter '
+            '(colony country labels mapped to BleachingDataBase COUNTRY names, e.g. Persian Arabian Gulf → Bahrain, UAE, Oman, Iran, Kuwait, Saudi Arabia, Qatar).'
+        ),
+        'projectCountries': project_countries,
+        'resolvedBleachingCountries': resolved,
+        'regionBounds': collected['boundingBox'],
+        'recordsInBoundingBox': collected['boundingBoxCount'],
+        'recordsByCountryFilter': collected['countryFilterCount'],
+        'bleachingNearProject': bleaching,
+        'bleachingByBoundingBoxOnly': bleaching_bbox,
+        'bleachingByCountryFilterOnly': bleaching_countries,
+        'peakBleachingYearByRecordCount': peak_year,
+        'countryOverlap': {
+            'projectCountries': project_countries,
+            'bleachingSurveyCountries': sorted(bleaching_country_set),
+            'sharedCountries': overlap_countries,
+        },
+        'sampleBleachingRecords': sample_sites,
+        'links': links,
+    }
+
+
+def get_project_bleaching_analysis(project_id):
+    """
+    Bleaching survey records near a project's colonies, with project thermal context.
+    """
+    project = get_object_or_404(Project.objects.select_related('owner'), id=project_id)
+    colonies = list(
+        Colony.objects
+        .filter(biosamples__projects=project)
+        .distinct()
+        .order_by('name')
+    )
+    geolocated = [c for c in colonies if c.latitude is not None and c.longitude is not None]
+
+    links = [{
+        'label': f'Project: {project.name}',
+        'href': _project_url(project.id),
+        'type': 'project',
+    }]
+
+    bleaching_block = _bleaching_payload_for_project(project, colonies, geolocated, links)
+
+    ed50_stats = (
+        ThermalTolerance.objects
+        .filter(colony__in=colonies)
+        .exclude(abs_thermal_tolerance__isnull=True)
+        .aggregate(
+            count=Count('id'),
+            minEd50=Min('abs_thermal_tolerance'),
+            maxEd50=Max('abs_thermal_tolerance'),
+            meanEd50=Avg('abs_thermal_tolerance'),
+        )
+    )
+
+    project_species = sorted({c.species for c in colonies if c.species})
+
+    return {
+        'projectId': project.id,
+        'projectName': project.name,
+        'description': (project.description or '')[:500],
+        'projectUrl': links[0]['href'],
+        'colonyCount': len(colonies),
+        'geolocatedColonyCount': len(geolocated),
+        'projectSpecies': project_species[:15],
+        'experimentObservationsCount': Observation.objects.filter(experiment__project=project).count(),
+        'thermalToleranceEd50': {
+            'recordCount': ed50_stats['count'],
+            'minCelsius': ed50_stats['minEd50'],
+            'maxCelsius': ed50_stats['maxEd50'],
+            'meanCelsius': round(ed50_stats['meanEd50'], 3) if ed50_stats['meanEd50'] is not None else None,
+        },
+        **bleaching_block,
+        'interpretationNotes': (
+            'Bleaching rows are independent ReefBase/BleachingDataBase survey points near the project region, '
+            'not CBASS colony measurements. Use bleachingNearProject.byYear for trends; compare with thermalToleranceEd50 qualitatively.'
+        ),
+        'links': bleaching_block.get('links', links),
+    }
+
+
+def get_project_bleaching_by_name(project_name):
+    """Resolve project by name (partial match) and return bleaching analysis."""
+    query = (project_name or '').strip()
+    if not query:
+        return {'error': 'project_name is required', 'links': []}
+    project = (
+        Project.objects
+        .filter(name__icontains=query)
+        .order_by('name')
+        .first()
+    )
+    if not project:
+        return {'error': f'No project matching "{query}".', 'links': []}
+    return get_project_bleaching_analysis(project.id)
+
+
+def search_bleaching_by_country(country, limit=10):
+    """Bleaching survey summary for a country name (exact match, case-insensitive)."""
+    country = (country or '').strip()
+    if not country:
+        return {'error': 'country is required', 'links': []}
+    if not load_bleaching_features():
+        return {'error': 'Bleaching observation dataset is not available.', 'links': []}
+
+    observations = filter_observations_by_countries([country])
+    summary = aggregate_bleaching_observations(observations)
+    links = [{
+        'label': f'Open map — {country}',
+        'href': '/map',
+        'type': 'map',
+    }]
+    peak_year = None
+    if summary.get('byYear'):
+        peak_year = max(summary['byYear'], key=lambda row: row['count'])['year']
+        links[0]['href'] = f'/map?bleachingYear={peak_year}'
+
+    return {
+        'country': country,
+        'filterNote': 'Country match is case-insensitive and allows partial names (e.g. Australia, UAE).',
+        **summary,
         'links': links,
     }
 
@@ -280,4 +516,8 @@ TOOL_FUNCTIONS = {
     'search_colonies': search_colonies,
     'get_project_summary': get_project_summary,
     'get_database_overview': get_database_overview,
+    'get_bleaching_overview': get_bleaching_overview,
+    'get_project_bleaching_analysis': get_project_bleaching_analysis,
+    'get_project_bleaching_by_name': get_project_bleaching_by_name,
+    'search_bleaching_by_country': search_bleaching_by_country,
 }

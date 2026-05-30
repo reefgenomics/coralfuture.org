@@ -401,3 +401,12 @@
     font-size: 0.8rem;
   }
 }
+
+.sidebar-embedded {
+  max-height: 100%;
+  box-shadow: none;
+}
+
+.sidebar-embedded .map-sidebar-collapse-btn {
+  display: none;
+}

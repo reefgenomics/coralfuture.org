@@ -14,21 +14,23 @@ const getInitialFilters = () => {
   }
 };
 
-const SidebarFilterProvider = (props) => {
-  const [allColonies, setAllColonies] = useState([]);
+const SidebarFilterProvider = ({ scopedColonies, children }) => {
+  const isScopedMap = Boolean(scopedColonies?.length);
+  const [allColonies, setAllColonies] = useState(scopedColonies || []);
   const [allBioSamples, setAllBioSamples] = useState([]);
   const [allProjects, setAllProjects] = useState([]);
-  const [filters, setFilters] = useState(getInitialFilters);
+  const [filters, setFilters] = useState(() => (isScopedMap ? {} : getInitialFilters()));
   const [filteredColonies, setFilteredColonies] = useState([]);
   const [defaultValues, setDefaultValues] = useState({});
 
   useEffect(() => {
+    if (isScopedMap) return;
     try {
       window.localStorage.setItem(FILTERS_CACHE_KEY, JSON.stringify(filters));
     } catch (_) {
       // Ignore localStorage quota/private mode issues.
     }
-  }, [filters]);
+  }, [filters, isScopedMap]);
 
   useEffect(() => {
     const fetchColonies = async (backendUrl) => {
@@ -131,17 +133,25 @@ const SidebarFilterProvider = (props) => {
     // Use relative URL for API calls to work with both HTTP and HTTPS
     const backendUrl = '';
 
-    fetchColonies(backendUrl);
+    if (!scopedColonies?.length) {
+      fetchColonies(backendUrl);
+    }
     fetchBioSamples(backendUrl);
     fetchProjects(backendUrl);
     fetchDefaultValues(backendUrl);
-  }, []);
+  }, [scopedColonies]);
+
+  useEffect(() => {
+    if (scopedColonies) {
+      setAllColonies(scopedColonies);
+    }
+  }, [scopedColonies]);
 
   return (
     <SidebarFilterContext.Provider
       value={{ allColonies, allBioSamples, allProjects, filters, setFilters, filteredColonies, setFilteredColonies, defaultValues }}
     >
-      {props.children}
+      {children}
     </SidebarFilterContext.Provider>
   );
 };

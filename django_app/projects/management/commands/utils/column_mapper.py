@@ -85,7 +85,7 @@ def expand_slash_separated_temperature_column(df: pd.DataFrame) -> pd.DataFrame:
     """
     Assay temperatures in column ``Temperature``:
 
-    - Multiple values in one cell: ``28/32/36/40`` → one output row per value
+    - Four values in one cell: ``28/32/36/40`` → one output row per value
       (ED columns duplicated).
     - One value per row already: ``28.0`` or ``28`` (e.g. after a prior expand and
       ``to_csv``) → left as a single numeric row (same pipeline runs twice on upload).
@@ -110,9 +110,10 @@ def expand_slash_separated_temperature_column(df: pd.DataFrame) -> pd.DataFrame:
         s = str(val).strip()
         if "/" in s:
             parts = [p.strip() for p in s.split("/") if p.strip()]
-            if len(parts) < 2:
+            if len(parts) != 4:
                 raise ValueError(
-                    f'Row {line_no}: Temperature must list at least two values separated by "/"; got {val!r}.'
+                    f'Row {line_no}: Temperature must list 4 assay values in one column, '
+                    f'separated by slashes (e.g. 28/32/36/40); got {len(parts)} value(s): {val!r}.'
                 )
             nums = [_parse_single_temperature_token(p, full_cell=s) for p in parts]
             for t in nums:

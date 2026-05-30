@@ -1,5 +1,6 @@
 // External imports
-import React, { useEffect, useState, useContext } from 'react';
+import React, { useEffect, useRef, useState, useContext } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Button, Form, FormGroup, Row, Col, Card } from 'react-bootstrap';
 import { Box, Slider } from '@mui/material';
 import { ThermometerHalf } from 'react-bootstrap-icons';
@@ -39,6 +40,9 @@ const InputSidebar = ({
   bleachingYear = 2005,
   onBleachingYearChange,
   bleachingYears = [],
+  layout = 'full',
+  sidebarTitle = 'Map',
+  hideProjectFilter = false,
 }) => {
 
   const [selectedSpecies, setSelectedSpecies] = useState('');
@@ -48,8 +52,9 @@ const InputSidebar = ({
   // State for temperature filters modal
   const [showTemperatureModal, setShowTemperatureModal] = useState(false);
   const [activeTab, setActiveTab] = useState('filters');
-  
-  
+  const [searchParams] = useSearchParams();
+  const projectFromUrlAppliedRef = useRef(false);
+
   // Get all Colonies and Projects from Context and define list of species
   const { allColonies, allProjects, filters, setFilters, defaultValues } = useContext(SidebarFilterContext);
   const speciesList = [...new Set(allColonies.map(allColonies => allColonies.species))].sort();
@@ -60,6 +65,19 @@ const InputSidebar = ({
     setSelectedProject(filters.project || '');
     setSelectedDates(Array.isArray(filters.years) ? filters.years : []);
   }, [filters.species, filters.project, filters.years]);
+
+  useEffect(() => {
+    if (hideProjectFilter || projectFromUrlAppliedRef.current) return;
+    const projectFromUrl = searchParams.get('project');
+    if (!projectFromUrl) return;
+
+    projectFromUrlAppliedRef.current = true;
+    setSelectedProject(projectFromUrl);
+    setFilters((prev) => ({
+      ...prev,
+      project: projectFromUrl,
+    }));
+  }, [hideProjectFilter, searchParams, setFilters]);
 
   // Extract temperature filters from global filters
   const temperatureFilters = {
@@ -328,9 +346,9 @@ const InputSidebar = ({
 
   return (
     <>
-      <div className="sidebar">
+      <div className={`sidebar${layout === 'embedded' ? ' sidebar-embedded' : ''}`}>
         <div className="map-sidebar-header">
-          <div className="map-sidebar-title">Map</div>
+          <div className="map-sidebar-title">{sidebarTitle}</div>
           <Button 
             variant="outline-secondary" 
             size="sm" 
@@ -377,6 +395,7 @@ const InputSidebar = ({
             </Col>
           </Row>
 
+          {!hideProjectFilter && (
           <Row className="mb-3">
             <Col>
               <FormGroup className="mb-2">
@@ -390,6 +409,7 @@ const InputSidebar = ({
               </FormGroup>
             </Col>
           </Row>
+          )}
 
           {/* Temperature Sliders */}
           <Row className="mb-3">
@@ -461,36 +481,27 @@ const InputSidebar = ({
         {activeTab === 'layers' && (
         <div className="sidebar-section layers-section">
           <div className="layer-card">
-            <div className="layer-card-title">Map settings</div>
-            {Object.entries(BASEMAPS).map(([key, config]) => (
-              <Form.Check
-                key={key}
-                type="radio"
-                id={`basemap-${key}`}
-                name="basemap"
-                label={config.label}
-                checked={basemap === key}
-                onChange={() => onBasemapChange?.(key)}
-                className="layer-radio"
-              />
-            ))}
-            <div className="layer-divider" />
-            <Form.Check
-              type="checkbox"
-              id="captions-layer-toggle"
-              label="Captions"
-              checked={captionsVisible}
-              onChange={(event) => onCaptionsVisibleChange?.(event.target.checked)}
-              className="fw-semibold"
-            />
-          </div>
-
-          <div className="layer-card">
+            <div className="layer-card-title">Data layers</div>
             <div className="layer-toggle-row">
               <Form.Check
                 type="checkbox"
                 id="benthic-layer-toggle"
-                label="Benthic Habitat"
+                label={(
+                  <span className="d-inline-flex align-items-center gap-1">
+                    <span>Benthic Map</span>
+                    <a
+                      href="https://storage.googleapis.com/coral-atlas-static-files/download-package-materials/Class-Descriptions-Benthic-Maps-v3.pdf"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label="Open Benthic Map class description"
+                      title="Class descriptions"
+                      onClick={(event) => event.stopPropagation()}
+                      className="text-decoration-none"
+                    >
+                      <i className="bi bi-info-circle-fill text-primary" />
+                    </a>
+                  </span>
+                )}
                 checked={benthicVisible}
                 onChange={(event) => onBenthicVisibleChange?.(event.target.checked)}
                 className="fw-semibold"
@@ -541,6 +552,9 @@ const InputSidebar = ({
                 Reset
               </Button>
             </div>
+            <p className="text-muted small mb-2">
+              Database creators define reef extent as areas where coral reef is present and visible from satellites.
+            </p>
 
             {reefExtentVisible && (
               <div className="benthic-class-list">
@@ -573,7 +587,22 @@ const InputSidebar = ({
             <Form.Check
               type="checkbox"
               id="bleaching-layer-toggle"
-              label="Bleaching data"
+              label={(
+                <span className="d-inline-flex align-items-center gap-1">
+                  <span>Bleaching data</span>
+                  <a
+                    href="https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0175490"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Open bleaching data reference"
+                    title="Data source"
+                    onClick={(event) => event.stopPropagation()}
+                    className="text-decoration-none"
+                  >
+                    <i className="bi bi-info-circle-fill text-primary" />
+                  </a>
+                </span>
+              )}
               checked={bleachingVisible}
               onChange={(event) => onBleachingVisibleChange?.(event.target.checked)}
               className="fw-semibold mb-2"
@@ -619,6 +648,31 @@ const InputSidebar = ({
                 </ul>
               </>
             )}
+          </div>
+
+          <div className="layer-card">
+            <div className="layer-card-title">Map settings</div>
+            {Object.entries(BASEMAPS).map(([key, config]) => (
+              <Form.Check
+                key={key}
+                type="radio"
+                id={`basemap-${key}`}
+                name="basemap"
+                label={config.label}
+                checked={basemap === key}
+                onChange={() => onBasemapChange?.(key)}
+                className="layer-radio"
+              />
+            ))}
+            <div className="layer-divider" />
+            <Form.Check
+              type="checkbox"
+              id="captions-layer-toggle"
+              label="Captions"
+              checked={captionsVisible}
+              onChange={(event) => onCaptionsVisibleChange?.(event.target.checked)}
+              className="fw-semibold"
+            />
           </div>
         </div>
         )}

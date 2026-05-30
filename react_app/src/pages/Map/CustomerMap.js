@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Container } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import SidebarFilterProvider from 'contexts/SidebarFilterContext';
@@ -70,6 +71,19 @@ const CustomerMap = () => {
   const [bleachingYears, setBleachingYears] = useState([]);
   const [bleachingObservations, setBleachingObservations] = useState(null);
   const [selectedBleachingObs, setSelectedBleachingObs] = useState(null);
+  const [searchParams] = useSearchParams();
+  const bleachingFromUrlAppliedRef = useRef(false);
+
+  useEffect(() => {
+    if (bleachingFromUrlAppliedRef.current) return;
+    const yearParam = searchParams.get('bleachingYear');
+    if (!yearParam) return;
+    const year = Number(yearParam);
+    if (!Number.isFinite(year)) return;
+    bleachingFromUrlAppliedRef.current = true;
+    setBleachingYear(year);
+    setBleachingVisible(true);
+  }, [searchParams]);
 
   useEffect(() => {
     const loadBleaching = async () => {

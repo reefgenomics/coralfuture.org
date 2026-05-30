@@ -91,6 +91,75 @@ TOOL_SCHEMAS = [
             },
         },
     },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'get_bleaching_overview',
+            'description': (
+                'Get global bleaching survey statistics: available years, total observation counts, '
+                'and severity breakdown by year across the full BleachingDataBase dataset.'
+            ),
+            'parameters': {
+                'type': 'object',
+                'properties': {},
+            },
+        },
+    },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'get_project_bleaching_analysis',
+            'description': (
+                'REQUIRED for bleaching questions about a specific project. Loads independent BleachingDataBase '
+                'survey records near the project (bounding box + country/region mapping). Returns year-by-year '
+                'counts, severity breakdown, and ED50 summary. Project colonies are not bleaching-linked in ORM; '
+                'this tool searches the full bleaching table spatially and by country.'
+            ),
+            'parameters': {
+                'type': 'object',
+                'properties': {
+                    'project_id': {
+                        'type': 'integer',
+                        'description': 'CoralFuture project ID.',
+                    },
+                },
+                'required': ['project_id'],
+            },
+        },
+    },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'get_project_bleaching_by_name',
+            'description': (
+                'Bleaching analysis for a project by name (partial match), e.g. GloSea_PAG. '
+                'Same output as get_project_bleaching_analysis.'
+            ),
+            'parameters': {
+                'type': 'object',
+                'properties': {
+                    'project_name': {'type': 'string'},
+                },
+                'required': ['project_name'],
+            },
+        },
+    },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'search_bleaching_by_country',
+            'description': (
+                'Bleaching survey statistics for a country (exact name match, e.g. Australia, Indonesia).'
+            ),
+            'parameters': {
+                'type': 'object',
+                'properties': {
+                    'country': {'type': 'string'},
+                },
+                'required': ['country'],
+            },
+        },
+    },
 ]
 
 

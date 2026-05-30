@@ -838,12 +838,27 @@ class UploadCSVApiView(APIView):
             call_command('assign_mmm')
             print("✅ assign_mmm completed successfully")
 
-            return Response({
+            affected_project_ids = sorted(projects_after) if projects_after else sorted(created_project_ids)
+            if not affected_project_ids and project_names:
+                affected_project_ids = sorted(
+                    Project.objects.filter(
+                        owner=request.user,
+                        name__in=project_names,
+                    ).values_list('id', flat=True)
+                )
+
+            response_payload = {
                 'message': 'Data uploaded and processed successfully',
                 'filename': csv_file.name,
                 'rows_processed': len(df_with_eds),
-                'ed_source': 'pre-calculated' if has_ed_columns else 'calculated'
-            }, status=status.HTTP_201_CREATED)
+                'ed_source': 'pre-calculated' if has_ed_columns else 'calculated',
+            }
+            if affected_project_ids:
+                response_payload['project_id'] = affected_project_ids[0]
+                if len(affected_project_ids) > 1:
+                    response_payload['project_ids'] = affected_project_ids
+
+            return Response(response_payload, status=status.HTTP_201_CREATED)
 
         except Exception as e:
             print(f"❌ Error during upload processing: {str(e)}")
